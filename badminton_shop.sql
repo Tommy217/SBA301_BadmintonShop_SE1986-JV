@@ -392,45 +392,59 @@ CREATE TABLE ticket_comments (
 -- 7. PAYMENT
 -- =====================================================================
 CREATE TABLE payments (
-  id              BIGINT IDENTITY(1,1) PRIMARY KEY,
-  order_id        BIGINT NOT NULL,
-  method          VARCHAR(20) NOT NULL CHECK (method IN ('cod','qr','card','ewallet','bank_transfer','cash')),
-  gateway         VARCHAR(30),                       -- vnpay, momo, payos...
-  status          VARCHAR(20) NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','paid','failed','cancelled','refunded')),
-  amount          DECIMAL(12,0) NOT NULL,
-  gateway_txn_ref VARCHAR(100),
-  qr_code_url     VARCHAR(500),                      -- Display QR code / payment slip
-  paid_at         DATETIME2(0) NULL,
-  cancelled_at    DATETIME2(0) NULL,
-  created_at      DATETIME2(0) NOT NULL DEFAULT SYSDATETIME(),
-  updated_at      DATETIME2(0) NOT NULL DEFAULT SYSDATETIME(),
-  FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE,
+  id               BIGINT IDENTITY(1,1) PRIMARY KEY,
+  payment_code     VARCHAR(64) NOT NULL UNIQUE,       -- Mã phiên thanh toán nội bộ (vd: PAY-20261031-XXXX)
+  order_id         BIGINT NOT NULL,
+  payos_order_code BIGINT NULL UNIQUE,                -- Mã đơn số nguyên bắt buộc cho payOS (< 9007199254740991)
+  payment_link_id  VARCHAR(100) NULL,                 -- ID liên kết thanh toán phía payOS
+  method           VARCHAR(20) NOT NULL CHECK (method IN ('cod','qr','card','ewallet','bank_transfer','cash','payos')),
+  gateway          VARCHAR(30),                       -- payos, vnpay, momo...
+  status           VARCHAR(20) NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','processing','paid','failed','cancelled','expired','refunded')),
+  amount           DECIMAL(12,0) NOT NULL,
+  currency         VARCHAR(10) NOT NULL DEFAULT 'VND',
+  gateway_txn_ref  VARCHAR(100),                      -- Mã giao dịch trả về từ cổng/ngân hàng
+  checkout_url     VARCHAR(1000),                     -- URL trang thanh toán payOS/vnpay
+  qr_code_url      VARCHAR(1000),                     -- URL hoặc chuỗi hiển thị QR code
+  expires_at       DATETIME2(0) NULL,                 -- Thời điểm hết hạn phiên thanh toán
+  paid_at          DATETIME2(0) NULL,
+  cancelled_at     DATETIME2(0) NULL,
+  created_at       DATETIME2(0) NOT NULL DEFAULT SYSDATETIME(),
+  updated_at       DATETIME2(0) NOT NULL DEFAULT SYSDATETIME(),
+  FOREIGN KEY (order_id) REFERENCES orders(id),       -- Không ON DELETE CASCADE để bảo toàn dữ liệu tài chính
   INDEX idx_pay_status (status),
-  INDEX idx_pay_txn (gateway_txn_ref)
+  INDEX idx_pay_txn (gateway_txn_ref),
+  INDEX idx_pay_payos (payos_order_code)
 );
 
-CREATE TABLE payment_transactions (                 -- log gửi/nhận với Payment Gateway
-  id          BIGINT IDENTITY(1,1) PRIMARY KEY,
-  payment_id  BIGINT NOT NULL,
-  direction   VARCHAR(20) NOT NULL CHECK (direction IN ('request','response','callback','refund_request','refund_response')),
-  payload     NVARCHAR(MAX) CHECK (ISJSON(payload) = 1),
-  http_status INT,
-  created_at  DATETIME2(0) NOT NULL DEFAULT SYSDATETIME(),
+CREATE TABLE payment_transactions (                  -- log gửi/nhận với Payment Gateway & Webhook
+  id                    BIGINT IDENTITY(1,1) PRIMARY KEY,
+  payment_id            BIGINT NOT NULL,
+  direction             VARCHAR(20) NOT NULL CHECK (direction IN ('request','response','callback','refund_request','refund_response')),
+  gateway_response_code VARCHAR(50) NULL,            -- Mã phản hồi từ cổng (vd: '00' của payOS/VNPAY)
+  signature             VARCHAR(255) NULL,           -- Chữ ký HMAC/checksum kiểm tra webhook
+  payload               NVARCHAR(MAX) CHECK (ISJSON(payload) = 1),
+  http_status           INT,
+  created_at            DATETIME2(0) NOT NULL DEFAULT SYSDATETIME(),
   FOREIGN KEY (payment_id) REFERENCES payments(id) ON DELETE CASCADE
 );
 
-CREATE TABLE refunds (                              -- Refund Processing / Refund Trigger
-  id           BIGINT IDENTITY(1,1) PRIMARY KEY,
-  payment_id   BIGINT NOT NULL,
-  order_id     BIGINT NOT NULL,
-  ticket_id    BIGINT NULL,
-  amount       DECIMAL(12,0) NOT NULL,
-  status       VARCHAR(20) NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','processing','completed','failed')),
-  gateway_ref  VARCHAR(100),
-  reason       NVARCHAR(300),
-  requested_by BIGINT NULL,
-  requested_at DATETIME2(0) NOT NULL DEFAULT SYSDATETIME(),
-  processed_at DATETIME2(0) NULL,
+CREATE TABLE refunds (                               -- Refund Processing / Refund Trigger
+  id                  BIGINT IDENTITY(1,1) PRIMARY KEY,
+  refund_code         VARCHAR(64) NOT NULL UNIQUE,   -- Mã hoàn tiền nội bộ (vd: REF-20261031-XXXX)
+  payment_id          BIGINT NOT NULL,
+  order_id            BIGINT NOT NULL,
+  ticket_id           BIGINT NULL,
+  refund_method       VARCHAR(30) NOT NULL DEFAULT 'manual_bank_transfer' CHECK (refund_method IN ('gateway_auto','manual_bank_transfer','cash')),
+  amount              DECIMAL(12,0) NOT NULL,
+  status              VARCHAR(20) NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','processing','completed','failed')),
+  gateway_ref         VARCHAR(100),
+  reason              NVARCHAR(300),
+  bank_name           NVARCHAR(100) NULL,            -- Ngân hàng nhận tiền (cho đơn COD/hoàn thủ công)
+  bank_account_no     VARCHAR(50) NULL,
+  bank_account_holder NVARCHAR(150) NULL,
+  requested_by        BIGINT NULL,
+  requested_at        DATETIME2(0) NOT NULL DEFAULT SYSDATETIME(),
+  processed_at        DATETIME2(0) NULL,
   FOREIGN KEY (payment_id)   REFERENCES payments(id),
   FOREIGN KEY (order_id)     REFERENCES orders(id),
   FOREIGN KEY (ticket_id)    REFERENCES support_tickets(id) ON DELETE SET NULL,
