@@ -275,6 +275,7 @@ export function mutate(db, action) {
       reason,
       description,
       refund_qr_url: action.refund_qr_url || null,
+      evidence_urls: Array.isArray(action.evidence_urls) ? action.evidence_urls : [],
       refund_amount: null,
       cause: null,
       reject_reason: null,
@@ -698,7 +699,7 @@ export function createApiHandler(databasePath = dbPath) {
       let body = '';
       for await (const chunk of req) {
         body += chunk;
-        check(body.length < 10000, 'Yêu cầu quá lớn.');
+        check(body.length < 25 * 1024 * 1024, 'Yêu cầu quá lớn.');
       }
       // Read after receiving the body; synchronous mutation and rename keep each write together.
       const db = JSON.parse(readFileSync(databasePath, 'utf8'));

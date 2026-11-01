@@ -669,7 +669,7 @@
       "id": "demo-cart",
       "user_id": "demo-customer",
       "voucher_id": null,
-      "updated_at": "2026-10-22T18:02:42.615Z"
+      "updated_at": "2026-11-01T06:35:39.308Z"
     }
   ],
   "cart_items": [],
@@ -6021,17 +6021,19 @@
       "user_id": "demo-customer",
       "order_id": "2e09a9f1-9c21-47a7-9955-0d51d9c0a431",
       "ticket_type": "complaint",
-      "status": "open",
+      "status": "AWAITING_RETURN",
       "reason": "Đơn hàng chưa được cập nhật trạng thái",
       "description": "Tôi chưa nhận được thông tin mới về quá trình giao hàng. Nhờ cửa hàng kiểm tra giúp.",
       "resolution_type": null,
       "proposed_resolution": null,
       "proposed_refund_amount": null,
       "handled_by": null,
-      "reviewed_at": null,
+      "reviewed_at": "2026-11-01T06:34:31.395Z",
       "resolved_at": null,
       "created_at": "2026-10-16T15:00:00.000Z",
-      "updated_at": "2026-10-16T15:00:00.000Z"
+      "updated_at": "2026-11-01T06:34:31.395Z",
+      "cause": "STORE_FAULT",
+      "reviewed_by": "staff"
     }
   ],
   "ticket_items": [
@@ -9042,6 +9044,24 @@
       "status": "open",
       "created_at": "2026-10-17T14:01:34.951Z",
       "resolved_at": null
+    }
+  ],
+  "ticket_status_history": [
+    {
+      "id": "fc748b12-ce63-4c8e-8310-4689914ca7f3",
+      "ticket_id": "7df4ba2b-ded1-41bd-b7f2-62fd86f31204",
+      "from_status": "PENDING",
+      "to_status": "AWAITING_RETURN",
+      "note": "Nhân viên chấp thuận tiếp nhận. Nguyên nhân: STORE_FAULT",
+      "created_at": "2026-11-01T06:34:31.395Z"
+    },
+    {
+      "id": "4dd72dbe-5a59-49f3-9949-0364ce347332",
+      "ticket_id": "fa24a1cb-aa13-44e2-b390-82f526933f0b",
+      "from_status": null,
+      "to_status": "PENDING",
+      "note": "Khách hàng tạo phiếu hỗ trợ",
+      "created_at": "2026-11-01T06:35:39.308Z"
     }
   ]
 }
