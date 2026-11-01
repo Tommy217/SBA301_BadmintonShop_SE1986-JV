@@ -10,7 +10,7 @@ Hệ thống được thiết kế theo kiến trúc module hóa (Modular Archit
 
 | Phân hệ / Module | Đường dẫn tài liệu | Trạng thái | Mô tả tóm tắt |
 | :--- | :--- | :---: | :--- |
-| **Payment Module** | [**`module/payment/overview.md`**](module/payment/overview.md) | **Đã hoàn thành** | Luồng thanh toán 100% online payOS (VietQR 24/7 - bỏ hoàn toàn COD), Hoàn tiền (Refunds UC15), bảo mật Webhook HMAC-SHA256 & phân quyền Staff / Manager. |
+| **Payment Module** | [**`module/payment/overview.md`**](module/payment/overview.md) | **Đã hoàn thành** | Luồng thanh toán 100% online payOS (VietQR 24/7), Hoàn tiền, bảo mật Webhook HMAC-SHA256 & phân quyền Staff / Manager. |
 | **Support Ticket (UC15)** | [**`module/support-ticket/flow.md`**](module/support-ticket/flow.md) | **Đã hoàn thành** | Quy trình đổi trả & hoàn tiền thủ công quét QR, thẩm định hàng, phân quyền duyệt < 3M vs >= 3M (UC15). |
 | **Order Module** | `module/order/` | Đang phát triển | Luồng quản lý giỏ hàng, đặt hàng, hủy đơn, chuyển trạng thái đơn hàng. |
 | **Catalog & Products** | `module/catalog/` | Đang phát triển | Quản lý sản phẩm (vợt, giày, áo quần), biến thể, hình ảnh và voucher. |
@@ -21,7 +21,7 @@ Hệ thống được thiết kế theo kiến trúc module hóa (Modular Archit
 ---
 
 ## 2. HỆ THỐNG CƠ SỞ DỮ LIỆU
-* **Database Script:** [badminton_shop.sql](file:///d:/_Ky7-FPTU/SBA301/gr_project/SBA301_BadmintonShop_SE1986-JV/badminton_shop.sql) (Đã chuẩn hóa hỗ trợ đầy đủ các module và cổng thanh toán payOS).
+* **Database Script:** [badminton_shop.sql] (Đã chuẩn hóa hỗ trợ đầy đủ các module và cổng thanh toán payOS).
 
 ---
 

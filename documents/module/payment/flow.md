@@ -1,16 +1,16 @@
 # LUỒNG HOẠT ĐỘNG MODULE THANH TOÁN (PAYMENT FLOW)
 > **Dự án:** SBA301_BadmintonShop_SE1986-JV  
-> **Cổng thanh toán:** payOS (VietQR Napas 24/7), COD (Thu tiền khi nhận hàng), Cash (Tiền mặt tại quầy)  
+> **Cổng thanh toán:** payOS (VietQR Napas 24/7) 
+> **Quyết định phạm vi (Scope Decision):** **LOẠI BỎ HOÀN TOÀN COD**. 100% đơn hàng online bắt buộc thanh toán trực tuyến qua payOS VietQR trước khi xuất kho giao hàng.  
 > **Kiến trúc:** Java 21, Spring Boot, Spring Data JPA, Spring Security, SQL Server, Event-Driven
 
 ---
 
 ## 1. TỔNG QUAN KIẾN TRÚC & CÁC PHƯƠNG THỨC THANH TOÁN
 
-Hệ thống hỗ trợ 3 luồng thanh toán chính:
-1. **payOS (VietQR):** Thanh toán tự động 24/7 qua cổng OpenBanking / Napas 24/7. Khách quét mã VietQR bằng ứng dụng ngân hàng bất kỳ, Webhook tự động cập nhật đơn hàng sang `paid` và `confirmed` trong vòng vài giây.
-2. **COD (Cash on Delivery):** Thanh toán tiền mặt khi shipper giao hàng thành công. Trạng thái thanh toán được đồng bộ khi shipper xác nhận đã thu tiền (`cod_collected_at`).
-3. **Refund (Hoàn tiền):** Áp dụng khi đổi trả hàng (`support_tickets`), hỗ trợ hoàn tiền qua chuyển khoản ngân hàng thủ công hoặc tự động qua cổng.
+Hệ thống hỗ trợ 2 luồng thanh toán chính (loại bỏ hoàn toàn COD):
+1. **payOS (VietQR Napas 24/7):** Thanh toán tự động 24/7 qua cổng OpenBanking. Khách quét mã VietQR bằng ứng dụng ngân hàng bất kỳ, Webhook tự động cập nhật đơn hàng sang `paid` và `confirmed` trong vòng vài giây. Đơn hàng chỉ được đóng gói và giao đi khi đã thanh toán thành công.
+2. **Refund (Hoàn tiền thủ công qua quét QR):** Áp dụng khi đổi trả hàng (`support_tickets` - UC15), hỗ trợ hoàn tiền qua quét mã QR tài khoản ngân hàng của khách với phân quyền duyệt < 3.000.000 VNĐ (`STAFF`) và $\ge$ 3.000.000 VNĐ (`MANAGER`).
 
 ---
 
@@ -52,7 +52,7 @@ sequenceDiagram
     Note over BE: 1. Ghi log callback vào payment_transactions<br/>2. Xác thực chữ ký HMAC-SHA256 với checksumKey<br/>3. Kiểm tra Idempotency (chống trùng lặp)<br/>4. Cập nhật payments (status='paid', paid_at=now)<br/>5. Cập nhật orders (payment_status='paid', status='confirmed')
     BE->>DB: UPDATE payments & orders
     BE->>Event: publishEvent(PaymentSuccessEvent)
-    Note over Event: Bắn tín hiệu sang Order/Kho/Hóa đơn tự động
+    Note over Event: Bắn tín hiệu sang Order/Kho/Hóa đơn tự động đóng gói
     BE-->>PayOS: HTTP 200 {"success": true, "message": "Processed"}
     
     FE->>BE: GET /api/v1/payments/{id} nhận status='paid'
@@ -61,47 +61,36 @@ sequenceDiagram
 
 ---
 
-### 2.2. Luồng 2: Thanh toán khi nhận hàng (COD Flow)
+### 2.2. Luồng 2: Xử lý Hoàn tiền đổi trả (Refund Flow - UC15 & UC13)
 
 ```mermaid
 sequenceDiagram
     autonumber
-    actor User as Khách hàng
-    participant FE as Frontend
-    participant BE as Backend Payment Service
-    participant Ship as Module Giao vận (FastShip)
+    actor Customer as Khách hàng
+    actor Staff as Nhân viên CSKH
+    actor Manager as Quản lý (Manager)
+    participant FE as Frontend Quản trị
+    participant BE as Backend Payment / Support Service
     participant DB as SQL Server
 
-    User->>FE: Chọn phương thức "COD" & bấm "Đặt hàng"
-    FE->>BE: POST /api/v1/payments/create (method='cod')
-    BE->>DB: INSERT payments (method='cod', status='pending')
-    BE-->>FE: Xác nhận đơn hàng thành công (chờ giao hàng)
+    Customer->>FE: Tạo Ticket hoàn tiền (chọn đơn, lý do, upload ảnh QR ngân hàng)
+    Staff->>FE: Nhận hàng hoàn trả & kiểm tra chất lượng (PASSED / FAILED)
     
-    Note over Ship: Hàng được đóng gói và giao đến khách
-    Ship->>User: Giao hàng & Thu tiền mặt
-    Ship->>BE: Shipper xác nhận đã thu COD (shipments.cod_collected_at = NOW)
-    BE->>DB: UPDATE payments SET status='paid', paid_at=NOW
-    BE->>DB: UPDATE orders SET payment_status='paid'
-```
+    alt Số tiền hoàn < 3.000.000 VNĐ
+        Staff->>BE: POST /api/staff/support-tickets/{id}/approve-refund
+        BE->>DB: UPDATE tickets SET status='PENDING_TRANSFER'
+    else Số tiền hoàn >= 3.000.000 VNĐ
+        Staff->>BE: Trình phiếu sang Quản lý duyệt (PENDING_APPROVAL)
+        Manager->>BE: POST /api/manager/support-tickets/{id}/decision (Approve)
+        BE->>DB: UPDATE tickets SET status='PENDING_TRANSFER'
+    end
 
----
-
-### 2.3. Luồng 3: Xử lý Hoàn tiền (Refund Flow)
-
-```mermaid
-sequenceDiagram
-    autonumber
-    actor Staff as Nhân viên / CSKH
-    participant FE as Frontend Quản trị (Admin)
-    participant BE as Backend Payment Service
-    participant DB as SQL Server
-
-    Staff->>FE: Duyệt Ticket đổi trả và yêu cầu hoàn tiền
-    FE->>BE: POST /api/v1/payments/refund (paymentId, orderId, amount, bankName, accountNo...)
-    Note over BE: 1. Kiểm tra đơn hàng đã thanh toán (paid)<br/>2. Sinh mã refundCode (REF-yyyyMMdd-XXXXX)<br/>3. Lưu bảng refunds (status='completed')<br/>4. Cập nhật payments.status='refunded'<br/>5. Cập nhật orders.payment_status='refunded'
-    BE->>DB: INSERT refunds & UPDATE payments, orders
-    BE-->>FE: Trả về RefundResponse thành công
-    FE->>Staff: Hiển thị phiếu xác nhận hoàn tiền thành công
+    Staff->>Customer: Mở app ngân hàng quét ảnh QR của khách để chuyển tiền
+    Staff->>BE: POST /api/staff/support-tickets/{id}/refund-transfer (transactionReference, note)
+    Note over BE: 1. Lưu bảng refunds (status='completed')<br/>2. Cập nhật payments.status='refunded'<br/>3. Cập nhật orders.payment_status='refunded'<br/>4. Cập nhật tickets.status='REFUNDED'
+    BE->>DB: INSERT refunds & UPDATE payments, orders, tickets
+    BE-->>FE: Trả về kết quả hoàn tiền thành công
+    FE->>Staff: Hiển thị thông báo phiếu đã hoàn tất (REFUNDED)
 ```
 
 ---
@@ -129,12 +118,12 @@ sequenceDiagram
 
 | Trạng thái `payments.status` | Trạng thái `orders.payment_status` | Trạng thái `orders.status` | Ý nghĩa nghiệp vụ |
 | :--- | :--- | :--- | :--- |
-| `pending` | `unpaid` | `pending` | Đơn hàng vừa tạo, đang chờ khách quét QR hoặc chờ giao COD |
-| `paid` | `paid` | `confirmed` | Khách đã chuyển khoản thành công / Đã thu COD. Đơn sẵn sàng đóng gói |
+| `pending` | `unpaid` | `pending` | Đơn hàng vừa tạo, đang chờ khách quét VietQR trong 15 phút |
+| `paid` | `paid` | `confirmed` | Khách đã chuyển khoản thành công qua payOS. Đơn hàng sẵn sàng đóng gói & giao |
 | `failed` | `unpaid` | `pending` | Giao dịch qua cổng bị lỗi, khách có thể bấm "Thanh toán lại" |
-| `expired` | `unpaid` | `cancelled` | Hết 15 phút khách không trả tiền, đơn bị hủy và nhả kho |
+| `expired` | `unpaid` | `cancelled` | Hết 15 phút khách không trả tiền, đơn bị hủy và nhả kho tự động |
 | `cancelled` | `unpaid` | `cancelled` | Khách chủ động hủy yêu cầu thanh toán |
-| `refunded` | `refunded` | `returned` / `completed` | Đã xử lý hoàn tiền lại cho khách hàng |
+| `refunded` | `refunded` | `returned` / `completed` | Đã xử lý hoàn tiền lại cho khách hàng sau khi duyệt ticket |
 
 ---
 
@@ -142,13 +131,15 @@ sequenceDiagram
 
 | Method | Endpoint | Mục đích | Quyền truy cập |
 | :--- | :--- | :--- | :--- |
-| `POST` | `/api/v1/payments/create` | Tạo phiên thanh toán (payOS, COD, cash) | Public |
-| `GET` | `/api/v1/payments/{id}` | Tra cứu trạng thái thanh toán theo ID | Public |
-| `GET` | `/api/v1/payments/by-code/{code}` | Tra cứu theo mã nội bộ `PAY-...` | Public |
-| `GET` | `/api/v1/payments/by-payos-code/{code}` | Tra cứu theo mã số nguyên payOS | Public |
-| `GET` | `/api/v1/payments/order/{orderId}` | Lịch sử các lần thanh toán của đơn | Public |
-| `POST` | `/api/v1/payments/{id}/cancel` | Hủy link thanh toán | Public |
-| `POST` | `/api/v1/payments/refund` | Tạo phiếu hoàn tiền | Admin / Staff |
+| `POST` | `/api/v1/payments/create` | Tạo phiên thanh toán payOS VietQR | Authenticated User |
+| `GET` | `/api/v1/payments/{id}` | Tra cứu trạng thái thanh toán theo ID (Polling 3s) | Authenticated User |
+| `GET` | `/api/v1/payments/by-code/{code}` | Tra cứu theo mã nội bộ `PAY-...` | Authenticated User |
+| `GET` | `/api/v1/payments/by-payos-code/{code}` | Tra cứu theo mã số nguyên payOS | Authenticated User |
+| `GET` | `/api/v1/payments/order/{orderId}` | Lịch sử các lần thanh toán của đơn | Authenticated User |
+| `POST` | `/api/v1/payments/{id}/cancel` | Hủy link thanh toán | Authenticated User |
+| `POST` | `/api/staff/support-tickets/{id}/approve-refund` | Duyệt hoàn tiền khoản < 3.000.000 VNĐ | Staff |
+| `POST` | `/api/manager/support-tickets/{id}/decision` | Thẩm định & Duyệt hoàn tiền $\ge$ 3.000.000 VNĐ | Manager |
+| `POST` | `/api/staff/support-tickets/{id}/refund-transfer` | Ghi nhận chuyển khoản thủ công sau khi quét QR | Staff |
 | `POST` | `/api/v1/payments/payos/webhook` | Cổng payOS bắn Webhook thông báo | Public (Bảo vệ bằng HMAC) |
 | `POST` | `/api/v1/payments/payos/confirm-webhook`| Xác thực URL khi cài đặt payOS | Public |
 
@@ -163,14 +154,13 @@ curl -X POST http://localhost:8080/api/v1/payments/create \
   -d '{
     "orderId": 1,
     "amount": 1500000,
-    "method": "payos",
     "description": "Vot Yonex Astrox 88D",
     "buyerName": "Nguyen Van A",
     "buyerEmail": "a.nguyen@example.com",
     "buyerPhone": "0912345678"
   }'
 ```
-*Nhận về `payosOrderCode` (ví dụ: `5567891234`) và `checkoutUrl`.*
+*Nhận về `payosOrderCode` (ví dụ: `5567891234`) và `checkoutUrl`, `qrCodeUrl`.*
 
 ### Bước 2: Giả lập Webhook payOS báo chuyển khoản thành công
 ```bash
@@ -197,4 +187,3 @@ curl -X POST http://localhost:8080/api/v1/payments/payos/webhook \
 curl http://localhost:8080/api/v1/payments/1
 ```
 *Trường `status` sẽ trả về `"paid"` và `gatewayTxnRef` là `"FT2610318899"`.*
-
