@@ -1,4 +1,4 @@
-﻿package fu.se.badmintonshop.modules.supportticket.service;
+package fu.se.badmintonshop.modules.supportticket.service;
 
 import fu.se.badmintonshop.modules.supportticket.dto.*;
 

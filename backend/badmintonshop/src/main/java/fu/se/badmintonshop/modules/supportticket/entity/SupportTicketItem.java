@@ -1,4 +1,4 @@
-﻿package fu.se.badmintonshop.modules.supportticket.entity;
+package fu.se.badmintonshop.modules.supportticket.entity;
 
 import jakarta.persistence.*;
 import lombok.*;

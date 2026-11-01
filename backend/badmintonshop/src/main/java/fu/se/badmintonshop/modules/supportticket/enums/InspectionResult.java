@@ -1,4 +1,4 @@
-﻿package fu.se.badmintonshop.modules.supportticket.enums;
+package fu.se.badmintonshop.modules.supportticket.enums;
 
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;

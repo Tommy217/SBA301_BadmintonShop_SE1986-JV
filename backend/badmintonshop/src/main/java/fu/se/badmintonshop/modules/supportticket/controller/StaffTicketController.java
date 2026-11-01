@@ -1,4 +1,4 @@
-﻿package fu.se.badmintonshop.modules.supportticket.controller;
+package fu.se.badmintonshop.modules.supportticket.controller;
 
 import fu.se.badmintonshop.modules.common.dto.ApiResponse;
 import fu.se.badmintonshop.modules.supportticket.dto.*;

@@ -1,4 +1,4 @@
-﻿package fu.se.badmintonshop.modules.supportticket.dto;
+package fu.se.badmintonshop.modules.supportticket.dto;
 
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;

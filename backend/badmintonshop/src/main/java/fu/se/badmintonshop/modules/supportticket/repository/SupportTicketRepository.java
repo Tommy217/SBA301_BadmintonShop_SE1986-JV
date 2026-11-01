@@ -1,4 +1,4 @@
-﻿package fu.se.badmintonshop.modules.supportticket.repository;
+package fu.se.badmintonshop.modules.supportticket.repository;
 
 import fu.se.badmintonshop.modules.supportticket.entity.SupportTicket;
 import org.springframework.data.jpa.repository.JpaRepository;

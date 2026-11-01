@@ -1,4 +1,4 @@
-﻿package fu.se.badmintonshop.modules.supportticket.service.impl;
+package fu.se.badmintonshop.modules.supportticket.service.impl;
 
 import fu.se.badmintonshop.modules.catalog.entity.ProductVariant;
 import fu.se.badmintonshop.modules.catalog.repository.ProductVariantRepository;
