@@ -782,4 +782,36 @@ INSERT INTO permissions (code, name) VALUES
   ('report.view',      N'Xem báo cáo'),
   ('user.manage',      N'Quản lý người dùng & phân quyền'),
   ('log.view',         N'Xem nhật ký hoạt động');
+
+-- ===== TÀI KHOẢN (mật khẩu chung: 123) =====
+INSERT INTO users (email, password_hash, full_name, status, email_verified_at) VALUES
+  ('admin@gmail.com',    '$2a$10$NJDzXjN2O69vD1OjD1/MU.KsvrAlJHEBK8PF5VdOYWQPn4hDeUUNS', N'Quản trị viên', 'active', SYSDATETIME()),
+  ('manager@gmail.com',  '$2a$10$NJDzXjN2O69vD1OjD1/MU.KsvrAlJHEBK8PF5VdOYWQPn4hDeUUNS', N'Quản lý',       'active', SYSDATETIME()),
+  ('staff@gmail.com',    '$2a$10$NJDzXjN2O69vD1OjD1/MU.KsvrAlJHEBK8PF5VdOYWQPn4hDeUUNS', N'Nhân viên',     'active', SYSDATETIME()),
+  ('customer@gmail.com', '$2a$10$NJDzXjN2O69vD1OjD1/MU.KsvrAlJHEBK8PF5VdOYWQPn4hDeUUNS', N'Khách hàng',    'active', SYSDATETIME());
+
+-- ===== GÁN ROLE (email đầu = role cùng tên) =====
+INSERT INTO user_roles (user_id, role_id)
+SELECT u.id, r.id
+FROM users u
+JOIN roles r ON r.code = LEFT(u.email, CHARINDEX('@', u.email) - 1);
+
+-- ===== PHÂN QUYỀN =====
+-- admin: tất cả quyền
+INSERT INTO role_permissions (role_id, permission_id)
+SELECT r.id, p.id FROM roles r CROSS JOIN permissions p WHERE r.code = 'admin';
+
+-- manager
+INSERT INTO role_permissions (role_id, permission_id)
+SELECT r.id, p.id FROM roles r
+JOIN permissions p ON p.code IN ('catalog.manage','order.confirm','payment.refund',
+                                 'inventory.manage','invoice.manage','ticket.handle','report.view')
+WHERE r.code = 'manager';
+
+-- staff
+INSERT INTO role_permissions (role_id, permission_id)
+SELECT r.id, p.id FROM roles r
+JOIN permissions p ON p.code IN ('order.confirm','inventory.manage','invoice.manage','ticket.handle')
+WHERE r.code = 'staff';
+
 GO
