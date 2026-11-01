@@ -1,30 +1,36 @@
 export const ticketTypes = {
-  return: 'Đổi trả',
-  exchange: 'Đổi sản phẩm',
-  warranty: 'Bảo hành',
-  complaint: 'Khiếu nại',
+  REFUND: 'Trả hàng & Hoàn tiền',
+  EXCHANGE: 'Đổi sản phẩm',
 };
 
 export const ticketStatuses = {
-  open: { label: 'Mới gửi', variant: 'primary' },
-  under_review: { label: 'Đang xem xét', variant: 'warning' },
-  approved: { label: 'Đã chấp thuận', variant: 'success' },
-  rejected: { label: 'Từ chối', variant: 'danger' },
-  resolved: { label: 'Đã hoàn tất', variant: 'success' },
-  cancelled: { label: 'Đã hủy', variant: 'secondary' },
+  PENDING: { label: 'Chờ tiếp nhận', variant: 'warning' },
+  REJECTED: { label: 'Bị từ chối', variant: 'danger' },
+  AWAITING_RETURN: { label: 'Chờ gửi lại hàng', variant: 'info' },
+  INSPECTION_FAILED: { label: 'Kiểm tra không đạt', variant: 'danger' },
+  PENDING_APPROVAL: { label: 'Chờ Quản lý duyệt', variant: 'primary' },
+  PENDING_TRANSFER: { label: 'Chờ chuyển tiền', variant: 'warning' },
+  REFUNDED: { label: 'Đã hoàn tiền', variant: 'success' },
+  COMPLETED: { label: 'Đã hoàn tất đổi hàng', variant: 'success' },
+  CANCELLED: { label: 'Đã hủy', variant: 'secondary' },
 };
 
-export const resolutionTypes = {
-  refund: 'Hoàn tiền',
-  exchange: 'Đổi sản phẩm',
-  repair: 'Sửa chữa',
-  none: 'Không áp dụng',
+export const ticketCauses = {
+  STORE_FAULT: {
+    label: 'Lỗi do cửa hàng / Nhà sản xuất',
+    desc: 'Lỗi sản phẩm, giao nhầm mã, thiếu phụ kiện... Cửa hàng chịu hoàn phí giao hàng.',
+  },
+  CUSTOMER_PREFERENCE: {
+    label: 'Nhu cầu cá nhân của khách hàng',
+    desc: 'Đổi ý, không vừa kích thước, muốn đổi màu... Khách tự chịu phí vận chuyển hoàn hàng.',
+  },
 };
 
-export const manageableTicketStatuses = [
-  'under_review',
-  'approved',
-  'rejected',
-  'resolved',
-  'cancelled',
-];
+export const inspectionResults = {
+  PASSED: 'Đạt yêu cầu (Sản phẩm còn nguyên trạng/đúng điều kiện)',
+  FAILED: 'Không đạt (Sản phẩm bị can thiệp, hư hại do sử dụng, sai quy cách)',
+};
+
+export const APPROVAL_THRESHOLD = 3000000; // 3,000,000 VND
+
+export const RETURN_WINDOW_DAYS = 7; // 7 days from confirmed delivery

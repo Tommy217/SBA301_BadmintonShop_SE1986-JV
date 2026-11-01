@@ -250,11 +250,12 @@ export function mutate(db, action) {
   } else if (action.type === 'create_support_ticket') {
     const order = db.orders.find((item) => item.id === action.order_id);
     const ticketType = String(action.ticket_type || '');
+    const isUc15 = ['REFUND', 'EXCHANGE'].includes(ticketType);
     const reason = String(action.reason || '').trim();
     const description = String(action.description || '').trim();
     check(order, 'Không tìm thấy đơn hàng.');
     check(
-      ['return', 'exchange', 'warranty', 'complaint'].includes(ticketType),
+      ['return', 'exchange', 'warranty', 'complaint', 'REFUND', 'EXCHANGE'].includes(ticketType),
       'Loại phiếu hỗ trợ không hợp lệ.',
     );
     check(
@@ -270,18 +271,193 @@ export function mutate(db, action) {
       user_id: order.user_id,
       order_id: order.id,
       ticket_type: ticketType,
-      status: 'open',
+      status: isUc15 ? 'PENDING' : 'open',
       reason,
       description,
+      refund_qr_url: action.refund_qr_url || null,
+      refund_amount: null,
+      cause: null,
+      reject_reason: null,
       resolution_type: null,
       proposed_resolution: null,
       proposed_refund_amount: null,
       handled_by: null,
+      reviewed_by: null,
       reviewed_at: null,
+      approved_by: null,
+      approved_at: null,
       resolved_at: null,
       created_at: now,
       updated_at: now,
     });
+    if (Array.isArray(action.items) && action.items.length > 0) {
+      if (!Array.isArray(db.ticket_items)) db.ticket_items = [];
+      action.items.forEach((it) => {
+        db.ticket_items.push({
+          id: randomUUID(),
+          ticket_id: id,
+          order_item_id: it.order_item_id,
+          quantity: it.quantity || 1,
+          replacement_variant_id: it.replacement_variant_id || null,
+        });
+      });
+    }
+    if (isUc15) {
+      if (!Array.isArray(db.ticket_status_history)) db.ticket_status_history = [];
+      db.ticket_status_history.push({
+        id: randomUUID(),
+        ticket_id: id,
+        from_status: null,
+        to_status: 'PENDING',
+        note: 'Khách hàng tạo phiếu hỗ trợ',
+        created_at: now,
+      });
+    }
+  } else if (action.type === 'review_support_ticket') {
+    const ticket = db.support_tickets.find((item) => item.id === action.ticket_id);
+    check(ticket, 'Không tìm thấy phiếu hỗ trợ.');
+    const act = action.action || 'approve';
+    if (!Array.isArray(db.ticket_status_history)) db.ticket_status_history = [];
+    if (act === 'approve') {
+      ticket.status = 'AWAITING_RETURN';
+      ticket.cause = action.cause || 'STORE_FAULT';
+      ticket.reviewed_by = action.actor_id || 'staff';
+      ticket.reviewed_at = now;
+      db.ticket_status_history.push({
+        id: randomUUID(),
+        ticket_id: ticket.id,
+        from_status: 'PENDING',
+        to_status: 'AWAITING_RETURN',
+        note: action.note || 'Nhân viên đã duyệt sơ bộ tiếp nhận',
+        created_at: now,
+      });
+    } else {
+      ticket.status = 'REJECTED';
+      ticket.reject_reason = action.reject_reason || 'Từ chối tiếp nhận';
+      ticket.reviewed_by = action.actor_id || 'staff';
+      ticket.reviewed_at = now;
+      db.ticket_status_history.push({
+        id: randomUUID(),
+        ticket_id: ticket.id,
+        from_status: 'PENDING',
+        to_status: 'REJECTED',
+        note: action.reject_reason,
+        created_at: now,
+      });
+    }
+    ticket.updated_at = now;
+  } else if (action.type === 'inspect_support_ticket') {
+    const ticket = db.support_tickets.find((item) => item.id === action.ticket_id);
+    check(ticket, 'Không tìm thấy phiếu hỗ trợ.');
+    if (!Array.isArray(db.ticket_inspections)) db.ticket_inspections = [];
+    const result = action.result || 'PASSED';
+    db.ticket_inspections.push({
+      id: randomUUID(),
+      ticket_id: ticket.id,
+      staff_id: action.staff_id || 'staff',
+      result,
+      note: action.note || '',
+      inspected_at: now,
+    });
+    if (result === 'FAILED') {
+      ticket.status = 'INSPECTION_FAILED';
+    } else {
+      if (ticket.ticket_type === 'EXCHANGE') {
+        ticket.status = 'AWAITING_SHIPMENT';
+      } else {
+        const order = db.orders.find((o) => o.id === ticket.order_id);
+        const ticketItems = (db.ticket_items || []).filter((ti) => ti.ticket_id === ticket.id);
+        let itemsSum = 0;
+        ticketItems.forEach((ti) => {
+          const oi = (db.order_items || []).find((x) => x.id === ti.order_item_id);
+          if (oi) itemsSum += (Number(oi.unit_price) || 0) * (Number(ti.quantity) || 1);
+        });
+        const shipFee = ticket.cause === 'STORE_FAULT' && order ? Number(order.shipping_fee || 0) : 0;
+        const totalRefund = itemsSum + shipFee;
+        ticket.refund_amount = totalRefund;
+
+        if (totalRefund >= 3000000) {
+          ticket.status = 'PENDING_APPROVAL';
+        } else {
+          ticket.status = 'PENDING_TRANSFER';
+        }
+      }
+    }
+    ticket.updated_at = now;
+  } else if (action.type === 'approve_refund_support_ticket') {
+    const ticket = db.support_tickets.find((item) => item.id === action.ticket_id);
+    check(ticket, 'Không tìm thấy phiếu hỗ trợ.');
+    check((ticket.refund_amount || 0) < 3000000, 'Số tiền từ 3.000.000đ phải do Quản lý (Manager) phê duyệt.');
+    ticket.status = 'PENDING_TRANSFER';
+    ticket.approved_by = action.staff_id || 'staff';
+    ticket.approved_at = now;
+    ticket.updated_at = now;
+  } else if (action.type === 'manager_decision_support_ticket') {
+    const ticket = db.support_tickets.find((item) => item.id === action.ticket_id);
+    check(ticket, 'Không tìm thấy phiếu hỗ trợ.');
+    const decision = action.decision || 'approve';
+    if (decision === 'approve') {
+      ticket.status = 'PENDING_TRANSFER';
+      ticket.approved_by = action.manager_id || 'manager-1';
+      ticket.approved_at = now;
+    } else {
+      ticket.status = 'REJECTED';
+      ticket.reject_reason = action.reject_reason || 'Quản lý từ chối hoàn tiền';
+    }
+    ticket.updated_at = now;
+  } else if (action.type === 'ship_exchange_support_ticket') {
+    const ticket = db.support_tickets.find((item) => item.id === action.ticket_id);
+    check(ticket, 'Không tìm thấy phiếu hỗ trợ.');
+    ticket.status = 'COMPLETED';
+    ticket.shipping_info = { tracking_code: action.tracking_code, shipping_note: action.shipping_note || '' };
+    ticket.resolved_at = now;
+    ticket.updated_at = now;
+  } else if (action.type === 'replacement_unavailable_support_ticket') {
+    const ticket = db.support_tickets.find((item) => item.id === action.ticket_id);
+    check(ticket, 'Không tìm thấy phiếu hỗ trợ.');
+    if (ticket.cause === 'STORE_FAULT') {
+      const order = db.orders.find((o) => o.id === ticket.order_id);
+      const ticketItems = (db.ticket_items || []).filter((ti) => ti.ticket_id === ticket.id);
+      let itemsSum = 0;
+      ticketItems.forEach((ti) => {
+        const oi = (db.order_items || []).find((x) => x.id === ti.order_item_id);
+        if (oi) itemsSum += (Number(oi.unit_price) || 0) * (Number(ti.quantity) || 1);
+      });
+      const shipFee = order ? Number(order.shipping_fee || 0) : 0;
+      const totalRefund = itemsSum + shipFee;
+      ticket.refund_amount = totalRefund;
+      if (totalRefund >= 3000000) {
+        ticket.status = 'PENDING_APPROVAL';
+      } else {
+        ticket.status = 'PENDING_TRANSFER';
+      }
+    } else {
+      ticket.status = 'CANCELLED';
+      ticket.resolved_at = now;
+    }
+    ticket.updated_at = now;
+  } else if (action.type === 'refund_transfer_support_ticket') {
+    const ticket = db.support_tickets.find((item) => item.id === action.ticket_id);
+    check(ticket, 'Không tìm thấy phiếu hỗ trợ.');
+    check(action.bank_reference, 'Mã giao dịch ngân hàng là bắt buộc.');
+    if (!Array.isArray(db.refund_records)) db.refund_records = [];
+    db.refund_records.push({
+      id: randomUUID(),
+      ticket_id: ticket.id,
+      bank_reference: action.bank_reference,
+      amount: ticket.refund_amount || 0,
+      note: action.note || '',
+      transferred_at: now,
+    });
+    ticket.status = 'REFUNDED';
+    ticket.resolved_at = now;
+    ticket.updated_at = now;
+  } else if (action.type === 'cancel_support_ticket') {
+    const ticket = db.support_tickets.find((item) => item.id === action.ticket_id);
+    check(ticket, 'Không tìm thấy phiếu hỗ trợ.');
+    check(ticket.status === 'PENDING', 'Chỉ có thể hủy phiếu khi đang ở trạng thái chờ duyệt (PENDING).');
+    ticket.status = 'CANCELLED';
+    ticket.updated_at = now;
   } else if (action.type === 'update_support_ticket') {
     const ticket = db.support_tickets.find((item) => item.id === action.ticket_id);
     const status = String(action.status || '');

@@ -1,296 +1,805 @@
-import { useState } from 'react';
-import { Alert, Badge, Button, Card, Form } from 'react-bootstrap';
+import { useState, useMemo } from 'react';
+import { Alert, Badge, Button, Card, Col, Form, Image, Modal, Row, Table } from 'react-bootstrap';
 import { Link, useNavigate, useParams } from 'react-router';
 import { useAuth } from '@/app/providers/auth/AuthContext';
+import { useShop } from '@/app/providers/shop/ShopContext';
+import { supportApi } from '@/modules/support/api/support.api';
 import {
-  manageableTicketStatuses,
-  resolutionTypes,
   ticketStatuses,
   ticketTypes,
+  ticketCauses,
+  inspectionResults,
+  APPROVAL_THRESHOLD,
 } from '@/modules/support/constants';
-import { useShop } from '@/app/providers/shop/ShopContext';
 import { formatDateTime, formatMoney } from '@/shared/utils/format';
-import { supportApi } from '@/modules/support/api/support.api';
+import { ROLES } from '@/shared/constants/roles';
 
 export default function SupportTicketManagementDetailPage() {
   const { ticketId } = useParams();
   const { data, busy, act } = useShop();
   const { user } = useAuth();
   const navigate = useNavigate();
-  const ticket = (data.support_tickets || []).find((item) => String(item.id) === ticketId);
-  const [status, setStatus] = useState(() =>
-    ticket?.status === 'open' ? 'under_review' : ticket?.status || 'under_review',
-  );
-  const [resolutionType, setResolutionType] = useState(ticket?.resolution_type || '');
-  const [resolution, setResolution] = useState(ticket?.proposed_resolution || '');
-  const [refundAmount, setRefundAmount] = useState(ticket?.proposed_refund_amount ?? '');
+
   const [error, setError] = useState('');
+  const [successMsg, setSuccessMsg] = useState('');
+  const [previewImage, setPreviewImage] = useState(null);
+
+  // Form states for workflow
+  // 1. Initial Review
+  const [reviewCause, setReviewCause] = useState('STORE_FAULT');
+  const [rejectReason, setRejectReason] = useState('');
+
+  // 2. Inspection
+  const [inspectionResult, setInspectionResult] = useState('PASSED');
+  const [inspectionNote, setInspectionNote] = useState('');
+
+  // 3. Exchange shipment
+  const [trackingCode, setTrackingCode] = useState('');
+  const [shippingNote, setShippingNote] = useState('');
+
+  // 4. Refund transfer
+  const [bankReference, setBankReference] = useState('');
+  const [transferNote, setTransferNote] = useState('');
+
+  // 5. Manager Decision
+  const [managerRejectReason, setManagerRejectReason] = useState('');
+
+  const ticket = useMemo(() => {
+    return (data?.support_tickets || []).find((item) => String(item.id) === ticketId);
+  }, [data?.support_tickets, ticketId]);
 
   if (!ticket) {
     return (
-      <>
+      <section className="manager-page">
         <h1 className="h2 fw-bold mb-2">Không tìm thấy phiếu hỗ trợ</h1>
         <p className="text-secondary mb-4">Phiếu hỗ trợ không tồn tại hoặc đã bị xóa.</p>
         <Button as={Link} to="/management/support-tickets" variant="outline-primary">
           Quay lại danh sách
         </Button>
-      </>
+      </section>
     );
   }
 
-  const order = (data.orders || []).find((item) => item.id === ticket.order_id);
-  const orderItems = (data.order_items || []).filter((item) => item.order_id === ticket.order_id);
-  const ticketItems = (data.ticket_items || [])
+  const isManager = user?.roles?.some(
+    (r) => String(r).toUpperCase() === ROLES.MANAGER || String(r).toUpperCase() === ROLES.ADMIN,
+  );
+
+  const order = (data?.orders || []).find((item) => item.id === ticket.order_id);
+  const allOrderItems = data?.order_items || [];
+  const allVariants = data?.product_variants || [];
+
+  const ticketItems = (data?.ticket_items || [])
     .filter((item) => item.ticket_id === ticket.id)
-    .map((item) => ({
-      ...item,
-      orderItem: orderItems.find((orderItem) => orderItem.id === item.order_item_id),
-    }))
+    .map((item) => {
+      const orderItem = allOrderItems.find((oi) => oi.id === item.order_item_id);
+      const replacementVariant = item.replacement_variant_id
+        ? allVariants.find((v) => v.id === item.replacement_variant_id)
+        : null;
+      return { ...item, orderItem, replacementVariant };
+    })
     .filter((item) => item.orderItem);
-  const currentStatus = ticketStatuses[ticket.status] || {
+
+  const statusConfig = ticketStatuses[ticket.status] || {
     label: ticket.status || 'Chưa xác định',
     variant: 'secondary',
   };
 
-  async function submitResolution(event) {
-    event.preventDefault();
+  const statusHistory = (data?.ticket_status_history || [])
+    .filter((h) => h.ticket_id === ticket.id)
+    .sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+
+  // Calculated refund amount if not yet set
+  const calculatedRefund = useMemo(() => {
+    if (ticket.refund_amount != null) return ticket.refund_amount;
+    let sum = 0;
+    for (const item of ticketItems) {
+      sum += (item.orderItem?.unit_price || 0) * (item.quantity || 1);
+    }
+    if (ticket.cause === 'STORE_FAULT' && order) {
+      sum += (order.shipping_fee || 0);
+    }
+    return sum;
+  }, [ticket.refund_amount, ticket.cause, ticketItems, order]);
+
+  // ACTION 1: SƠ DUYỆT - DUYỆT
+  async function handleApproveReview() {
     setError('');
+    setSuccessMsg('');
     try {
       await act(() =>
-        supportApi.updateTicket({
-          ticket_id: ticket.id,
-          status,
-          resolution_type: resolutionType || null,
-          proposed_resolution: resolution.trim(),
-          proposed_refund_amount:
-            resolutionType === 'refund' && refundAmount !== '' ? Number(refundAmount) : null,
-          handled_by: user?.id || user?.email || '',
+        supportApi.staffReviewTicket({
+          ticketId: ticket.id,
+          action: 'approve',
+          cause: reviewCause,
+          note: `Nhân viên chấp thuận tiếp nhận. Nguyên nhân: ${reviewCause}`,
         }),
       );
-      navigate('/management/support-tickets', { state: { updated: true } });
-    } catch (updateError) {
-      setError(updateError.message || 'Không thể cập nhật phiếu. Vui lòng thử lại.');
+      setSuccessMsg('Đã sơ duyệt thành công. Phiếu chuyển sang Chờ gửi lại hàng.');
+    } catch (e) {
+      setError(e.message || 'Lỗi khi duyệt phiếu.');
+    }
+  }
+
+  // ACTION 1: SƠ DUYỆT - TỪ CHỐI
+  async function handleRejectReview(e) {
+    e.preventDefault();
+    if (!rejectReason.trim()) {
+      setError('Vui lòng nhập lý do từ chối yêu cầu.');
+      return;
+    }
+    setError('');
+    setSuccessMsg('');
+    try {
+      await act(() =>
+        supportApi.staffReviewTicket({
+          ticketId: ticket.id,
+          action: 'reject',
+          rejectReason: rejectReason.trim(),
+        }),
+      );
+      setSuccessMsg('Đã từ chối yêu cầu.');
+    } catch (e) {
+      setError(e.message || 'Lỗi khi từ chối phiếu.');
+    }
+  }
+
+  // ACTION 2: THẨM ĐỊNH HÀNG
+  async function handleInspectionSubmit(e) {
+    e.preventDefault();
+    setError('');
+    setSuccessMsg('');
+    try {
+      await act(() =>
+        supportApi.staffInspectTicket({
+          ticketId: ticket.id,
+          result: inspectionResult,
+          note: inspectionNote.trim(),
+        }),
+      );
+      setSuccessMsg(
+        inspectionResult === 'PASSED'
+          ? 'Đã ghi nhận thẩm định ĐẠT. Hệ thống đã cập nhật bước tiếp theo.'
+          : 'Đã ghi nhận thẩm định KHÔNG ĐẠT. Phiếu chuyển sang thất bại.',
+      );
+    } catch (e) {
+      setError(e.message || 'Lỗi khi ghi nhận biên bản kiểm tra.');
+    }
+  }
+
+  // ACTION 3: ĐỔI HÀNG - GIAO HÀNG THAY THẾ
+  async function handleShipExchange(e) {
+    e.preventDefault();
+    setError('');
+    setSuccessMsg('');
+    try {
+      await act(() =>
+        supportApi.staffShipExchange({
+          ticketId: ticket.id,
+          trackingCode: trackingCode.trim(),
+          shippingNote: shippingNote.trim(),
+        }),
+      );
+      setSuccessMsg('Đã xác nhận gửi hàng thay thế. Quy trình đổi hàng hoàn tất.');
+    } catch (e) {
+      setError(e.message || 'Lỗi khi xác nhận giao hàng đổi.');
+    }
+  }
+
+  // ACTION 3: ĐỔI HÀNG - HẾT HÀNG THAY THẾ
+  async function handleReplacementUnavailable() {
+    setError('');
+    setSuccessMsg('');
+    try {
+      await act(() =>
+        supportApi.staffReplacementUnavailable({
+          ticketId: ticket.id,
+          note: 'Hết hàng tồn kho thay thế.',
+        }),
+      );
+      setSuccessMsg('Đã xử lý trường hợp hết hàng thay thế theo quy định.');
+    } catch (e) {
+      setError(e.message || 'Lỗi khi báo hết hàng thay thế.');
+    }
+  }
+
+  // ACTION 4: DUYỆT HOÀN TIỀN DƯỚI 3 TRIỆU (STAFF)
+  async function handleStaffApproveRefund() {
+    setError('');
+    setSuccessMsg('');
+    try {
+      await act(() => supportApi.staffApproveRefund({ ticketId: ticket.id }));
+      setSuccessMsg('Nhân viên đã duyệt hoàn tiền. Phiếu chuyển sang Chờ chuyển tiền.');
+    } catch (e) {
+      setError(e.message || 'Lỗi khi duyệt hoàn tiền.');
+    }
+  }
+
+  // ACTION 5: QUẢN LÝ DUYỆT / TỪ CHỐI (MANAGER DECISION)
+  async function handleManagerDecision(decision) {
+    if (decision === 'reject' && !managerRejectReason.trim()) {
+      setError('Vui lòng nhập lý do từ chối phê duyệt hoàn tiền.');
+      return;
+    }
+    setError('');
+    setSuccessMsg('');
+    try {
+      await act(() =>
+        supportApi.managerDecision({
+          ticketId: ticket.id,
+          decision,
+          rejectReason: managerRejectReason.trim(),
+        }),
+      );
+      setSuccessMsg(
+        decision === 'approve'
+          ? 'Quản lý đã phê duyệt khoản hoàn tiền. Phiếu chuyển sang Chờ chuyển tiền.'
+          : 'Quản lý đã từ chối yêu cầu hoàn tiền.',
+      );
+    } catch (e) {
+      setError(e.message || 'Lỗi khi ghi nhận quyết định Quản lý.');
+    }
+  }
+
+  // ACTION 6: CHUYỂN KHOẢN THỦ CÔNG & LƯU MÃ GIAO DỊCH
+  async function handleRecordRefundTransfer(e) {
+    e.preventDefault();
+    if (!bankReference.trim()) {
+      setError('Vui lòng nhập mã giao dịch chuyển khoản ngân hàng.');
+      return;
+    }
+    setError('');
+    setSuccessMsg('');
+    try {
+      await act(() =>
+        supportApi.staffRecordRefundTransfer({
+          ticketId: ticket.id,
+          bankReference: bankReference.trim(),
+          note: transferNote.trim(),
+        }),
+      );
+      setSuccessMsg('Đã hoàn tất chuyển khoản hoàn tiền. Phiếu hỗ trợ chuyển sang ĐÃ HOÀN TIỀN.');
+    } catch (e) {
+      setError(e.message || 'Lỗi khi lưu giao dịch hoàn tiền.');
     }
   }
 
   return (
     <section className="manager-page manager-support-page">
-      <div className="eyebrow">QUẢN LÝ VẬN HÀNH</div>
-      <div className="manager-title">
+      <div className="eyebrow">QUẢN LÝ VẬN HÀNH (UC15)</div>
+      <div className="manager-title mb-4">
         <div>
-          <h1 className="h2 fw-bold mb-2">Xử lý support ticket</h1>
+          <h1 className="h2 fw-bold mb-1">Xử lý phiếu {ticket.ticket_code}</h1>
           <p className="text-secondary mb-0">
-            Kiểm tra nội dung yêu cầu và cập nhật kết quả phản hồi khách hàng.
+            Quy trình tiếp nhận sơ duyệt, kiểm định và giải quyết đổi trả / hoàn tiền.
           </p>
         </div>
         <Button as={Link} to="/management/support-tickets" variant="outline-secondary">
-          Quay lại danh sách
+          ← Quay lại danh sách
         </Button>
       </div>
 
-      {error && <Alert variant="danger">{error}</Alert>}
+      {error && <Alert variant="danger" dismissible onClose={() => setError('')}>{error}</Alert>}
+      {successMsg && <Alert variant="success" dismissible onClose={() => setSuccessMsg('')}>{successMsg}</Alert>}
 
-      <Card className="border-0 mb-4">
+      {/* HEADER TỔNG QUAN */}
+      <Card className="border-0 shadow-sm mb-4">
         <Card.Body className="p-4">
-          <div className="d-flex flex-wrap align-items-start justify-content-between gap-3">
+          <div className="d-flex flex-wrap justify-content-between align-items-center gap-3">
             <div>
               <div className="small text-secondary mb-1">Mã phiếu</div>
-              <h2 className="h5 fw-bold mb-2">{ticket.ticket_code}</h2>
-              <div className="d-flex flex-wrap gap-2">
-                <Badge bg="light" text="dark">
+              <h2 className="h4 fw-bold mb-2">{ticket.ticket_code}</h2>
+              <div className="d-flex flex-wrap gap-2 align-items-center">
+                <Badge bg="dark" className="fs-6">
                   {ticketTypes[ticket.ticket_type] || ticket.ticket_type}
                 </Badge>
-                {ticket.resolution_type && (
-                  <Badge bg="light" text="dark">
-                    {resolutionTypes[ticket.resolution_type] || ticket.resolution_type}
+                <Badge bg={statusConfig.variant} text={statusConfig.variant === 'warning' ? 'dark' : undefined} className="fs-6">
+                  {statusConfig.label}
+                </Badge>
+                {ticket.cause && (
+                  <Badge bg="secondary">
+                    {ticketCauses[ticket.cause]?.label || ticket.cause}
                   </Badge>
                 )}
               </div>
             </div>
-            <Badge
-              bg={currentStatus.variant}
-              text={currentStatus.variant === 'warning' ? 'dark' : undefined}
-            >
-              {currentStatus.label}
-            </Badge>
-          </div>
-          <hr />
-          <div className="row g-3">
-            <div className="col-sm-6">
-              <div className="small text-secondary">Ngày gửi</div>
-              <div className="fw-semibold">{formatDateTime(ticket.created_at)}</div>
-            </div>
-            <div className="col-sm-6">
-              <div className="small text-secondary">Cập nhật lần cuối</div>
-              <div className="fw-semibold">{formatDateTime(ticket.updated_at)}</div>
-            </div>
-            {ticket.reviewed_at && (
-              <div className="col-sm-6">
-                <div className="small text-secondary">Ngày tiếp nhận</div>
-                <div className="fw-semibold">{formatDateTime(ticket.reviewed_at)}</div>
-              </div>
-            )}
-            {ticket.resolved_at && (
-              <div className="col-sm-6">
-                <div className="small text-secondary">Ngày hoàn tất</div>
-                <div className="fw-semibold">{formatDateTime(ticket.resolved_at)}</div>
+
+            {calculatedRefund > 0 && (
+              <div className="text-md-end p-3 rounded bg-light border">
+                <div className="small text-secondary">Số tiền hoàn (dự kiến/đã duyệt)</div>
+                <div className="fs-4 fw-bold text-success">{formatMoney(calculatedRefund)}</div>
+                <div className="small text-muted">
+                  {calculatedRefund >= APPROVAL_THRESHOLD ? 'Cần Quản lý duyệt' : 'Nhân viên có quyền duyệt'}
+                </div>
               </div>
             )}
           </div>
+
+          <hr className="my-3" />
+
+          <Row className="g-3 small">
+            <Col sm={6} md={3}>
+              <span className="text-secondary d-block">Khách hàng:</span>
+              <strong className="text-dark">{order?.receiver_name || ticket.user_id}</strong>
+            </Col>
+            <Col sm={6} md={3}>
+              <span className="text-secondary d-block">Đơn hàng:</span>
+              <strong className="text-dark">{order?.order_code || 'Không có mã'}</strong>
+            </Col>
+            <Col sm={6} md={3}>
+              <span className="text-secondary d-block">Ngày tạo phiếu:</span>
+              <span className="fw-semibold">{formatDateTime(ticket.created_at)}</span>
+            </Col>
+            <Col sm={6} md={3}>
+              <span className="text-secondary d-block">Điện thoại / Địa chỉ:</span>
+              <span className="text-truncate d-block">{order?.receiver_phone} · {order?.shipping_address}</span>
+            </Col>
+          </Row>
         </Card.Body>
       </Card>
 
-      <div className="row g-4">
-        <div className="col-lg-7">
-          <Card className="border-0 h-100">
-            <Card.Body className="p-4">
-              <h2 className="h5 fw-bold mb-3">Nội dung yêu cầu</h2>
-              <div className="small text-secondary mb-1">Lý do</div>
-              <p className="fw-semibold">{ticket.reason}</p>
-              <div className="small text-secondary mb-1">Mô tả chi tiết</div>
-              <p className="mb-0 text-break">
-                {ticket.description || 'Khách hàng chưa cung cấp mô tả chi tiết.'}
-              </p>
-              {ticketItems.length > 0 && (
-                <>
-                  <hr />
-                  <h3 className="h6 fw-bold mb-3">Sản phẩm liên quan</h3>
-                  {ticketItems.map(({ id, quantity, orderItem }) => (
-                    <div className="d-flex justify-content-between gap-3 mb-2" key={id}>
-                      <span>
-                        {orderItem.product_name}
-                        {orderItem.variant_info && (
-                          <span className="d-block small text-secondary">
-                            {orderItem.variant_info}
-                          </span>
+      <Row className="g-4 mb-4">
+        {/* CỘT TRÁI: THÔNG TIN YÊU CẦU CỦA KHÁCH */}
+        <Col lg={7}>
+          {/* SẢN PHẨM YÊU CẦU */}
+          <Card className="border-0 shadow-sm mb-4">
+            <Card.Header className="bg-white py-3 border-bottom">
+              <h2 className="h6 fw-bold mb-0 text-primary">DANH SÁCH SẢN PHẨM KHÁCH YÊU CẦU</h2>
+            </Card.Header>
+            <Card.Body className="p-0">
+              <Table responsive hover className="align-middle mb-0">
+                <thead className="table-light">
+                  <tr>
+                    <th>Sản phẩm</th>
+                    <th className="text-end" style={{ width: '110px' }}>Đơn giá</th>
+                    <th className="text-center" style={{ width: '80px' }}>SL</th>
+                    {ticket.ticket_type === 'EXCHANGE' && <th>Đổi sang biến thể</th>}
+                    <th className="text-end" style={{ width: '120px' }}>Thành tiền</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {ticketItems.map(({ id, quantity, orderItem, replacementVariant }) => (
+                    <tr key={id}>
+                      <td>
+                        <div className="fw-semibold">{orderItem?.product_name}</div>
+                        {orderItem?.variant_info && (
+                          <small className="text-secondary d-block">{orderItem.variant_info}</small>
                         )}
-                      </span>
-                      <span className="text-nowrap">× {quantity}</span>
-                    </div>
+                      </td>
+                      <td className="text-end">{formatMoney(orderItem?.unit_price || 0)}</td>
+                      <td className="text-center">{quantity}</td>
+                      {ticket.ticket_type === 'EXCHANGE' && (
+                        <td>
+                          {replacementVariant ? (
+                            <Badge bg="success-subtle" text="success" className="border border-success-subtle">
+                              {replacementVariant.color || ''} {replacementVariant.size || ''} ({replacementVariant.sku})
+                            </Badge>
+                          ) : (
+                            <span className="text-muted">-</span>
+                          )}
+                        </td>
+                      )}
+                      <td className="text-end fw-semibold">
+                        {formatMoney((orderItem?.unit_price || 0) * quantity)}
+                      </td>
+                    </tr>
                   ))}
-                </>
-              )}
+                </tbody>
+              </Table>
             </Card.Body>
           </Card>
-        </div>
 
-        <div className="col-lg-5">
-          <Card className="border-0 h-100">
+          {/* LÝ DO & MÔ TẢ */}
+          <Card className="border-0 shadow-sm mb-4">
+            <Card.Header className="bg-white py-3 border-bottom">
+              <h2 className="h6 fw-bold mb-0 text-primary">NỘI DUNG LÝ DO & BẰNG CHỨNG</h2>
+            </Card.Header>
             <Card.Body className="p-4">
-              <h2 className="h5 fw-bold mb-3">Thông tin khách hàng / đơn hàng</h2>
-              <div className="small text-secondary mb-1">Tài khoản</div>
-              <p className="fw-semibold text-break">{ticket.user_id}</p>
-              {order ? (
-                <>
-                  <div className="small text-secondary mb-1">Mã đơn hàng</div>
-                  <p className="fw-semibold">{order.order_code}</p>
-                  <div className="small text-secondary mb-1">Người nhận</div>
-                  <p className="fw-semibold mb-1">{order.receiver_name || 'Chưa cập nhật'}</p>
-                  {order.receiver_phone && <p className="text-secondary">{order.receiver_phone}</p>}
-                  {order.shipping_address && (
-                    <>
-                      <div className="small text-secondary mb-1">Địa chỉ giao hàng</div>
-                      <p className="mb-0">{order.shipping_address}</p>
-                    </>
-                  )}
-                </>
-              ) : (
-                <p className="text-secondary mb-0">Không tìm thấy thông tin đơn hàng liên quan.</p>
-              )}
-            </Card.Body>
-          </Card>
-        </div>
-      </div>
+              <div className="mb-3">
+                <span className="small text-secondary d-block">Lý do yêu cầu:</span>
+                <span className="fw-semibold">{ticket.reason}</span>
+              </div>
 
-      <Card className="border-0 mt-4">
-        <Card.Body className="p-4">
-          <h2 className="h5 fw-bold mb-3">Cập nhật kết quả xử lý</h2>
-          <Form onSubmit={submitResolution}>
-            <div className="row g-3">
-              <div className="col-md-6">
-                <Form.Group controlId="ticket-resolution-status">
-                  <Form.Label>Trạng thái</Form.Label>
-                  <Form.Select
-                    required
-                    value={status}
-                    onChange={(event) => setStatus(event.target.value)}
-                  >
-                    {manageableTicketStatuses.map((value) => (
-                      <option key={value} value={value}>
-                        {ticketStatuses[value].label}
-                      </option>
-                    ))}
-                  </Form.Select>
-                </Form.Group>
+              <div className="mb-4">
+                <span className="small text-secondary d-block">Mô tả chi tiết:</span>
+                <p className="text-secondary mb-0 text-break">
+                  {ticket.description || 'Khách hàng không cung cấp mô tả chi tiết.'}
+                </p>
               </div>
-              <div className="col-md-6">
-                <Form.Group controlId="ticket-resolution-type">
-                  <Form.Label>Hướng xử lý</Form.Label>
-                  <Form.Select
-                    value={resolutionType}
-                    onChange={(event) => setResolutionType(event.target.value)}
-                  >
-                    <option value="">Chọn hướng xử lý (không bắt buộc)</option>
-                    {Object.entries(resolutionTypes).map(([value, label]) => (
-                      <option key={value} value={value}>
-                        {label}
-                      </option>
+
+              {Array.isArray(ticket.evidence_urls) && ticket.evidence_urls.length > 0 && (
+                <div>
+                  <span className="small text-secondary d-block mb-2">Hình ảnh / Video bằng chứng:</span>
+                  <div className="d-flex flex-wrap gap-2">
+                    {ticket.evidence_urls.map((url, idx) => (
+                      <div
+                        key={idx}
+                        className="border rounded p-1 bg-light"
+                        style={{ cursor: 'pointer' }}
+                        onClick={() => setPreviewImage(url)}
+                      >
+                        <Image
+                          src={url}
+                          alt={`Evidence ${idx + 1}`}
+                          style={{ width: '100px', height: '75px', objectFit: 'cover' }}
+                          rounded
+                        />
+                      </div>
                     ))}
-                  </Form.Select>
-                </Form.Group>
-              </div>
-              {resolutionType === 'refund' && (
-                <div className="col-md-6">
-                  <Form.Group controlId="ticket-refund-amount">
-                    <Form.Label>Số tiền hoàn dự kiến (VND)</Form.Label>
-                    <Form.Control
-                      type="number"
-                      min="0"
-                      step="1"
-                      value={refundAmount}
-                      onChange={(event) => setRefundAmount(event.target.value)}
-                      placeholder="Không bắt buộc"
-                    />
-                  </Form.Group>
+                  </div>
                 </div>
               )}
-              <div className="col-12">
-                <Form.Group controlId="ticket-resolution">
-                  <Form.Label>Phản hồi khách hàng</Form.Label>
-                  <Form.Control
-                    as="textarea"
-                    rows={5}
-                    maxLength={5000}
-                    required={['approved', 'rejected', 'resolved'].includes(status)}
-                    value={resolution}
-                    onChange={(event) => setResolution(event.target.value)}
-                    placeholder="Nêu rõ kết quả hoặc hướng dẫn tiếp theo cho khách hàng"
+            </Card.Body>
+          </Card>
+
+          {/* MÃ QR CỦA KHÁCH */}
+          {ticket.refund_qr_url && (
+            <Card className="border-0 shadow-sm mb-4">
+              <Card.Header className="bg-white py-3 border-bottom">
+                <h2 className="h6 fw-bold mb-0 text-primary">MÃ QR NGÂN HÀNG CỦA KHÁCH</h2>
+              </Card.Header>
+              <Card.Body className="p-4 text-center">
+                <div
+                  className="p-2 border rounded d-inline-block bg-white shadow-sm"
+                  style={{ cursor: 'pointer' }}
+                  onClick={() => setPreviewImage(ticket.refund_qr_url)}
+                  title="Nhấn để phóng to mã QR"
+                >
+                  <Image
+                    src={ticket.refund_qr_url}
+                    alt="Mã QR nhận tiền"
+                    style={{ maxHeight: '180px', objectFit: 'contain' }}
                   />
-                  <Form.Text muted>Tối đa 5000 ký tự.</Form.Text>
-                </Form.Group>
-              </div>
-            </div>
-            {ticket.proposed_refund_amount != null && (
-              <p className="small text-secondary mt-3 mb-0">
-                Số tiền hoàn hiện tại: <strong>{formatMoney(ticket.proposed_refund_amount)}</strong>
-              </p>
-            )}
-            <div className="d-flex flex-wrap gap-2 mt-4">
-              <Button type="submit" disabled={busy}>
-                {busy ? 'Đang lưu...' : 'Lưu kết quả xử lý'}
-              </Button>
-              <Button
-                as={Link}
-                to="/management/support-tickets"
-                variant="outline-secondary"
-                disabled={busy}
-              >
-                Hủy
-              </Button>
-            </div>
-          </Form>
-        </Card.Body>
-      </Card>
+                </div>
+                <div className="small text-muted mt-2">
+                  * Nhấp vào ảnh để phóng to và quét qua ứng dụng ngân hàng khi thực hiện chuyển tiền.
+                </div>
+              </Card.Body>
+            </Card>
+          )}
+        </Col>
+
+        {/* CỘT PHẢI: KHỐI THAO TÁC THEO LUỒNG VÒNG ĐỜI (WORKFLOW ACTIONS) */}
+        <Col lg={5}>
+          {/* BƯỚC 1: SƠ DUYỆT (PENDING / OPEN) */}
+          {['PENDING', 'open', 'under_review'].includes(ticket.status) && (
+            <Card className="border-0 shadow-sm mb-4 border-top border-4 border-warning">
+              <Card.Header className="bg-white py-3 border-bottom">
+                <h2 className="h6 fw-bold mb-0 text-warning text-dark">
+                  ⚡ BƯỚC 1: SƠ DUYỆT YÊU CẦU (SLA 48 GIỜ)
+                </h2>
+              </Card.Header>
+              <Card.Body className="p-4">
+                <p className="small text-secondary mb-3">
+                  Kiểm tra đơn hàng, thời hạn 7 ngày, lý do và bằng chứng trước khi tiếp nhận hoặc từ chối.
+                </p>
+
+                {/* Phê duyệt sơ bộ */}
+                <div className="p-3 rounded bg-light border mb-4">
+                  <div className="fw-bold mb-2 text-dark">Chấp thuận tiếp nhận:</div>
+                  <Form.Group className="mb-3" controlId="review-cause">
+                    <Form.Label className="small fw-semibold">
+                      Xác định nguyên nhân <span className="text-danger">*</span>
+                    </Form.Label>
+                    <Form.Select
+                      value={reviewCause}
+                      onChange={(e) => setReviewCause(e.target.value)}
+                    >
+                      <option value="STORE_FAULT">
+                        {ticketCauses.STORE_FAULT.label} (Shop hoàn tiền ship)
+                      </option>
+                      <option value="CUSTOMER_PREFERENCE">
+                        {ticketCauses.CUSTOMER_PREFERENCE.label} (Khách chịu phí ship)
+                      </option>
+                    </Form.Select>
+                    <Form.Text muted>
+                      {ticketCauses[reviewCause]?.desc}
+                    </Form.Text>
+                  </Form.Group>
+
+                  <Button
+                    variant="success"
+                    className="w-100"
+                    disabled={busy}
+                    onClick={handleApproveReview}
+                  >
+                    ✓ Chấp thuận & Chuyển sang chờ gửi hàng
+                  </Button>
+                </div>
+
+                {/* Từ chối sơ bộ */}
+                <div className="p-3 rounded bg-light border">
+                  <div className="fw-bold mb-2 text-danger">Từ chối yêu cầu:</div>
+                  <Form onSubmit={handleRejectReview}>
+                    <Form.Group className="mb-3" controlId="reject-reason">
+                      <Form.Label className="small fw-semibold">
+                        Lý do từ chối <span className="text-danger">*</span>
+                      </Form.Label>
+                      <Form.Control
+                        as="textarea"
+                        rows={2}
+                        required
+                        value={rejectReason}
+                        onChange={(e) => setRejectReason(e.target.value)}
+                        placeholder="Nêu rõ lý do từ chối (quá hạn 7 ngày, bằng chứng không hợp lệ...)"
+                      />
+                    </Form.Group>
+                    <Button variant="outline-danger" type="submit" className="w-100" disabled={busy}>
+                      ✕ Từ chối yêu cầu này
+                    </Button>
+                  </Form>
+                </div>
+              </Card.Body>
+            </Card>
+          )}
+
+          {/* BƯỚC 2: THẨM ĐỊNH HÀNG HÓA KHI ĐANG Ở AWAITING_RETURN */}
+          {ticket.status === 'AWAITING_RETURN' && (
+            <Card className="border-0 shadow-sm mb-4 border-top border-4 border-info">
+              <Card.Header className="bg-white py-3 border-bottom">
+                <h2 className="h6 fw-bold mb-0 text-info text-dark">
+                  🔍 BƯỚC 2: BIÊN BẢN THẨM ĐỊNH HÀNG HOÀN VỀ
+                </h2>
+              </Card.Header>
+              <Card.Body className="p-4">
+                <p className="small text-secondary mb-3">
+                  Khi khách gửi kiện hàng về kho, nhân viên mở hộp và ghi nhận biên bản kiểm tra:
+                </p>
+
+                <Form onSubmit={handleInspectionSubmit}>
+                  <Form.Group className="mb-3" controlId="inspection-result">
+                    <Form.Label className="fw-semibold small">
+                      Kết quả kiểm tra <span className="text-danger">*</span>
+                    </Form.Label>
+                    <Form.Select
+                      value={inspectionResult}
+                      onChange={(e) => setInspectionResult(e.target.value)}
+                    >
+                      <option value="PASSED">PASSED - {inspectionResults.PASSED}</option>
+                      <option value="FAILED">FAILED - {inspectionResults.FAILED}</option>
+                    </Form.Select>
+                  </Form.Group>
+
+                  <Form.Group className="mb-3" controlId="inspection-note">
+                    <Form.Label className="fw-semibold small">Ghi chú thẩm định chi tiết</Form.Label>
+                    <Form.Control
+                      as="textarea"
+                      rows={3}
+                      value={inspectionNote}
+                      onChange={(e) => setInspectionNote(e.target.value)}
+                      placeholder="Ghi nhận hiện trạng tem mác, bao bì, phụ kiện đính kèm..."
+                    />
+                  </Form.Group>
+
+                  <Button
+                    type="submit"
+                    variant={inspectionResult === 'PASSED' ? 'primary' : 'danger'}
+                    className="w-100"
+                    disabled={busy}
+                  >
+                    Lưu kết quả thẩm định
+                  </Button>
+                </Form>
+
+                {/* Nếu là EXCHANGE và đã PASSED trước đó */}
+                {ticket.ticket_type === 'EXCHANGE' && ticket.inspection?.result === 'PASSED' && (
+                  <div className="mt-4 pt-3 border-top">
+                    <h3 className="h6 fw-bold mb-3 text-dark">Xử lý đổi hàng thay thế:</h3>
+                    <div className="d-flex flex-column gap-2">
+                      <Button
+                        variant="success"
+                        onClick={() => {
+                          const code = prompt('Nhập mã vận đơn gửi hàng thay thế cho khách:') || '';
+                          if (code.trim()) {
+                            act(() =>
+                              supportApi.staffShipExchange({
+                                ticketId: ticket.id,
+                                trackingCode: code.trim(),
+                                shippingNote: 'Đã xuất hàng thay thế',
+                              }),
+                            );
+                          }
+                        }}
+                        disabled={busy}
+                      >
+                        📦 Còn hàng: Xác nhận gửi hàng thay thế
+                      </Button>
+
+                      <Button
+                        variant="outline-warning"
+                        className="text-dark"
+                        onClick={handleReplacementUnavailable}
+                        disabled={busy}
+                      >
+                        ⚠️ Hết hàng thay thế ({ticket.cause === 'STORE_FAULT' ? 'Chuyển sang hoàn tiền' : 'Hủy & gửi trả hàng cũ'})
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </Card.Body>
+            </Card>
+          )}
+
+          {/* BƯỚC 3: QUẢN LÝ PHÊ DUYỆT (PENDING_APPROVAL) */}
+          {ticket.status === 'PENDING_APPROVAL' && (
+            <Card className="border-0 shadow-sm mb-4 border-top border-4 border-primary">
+              <Card.Header className="bg-white py-3 border-bottom">
+                <h2 className="h6 fw-bold mb-0 text-primary">
+                  🛡️ BƯỚC 3: QUẢN LÝ PHÊ DUYỆT HOÀN TIỀN (&ge; 3.000.000đ)
+                </h2>
+              </Card.Header>
+              <Card.Body className="p-4">
+                <div className="alert alert-warning mb-3 small">
+                  <strong>Hạn mức duyệt:</strong> Số tiền hoàn là{' '}
+                  <strong>{formatMoney(calculatedRefund)}</strong> (&ge; 3.000.000đ).
+                  Chỉ tài khoản quyền <strong>Quản lý (Manager)</strong> mới có quyền phê duyệt chuyển tiền.
+                </div>
+
+                {isManager ? (
+                  <div>
+                    <Button
+                      variant="success"
+                      className="w-100 mb-3"
+                      disabled={busy}
+                      onClick={() => handleManagerDecision('approve')}
+                    >
+                      ✓ Quản lý Phê duyệt hoàn tiền
+                    </Button>
+
+                    <div className="p-3 bg-light rounded border">
+                      <div className="small fw-semibold text-danger mb-2">Từ chối hoàn tiền:</div>
+                      <Form.Control
+                        as="textarea"
+                        rows={2}
+                        value={managerRejectReason}
+                        onChange={(e) => setManagerRejectReason(e.target.value)}
+                        placeholder="Nhập lý do quản lý từ chối hoàn tiền..."
+                        className="mb-2"
+                      />
+                      <Button
+                        variant="outline-danger"
+                        size="sm"
+                        className="w-100"
+                        disabled={busy}
+                        onClick={() => handleManagerDecision('reject')}
+                      >
+                        ✕ Quản lý Từ chối
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="p-3 rounded bg-light border text-center text-muted small">
+                    🔒 Tài khoản hiện tại không có quyền Manager. Vui lòng chuyển phiếu này cho Quản lý phê duyệt.
+                  </div>
+                )}
+              </Card.Body>
+            </Card>
+          )}
+
+          {/* BƯỚC 4: CHUYỂN TIỀN HOÀN THỦ CÔNG (PENDING_TRANSFER) */}
+          {ticket.status === 'PENDING_TRANSFER' && (
+            <Card className="border-0 shadow-sm mb-4 border-top border-4 border-success">
+              <Card.Header className="bg-white py-3 border-bottom">
+                <h2 className="h6 fw-bold mb-0 text-success">
+                  💳 BƯỚC 4: CHUYỂN TIỀN THỦ CÔNG & GHI NHẬN MÃ GIAO DỊCH
+                </h2>
+              </Card.Header>
+              <Card.Body className="p-4">
+                <div className="text-center p-3 bg-light rounded border mb-3">
+                  <div className="small text-secondary mb-1">Số tiền cần chuyển khoản cho khách</div>
+                  <div className="fs-3 fw-bold text-success mb-2">{formatMoney(ticket.refund_amount || calculatedRefund)}</div>
+                  <div className="small text-muted">
+                    Nhân viên mở App ngân hàng quét mã QR ở cột bên trái và chuyển đúng số tiền trên.
+                  </div>
+                </div>
+
+                <Form onSubmit={handleRecordRefundTransfer}>
+                  <Form.Group className="mb-3" controlId="bank-reference">
+                    <Form.Label className="small fw-semibold">
+                      Mã giao dịch / Mã tham chiếu ngân hàng <span className="text-danger">*</span>
+                    </Form.Label>
+                    <Form.Control
+                      required
+                      value={bankReference}
+                      onChange={(e) => setBankReference(e.target.value)}
+                      placeholder="VD: FT26103198765432..."
+                      className="font-monospace"
+                    />
+                    <Form.Text muted>
+                      Nhập chính xác mã giao dịch chuyển tiền thành công từ app ngân hàng (bắt buộc, không trùng lặp).
+                    </Form.Text>
+                  </Form.Group>
+
+                  <Form.Group className="mb-3" controlId="transfer-note">
+                    <Form.Label className="small fw-semibold">Ghi chú chuyển khoản</Form.Label>
+                    <Form.Control
+                      value={transferNote}
+                      onChange={(e) => setTransferNote(e.target.value)}
+                      placeholder="Ghi chú thêm nếu có..."
+                    />
+                  </Form.Group>
+
+                  <Button type="submit" variant="success" className="w-100" disabled={busy}>
+                    ✓ Xác nhận đã chuyển khoản thành công
+                  </Button>
+                </Form>
+              </Card.Body>
+            </Card>
+          )}
+
+          {/* KHI ĐÃ KẾT THÚC HOÀN TẤT */}
+          {['REFUNDED', 'COMPLETED', 'REJECTED', 'INSPECTION_FAILED', 'CANCELLED'].includes(ticket.status) && (
+            <Card className="border-0 shadow-sm mb-4 bg-light">
+              <Card.Header className="bg-white py-3 border-bottom">
+                <h2 className="h6 fw-bold mb-0 text-secondary">KẾT QUẢ XỬ LÝ PHIẾU HỖ TRỢ</h2>
+              </Card.Header>
+              <Card.Body className="p-4">
+                {ticket.status === 'REFUNDED' && (
+                  <div className="text-success">
+                    <div className="fw-bold fs-6 mb-1">✓ ĐÃ HOÀN TIỀN THÀNH CÔNG</div>
+                    <div className="small mb-1">Số tiền: <strong>{formatMoney(ticket.refund_amount)}</strong></div>
+                    <div className="small">Mã GD: <strong>{ticket.refund_record?.bank_reference || '-'}</strong></div>
+                  </div>
+                )}
+                {ticket.status === 'COMPLETED' && (
+                  <div className="text-success">
+                    <div className="fw-bold fs-6 mb-1">✓ ĐÃ HOÀN TẤT ĐỔI HÀNG</div>
+                    <div className="small">Mã vận đơn: <strong>{ticket.shipping_info?.tracking_code || 'Chưa cập nhật'}</strong></div>
+                  </div>
+                )}
+                {ticket.status === 'REJECTED' && (
+                  <div className="text-danger">
+                    <div className="fw-bold fs-6 mb-1">✕ YÊU CẦU ĐÃ BỊ TỪ CHỐI</div>
+                    <div className="small">Lý do: {ticket.reject_reason || 'Không đáp ứng điều kiện'}</div>
+                  </div>
+                )}
+                {ticket.status === 'INSPECTION_FAILED' && (
+                  <div className="text-danger">
+                    <div className="fw-bold fs-6 mb-1">✕ THẨM ĐỊNH HÀNG KHÔNG ĐẠT</div>
+                    <div className="small">Sản phẩm hoàn về không đủ điều kiện đổi trả. Đã gửi trả lại khách.</div>
+                  </div>
+                )}
+                {ticket.status === 'CANCELLED' && (
+                  <div className="text-secondary">
+                    <div className="fw-bold fs-6 mb-1">ĐÃ HỦY YÊU CẦU</div>
+                    <div className="small">Yêu cầu đã được hủy theo quy định.</div>
+                  </div>
+                )}
+              </Card.Body>
+            </Card>
+          )}
+
+          {/* LỊCH SỬ CHUYỂN TRẠNG THÁI (AUDIT LOG & TIMELINE) */}
+          <Card className="border-0 shadow-sm">
+            <Card.Header className="bg-white py-3 border-bottom">
+              <h2 className="h6 fw-bold mb-0 text-primary">LỊCH SỬ TRẠNG THÁI (AUDIT TIMELINE)</h2>
+            </Card.Header>
+            <Card.Body className="p-4">
+              {statusHistory.length === 0 ? (
+                <div className="small text-muted">Chưa có lịch sử trạng thái.</div>
+              ) : (
+                <div className="timeline">
+                  {statusHistory.map((h, i) => (
+                    <div key={h.id || i} className="mb-3 ps-3 border-start border-2 border-primary position-relative">
+                      <div className="small fw-bold text-dark">{h.to_status}</div>
+                      <div className="small text-secondary">{h.note}</div>
+                      <div className="small text-muted" style={{ fontSize: '11px' }}>
+                        {formatDateTime(h.created_at)}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </Card.Body>
+          </Card>
+        </Col>
+      </Row>
+
+      {/* MODAL PHÓNG TO HÌNH ẢNH */}
+      <Modal show={Boolean(previewImage)} onHide={() => setPreviewImage(null)} size="lg" centered>
+        <Modal.Body className="p-0 text-center bg-dark">
+          <Image src={previewImage} alt="Xem trước" fluid style={{ maxHeight: '80vh' }} />
+        </Modal.Body>
+      </Modal>
     </section>
   );
 }

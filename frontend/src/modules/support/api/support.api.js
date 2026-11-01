@@ -1,7 +1,66 @@
 import { sendShopAction } from '@/app/providers/shop/shop.api';
 
-// Each function returns the new store snapshot from the mock API.
 export const supportApi = {
+  // Customer APIs
   createTicket: (payload) => sendShopAction({ type: 'create_support_ticket', ...payload }),
-  updateTicket: (payload) => sendShopAction({ type: 'update_support_ticket', ...payload }),
+  cancelTicket: (ticketId) => sendShopAction({ type: 'cancel_support_ticket', ticket_id: ticketId }),
+
+  // Staff APIs
+  staffReviewTicket: ({ ticketId, action, cause, rejectReason, note }) =>
+    sendShopAction({
+      type: 'review_support_ticket',
+      ticket_id: ticketId,
+      action, // 'approve' | 'reject'
+      cause, // 'STORE_FAULT' | 'CUSTOMER_PREFERENCE'
+      reject_reason: rejectReason,
+      note,
+    }),
+
+  staffInspectTicket: ({ ticketId, result, note }) =>
+    sendShopAction({
+      type: 'inspect_support_ticket',
+      ticket_id: ticketId,
+      result, // 'PASSED' | 'FAILED'
+      note,
+    }),
+
+  staffApproveRefund: ({ ticketId, note }) =>
+    sendShopAction({
+      type: 'approve_refund_support_ticket',
+      ticket_id: ticketId,
+      note,
+    }),
+
+  staffShipExchange: ({ ticketId, trackingCode, shippingNote }) =>
+    sendShopAction({
+      type: 'ship_exchange_support_ticket',
+      ticket_id: ticketId,
+      tracking_code: trackingCode,
+      shipping_note: shippingNote,
+    }),
+
+  staffReplacementUnavailable: ({ ticketId, note }) =>
+    sendShopAction({
+      type: 'replacement_unavailable_support_ticket',
+      ticket_id: ticketId,
+      note,
+    }),
+
+  staffRecordRefundTransfer: ({ ticketId, bankReference, note }) =>
+    sendShopAction({
+      type: 'refund_transfer_support_ticket',
+      ticket_id: ticketId,
+      bank_reference: bankReference,
+      note,
+    }),
+
+  // Manager APIs
+  managerDecision: ({ ticketId, decision, rejectReason, note }) =>
+    sendShopAction({
+      type: 'manager_decision_support_ticket',
+      ticket_id: ticketId,
+      decision, // 'approve' | 'reject'
+      reject_reason: rejectReason,
+      note,
+    }),
 };
