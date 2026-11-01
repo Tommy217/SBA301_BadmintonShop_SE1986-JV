@@ -10,12 +10,12 @@ Hệ thống được thiết kế theo kiến trúc module hóa (Modular Archit
 
 | Phân hệ / Module | Đường dẫn tài liệu | Trạng thái | Mô tả tóm tắt |
 | :--- | :--- | :---: | :--- |
-| **Payment Module** | [**`module/payment/flow.md`**](module/payment/flow.md) | **Đã hoàn thành** | Luồng thanh toán payOS (VietQR), COD, Hoàn tiền (Refunds), bảo mật Webhook HMAC-SHA256 & API Postman. |
+| **Payment Module** | [**`module/payment/overview.md`**](module/payment/overview.md) | **Đã hoàn thành** | Luồng thanh toán 100% online payOS (VietQR 24/7 - bỏ hoàn toàn COD), Hoàn tiền (Refunds UC15), bảo mật Webhook HMAC-SHA256 & phân quyền Staff / Manager. |
 | **Support Ticket (UC15)** | [**`module/support-ticket/flow.md`**](module/support-ticket/flow.md) | **Đã hoàn thành** | Quy trình đổi trả & hoàn tiền thủ công quét QR, thẩm định hàng, phân quyền duyệt < 3M vs >= 3M (UC15). |
 | **Order Module** | `module/order/` | Đang phát triển | Luồng quản lý giỏ hàng, đặt hàng, hủy đơn, chuyển trạng thái đơn hàng. |
 | **Catalog & Products** | `module/catalog/` | Đang phát triển | Quản lý sản phẩm (vợt, giày, áo quần), biến thể, hình ảnh và voucher. |
 | **Inventory Module** | `module/inventory/` | Đang phát triển | Quản lý kho, nhập hàng, kiểm kê, cảnh báo tồn kho thấp. |
-| **Shipping Module** | `module/shipping/` | Đã có hệ thống đối tác FastShip | Tích hợp đơn vị vận chuyển, cập nhật tracking và thu COD. |
+| **Shipping Module** | `module/shipping/` | Đã có hệ thống đối tác FastShip | Tích hợp đơn vị vận chuyển, cập nhật tracking vận đơn (không thu hộ tiền mặt). |
 | **Invoices Module** | `module/invoices/` | Đang phát triển | Xuất hóa đơn điện tử tự động sau khi thanh toán thành công. |
 
 ---

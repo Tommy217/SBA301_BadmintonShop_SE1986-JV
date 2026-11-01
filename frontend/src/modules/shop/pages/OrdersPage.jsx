@@ -82,10 +82,7 @@ export default function OrdersPage() {
               </div>
               <div className="summary-row">
                 <span>
-                  {data.payments.find((p) => p.order_id === o.id)?.method === 'cod'
-                    ? 'COD'
-                    : 'Trả trước'}{' '}
-                  · {o.payment_status === 'paid' ? 'Đã thanh toán' : 'Chưa thanh toán'}
+                  VietQR payOS · {o.payment_status === 'paid' ? 'Đã thanh toán' : 'Chưa thanh toán'}
                 </span>
                 <strong className="text-primary">{formatMoney(o.total_amount)}</strong>
               </div>
@@ -121,8 +118,7 @@ export default function OrdersPage() {
                   </span>
                 </Button>
 
-                {o.payment_status === 'unpaid' &&
-                  data.payments.some((p) => p.order_id === o.id && p.method !== 'cod') && (
+                {o.payment_status === 'unpaid' && (
                     <Button
                       as={Link}
                       to={'/payments?order=' + encodeURIComponent(o.id)}

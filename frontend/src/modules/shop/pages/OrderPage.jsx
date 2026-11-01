@@ -18,7 +18,7 @@ export default function OrderPage() {
   const [voucherCode, setVoucherCode] = useState('');
   const [appliedCode, setAppliedCode] = useState('');
   const [voucherError, setVoucherError] = useState('');
-  const [paymentMethod, setPaymentMethod] = useState('cod');
+  const [paymentMethod, setPaymentMethod] = useState('prepaid');
   const [form, setForm] = useState({
     receiver_name: '',
     receiver_phone: '',
@@ -76,8 +76,7 @@ export default function OrderPage() {
         }),
       );
       const order = result.orders.at(-1);
-      if (paymentMethod === 'prepaid') navigate('/payments?order=' + encodeURIComponent(order.id));
-      else navigate('/orders', { state: { placed: true } });
+      navigate('/payments?order=' + encodeURIComponent(order.id));
     } catch {
       /* Provider displays the error. */
     } finally {
@@ -162,43 +161,23 @@ export default function OrderPage() {
                 <Form.Check
                   type="radio"
                   name="paymentMethod"
-                  id="cod"
-                  label={
-                    <span className="payment-choice-copy">
-                      <Icon name="truck" />
-                      <span>
-                        <strong>Trả sau</strong>
-                        <small>Thanh toán khi nhận hàng (COD)</small>
-                      </span>
-                    </span>
-                  }
-                  checked={paymentMethod === 'cod'}
-                  disabled={busy}
-                  onChange={() => setPaymentMethod('cod')}
-                  className={'payment-choice my-3' + (paymentMethod === 'cod' ? ' is-chosen' : '')}
-                />
-                <Form.Check
-                  type="radio"
-                  name="paymentMethod"
                   id="prepaid"
-                  className={'payment-choice' + (paymentMethod === 'prepaid' ? ' is-chosen' : '')}
+                  className="payment-choice is-chosen my-3"
                   label={
                     <span className="payment-choice-copy">
                       <Icon name="card" />
                       <span>
-                        <strong>Trả trước</strong>
-                        <small>Chọn ngân hàng hoặc ví ở bước tiếp theo</small>
+                        <strong>Thanh toán trực tuyến (payOS VietQR 24/7)</strong>
+                        <small>Quét mã VietQR chuyển khoản nhanh bằng ứng dụng ngân hàng bất kỳ</small>
                       </span>
                     </span>
                   }
-                  checked={paymentMethod === 'prepaid'}
+                  checked
                   disabled={busy}
-                  onChange={() => setPaymentMethod('prepaid')}
+                  readOnly
                 />
                 <Alert variant="info" className="small mt-3 mb-0">
-                  {paymentMethod === 'cod'
-                    ? 'Thanh toán cho đơn vị vận chuyển khi nhận hàng.'
-                    : 'Sau khi xác nhận, bạn sẽ đến trang chọn phương thức thanh toán MB Bank, MoMo hoặc thẻ.'}
+                  Đơn hàng áp dụng thanh toán trực tuyến 100%. Sau khi bấm xác nhận, bạn sẽ được chuyển đến trang quét mã VietQR để hoàn tất thanh toán.
                 </Alert>
               </Card.Body>
             </Card>

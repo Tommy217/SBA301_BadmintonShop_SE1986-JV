@@ -486,23 +486,19 @@ export default function OrderTrackingPage() {
               <div className="d-flex justify-content-between mb-2">
                 <span className="small text-secondary">Hình thức thanh toán:</span>
                 <span className="small fw-semibold">
-                  {order.payment_status === 'paid'
-                    ? 'Đã thanh toán trước'
-                    : 'Thanh toán khi nhận hàng (COD)'}
+                  Thanh toán trực tuyến (payOS VietQR)
                 </span>
               </div>
 
               <div className="d-flex justify-content-between align-items-center pt-2 border-top mt-2">
                 <div>
-                  <span className="fw-bold d-block">Số tiền cần thanh toán:</span>
+                  <span className="fw-bold d-block">Trạng thái thanh toán:</span>
                   <small className="text-secondary">
-                    {order.payment_status === 'paid'
-                      ? '0 ₫ (Đã trả trước)'
-                      : 'Thu hộ khi nhận hàng'}
+                    {order.payment_status === 'paid' ? 'Đã thanh toán đủ' : 'Chờ quét mã VietQR'}
                   </small>
                 </div>
-                <span className="fs-5 fw-bold text-danger">
-                  {order.payment_status === 'paid' ? '0 ₫' : formatMoney(order.total_amount)}
+                <span className={`fs-5 fw-bold ${order.payment_status === 'paid' ? 'text-success' : 'text-danger'}`}>
+                  {order.payment_status === 'paid' ? 'ĐÃ THANH TOÁN' : formatMoney(order.total_amount)}
                 </span>
               </div>
             </Card.Body>
