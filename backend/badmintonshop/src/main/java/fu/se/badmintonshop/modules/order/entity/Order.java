@@ -2,6 +2,7 @@ package fu.se.badmintonshop.modules.order.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
+import fu.se.badmintonshop.modules.catalog.entity.Voucher;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
@@ -26,6 +27,13 @@ public class Order {
 
     @Column(name = "user_id")
     private Long userId;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "voucher_id")
+    private Voucher voucher;
+
+    @Column(name = "voucher_code", length = 40)
+    private String voucherCode;
 
     @Column(name = "channel", nullable = false, length = 20)
     @Builder.Default

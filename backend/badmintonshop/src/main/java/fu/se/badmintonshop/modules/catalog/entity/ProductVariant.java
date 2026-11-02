@@ -7,7 +7,10 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "product_variants")
+@Table(name = "product_variants", uniqueConstraints = {
+        @UniqueConstraint(columnNames = "sku"),
+        @UniqueConstraint(name = "uq_variant", columnNames = {"product_id", "color", "size"})
+})
 @Getter
 @Setter
 @NoArgsConstructor
@@ -21,6 +24,22 @@ public class ProductVariant {
 
     @Column(name = "product_id", nullable = false)
     private Long productId;
+
+    // productId remains the writable FK for existing callers.
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "product_id", insertable = false, updatable = false)
+    private Product product;
+
+    @Column(name = "barcode", length = 60)
+    private String barcode;
+
+    @Column(name = "cost_price", nullable = false, precision = 12, scale = 0)
+    @Builder.Default
+    private BigDecimal costPrice = BigDecimal.ZERO;
+
+    @Column(name = "low_stock_threshold", nullable = false)
+    @Builder.Default
+    private Integer lowStockThreshold = 5;
 
     @Column(name = "sku", nullable = false, length = 60)
     private String sku;
@@ -37,6 +56,7 @@ public class ProductVariant {
     private Integer weightGrams = 0;
 
     @Column(name = "color", length = 50)
+    @org.hibernate.annotations.Nationalized
     private String color;
 
     @Column(name = "size", length = 30)

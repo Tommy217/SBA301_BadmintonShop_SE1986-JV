@@ -2,6 +2,8 @@ package fu.se.badmintonshop.modules.order.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
+import fu.se.badmintonshop.modules.catalog.entity.Product;
+import fu.se.badmintonshop.modules.catalog.entity.ProductVariant;
 
 import java.math.BigDecimal;
 
@@ -26,6 +28,19 @@ public class OrderItem {
 
     @Column(name = "product_id", nullable = false)
     private Long productId;
+
+    // Existing ID properties own these foreign keys.
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "order_id", insertable = false, updatable = false)
+    private Order order;
+
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "variant_id", insertable = false, updatable = false)
+    private ProductVariant variant;
+
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "product_id", insertable = false, updatable = false)
+    private Product product;
 
     @Column(name = "product_name", nullable = false, length = 255)
     private String productName;
