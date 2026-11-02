@@ -441,37 +441,60 @@ CREATE TABLE refunds (                              -- Refund Processing / Refun
 -- 8. SHIPPING & DELIVERY
 -- =====================================================================
 CREATE TABLE carriers (
-  id        INT IDENTITY(1,1) PRIMARY KEY,
-  code      VARCHAR(30) NOT NULL UNIQUE,             -- ghn, ghtk, viettelpost
-  name      NVARCHAR(100) NOT NULL,
-  is_active BIT NOT NULL DEFAULT 1
+  id                    INT IDENTITY(1,1) PRIMARY KEY,
+  code                  VARCHAR(30) NOT NULL UNIQUE,             -- fastship, ghn, ghtk, viettelpost
+  name                  NVARCHAR(100) NOT NULL,
+  api_base_url          VARCHAR(255) NULL,                       -- vd: http://localhost:8081/api/v1 (API key để trong application.properties)
+  tracking_url_template VARCHAR(500) NULL,                       -- vd: http://localhost:8082/track?code={code}
+  hotline               VARCHAR(20) NULL,
+  is_active             BIT NOT NULL DEFAULT 1
 );
 
-CREATE TABLE shipments (
-  id                    BIGINT IDENTITY(1,1) PRIMARY KEY,
-  order_id              BIGINT NOT NULL,
-  carrier_id            INT NULL,
-  tracking_code         VARCHAR(80),
-  status                VARCHAR(20)
-                        NOT NULL DEFAULT 'preparing' CHECK (status IN ('preparing','picked_up','in_transit','delivered','failed','returned')),
-  cod_amount            DECIMAL(12,0) NOT NULL DEFAULT 0,
-  cod_collected_at      DATETIME2(0) NULL,               -- Carrier confirms delivery, COD collected
-  shipped_at            DATETIME2(0) NULL,
-  delivered_at          DATETIME2(0) NULL,
-  customer_confirmed_at DATETIME2(0) NULL,               -- Delivery Confirmation
-  created_at            DATETIME2(0) NOT NULL DEFAULT SYSDATETIME(),
+CREATE TABLE shipments (                            -- Vận đơn gửi sang ĐVVC (FastShip)
+  id                      BIGINT IDENTITY(1,1) PRIMARY KEY,
+  order_id                BIGINT NOT NULL,
+  carrier_id              INT NULL,
+  tracking_code           VARCHAR(80),                         -- mã vận đơn đối tác cấp
+  tracking_url            VARCHAR(500),                        -- link tra cứu trên website đối tác
+  service_type            VARCHAR(20) NOT NULL DEFAULT 'standard' CHECK (service_type IN ('standard','fast','express')),
+  status                  VARCHAR(20)
+                          NOT NULL DEFAULT 'pending_pickup' CHECK (status IN ('pending_pickup','in_transit','out_for_delivery','delivered','delivery_failed','returned','cancelled')),
+  carrier_status_text     NVARCHAR(300),                       -- mô tả trạng thái mới nhất từ đối tác
+  shipping_fee            DECIMAL(12,0) NOT NULL DEFAULT 0,    -- cước đối tác báo
+  cod_amount              DECIMAL(12,0) NOT NULL DEFAULT 0,
+  cod_collected_at        DATETIME2(0) NULL,                   -- Carrier confirms delivery, COD collected
+  weight_grams            INT NULL,
+  note                    NVARCHAR(500),
+  shipper_name            NVARCHAR(150),
+  shipper_phone           VARCHAR(20),
+  estimated_delivery_date DATETIME2(0) NULL,
+  shipped_at              DATETIME2(0) NULL,                   -- bưu tá lấy hàng
+  delivered_at            DATETIME2(0) NULL,
+  cancelled_at            DATETIME2(0) NULL,
+  cancel_reason           NVARCHAR(300),
+  customer_confirmed_at   DATETIME2(0) NULL,                   -- Delivery Confirmation
+  last_synced_at          DATETIME2(0) NULL,                   -- lần cuối nhận webhook / WebSocket / sync
+  created_by              BIGINT NULL,                         -- staff tạo vận đơn
+  created_at              DATETIME2(0) NOT NULL DEFAULT SYSDATETIME(),
+  updated_at              DATETIME2(0) NOT NULL DEFAULT SYSDATETIME(),
   FOREIGN KEY (order_id)   REFERENCES orders(id) ON DELETE CASCADE,
   FOREIGN KEY (carrier_id) REFERENCES carriers(id) ON DELETE SET NULL,
-  INDEX idx_ship_tracking (tracking_code)
+  FOREIGN KEY (created_by) REFERENCES users(id),
+  INDEX idx_ship_tracking (tracking_code),
+  INDEX idx_ship_order (order_id),
+  INDEX idx_ship_status (status, created_at)
 );
 
-CREATE TABLE shipment_events (                      -- Delivery Status Sync
+CREATE TABLE shipment_events (                      -- Delivery Status Sync (hành trình)
   id          BIGINT IDENTITY(1,1) PRIMARY KEY,
   shipment_id BIGINT NOT NULL,
-  status      VARCHAR(40) NOT NULL,
+  status      VARCHAR(40) NOT NULL,                  -- trạng thái phía đối tác tại thời điểm đó
+  title       NVARCHAR(150),                         -- vd: "Nhập kho trung chuyển"
   description NVARCHAR(300),
   location    NVARCHAR(200),
-  occurred_at DATETIME2(0) NOT NULL,
+  source      VARCHAR(20) NOT NULL DEFAULT 'carrier' CHECK (source IN ('carrier','webhook','sync','manual')),
+  occurred_at DATETIME2(0) NOT NULL,                 -- thời điểm xảy ra phía đối tác
+  created_at  DATETIME2(0) NOT NULL DEFAULT SYSDATETIME(),  -- thời điểm shop nhận
   FOREIGN KEY (shipment_id) REFERENCES shipments(id) ON DELETE CASCADE,
   INDEX idx_se_shipment (shipment_id, occurred_at)
 );
@@ -688,6 +711,15 @@ BEGIN
     FROM payments t JOIN inserted i ON i.id = t.id;
 END;
 GO
+CREATE TRIGGER trg_shipments_updated_at ON shipments
+AFTER UPDATE AS
+BEGIN
+    SET NOCOUNT ON;
+    IF UPDATE(updated_at) RETURN;
+    UPDATE t SET updated_at = SYSDATETIME()
+    FROM shipments t JOIN inserted i ON i.id = t.id;
+END;
+GO
 
 -- =====================================================================
 -- 14. REPORTS & ANALYTICS (VIEW)
@@ -698,7 +730,7 @@ SELECT CAST(o.created_at AS DATE) AS [day],
        COUNT(*)            AS orders,
        SUM(o.total_amount) AS revenue
 FROM orders o
-WHERE o.status = 'completed'
+WHERE o.status = 'completed' AND o.payment_status = 'paid'
 GROUP BY CAST(o.created_at AS DATE);
 GO
 
@@ -708,7 +740,7 @@ SELECT CONVERT(CHAR(7), o.created_at, 126) AS [month],      -- 'yyyy-MM'
        COUNT(*)            AS orders,
        SUM(o.total_amount) AS revenue
 FROM orders o
-WHERE o.status = 'completed'
+WHERE o.status = 'completed' AND o.payment_status = 'paid'
 GROUP BY CONVERT(CHAR(7), o.created_at, 126);
 GO
 
@@ -718,7 +750,7 @@ SELECT p.id AS product_id, p.name, p.product_type,
        SUM(oi.quantity)   AS units_sold,
        SUM(oi.line_total) AS revenue
 FROM order_items oi
-JOIN orders   o ON o.id = oi.order_id AND o.status = 'completed'
+JOIN orders   o ON o.id = oi.order_id AND o.status = 'completed' AND o.payment_status = 'paid'
 JOIN products p ON p.id = oi.product_id
 GROUP BY p.id, p.name, p.product_type;
 GO
@@ -763,6 +795,59 @@ FROM vouchers v
 LEFT JOIN voucher_usages vu ON vu.voucher_id = v.id
 LEFT JOIN orders o ON o.id = vu.order_id
 GROUP BY v.id, v.code, v.name;
+GO
+
+-- ===== Customer & Membership Report =====
+-- Khách hàng mới theo ngày và lũy kế (chỉ tài khoản role customer)
+CREATE VIEW v_customer_growth AS
+SELECT d.[day],
+       d.new_customers,
+       SUM(d.new_customers) OVER (ORDER BY d.[day]) AS cumulative_customers
+FROM (SELECT CAST(u.created_at AS DATE) AS [day], COUNT(*) AS new_customers
+      FROM users u
+      JOIN user_roles ur ON ur.user_id = u.id
+      JOIN roles r ON r.id = ur.role_id AND r.code = 'customer'
+      GROUP BY CAST(u.created_at AS DATE)) d;
+GO
+
+-- Tổng hợp mua hàng theo từng khách (doanh thu tính đơn completed + paid)
+CREATE VIEW v_customer_summary AS
+SELECT u.id AS customer_id, u.full_name, u.email, u.phone, u.status,
+       u.created_at AS registered_at,
+       COUNT(o.id) AS total_orders,
+       COALESCE(SUM(CASE WHEN o.status = 'completed' AND o.payment_status = 'paid' THEN 1 ELSE 0 END), 0) AS completed_orders,
+       COALESCE(SUM(CASE WHEN o.status = 'completed' AND o.payment_status = 'paid' THEN o.total_amount ELSE 0 END), 0) AS total_spent,
+       MIN(o.created_at) AS first_order_at,
+       MAX(o.created_at) AS last_order_at
+FROM users u
+JOIN user_roles ur ON ur.user_id = u.id
+JOIN roles r ON r.id = ur.role_id AND r.code = 'customer'
+LEFT JOIN orders o ON o.user_id = u.id
+GROUP BY u.id, u.full_name, u.email, u.phone, u.status, u.created_at;
+GO
+
+-- ===== Return & Refund Report =====
+-- Số phiếu đổi/trả theo tháng và loại. LOWER() để chạy được với cả giá trị thường lẫn HOA của module support ticket.
+CREATE VIEW v_return_ticket_monthly AS
+SELECT CONVERT(CHAR(7), t.created_at, 126) + '|' + LOWER(t.ticket_type) AS id,
+       CONVERT(CHAR(7), t.created_at, 126) AS [month],
+       LOWER(t.ticket_type) AS ticket_type,
+       COUNT(*) AS total_tickets,
+       SUM(CASE WHEN LOWER(t.status) IN ('resolved','completed','refunded','exchanged') THEN 1 ELSE 0 END) AS resolved_tickets,
+       SUM(CASE WHEN LOWER(t.status) IN ('rejected','inspection_failed') THEN 1 ELSE 0 END) AS rejected_tickets,
+       SUM(CASE WHEN LOWER(t.status) = 'cancelled' THEN 1 ELSE 0 END) AS cancelled_tickets
+FROM support_tickets t
+GROUP BY CONVERT(CHAR(7), t.created_at, 126), LOWER(t.ticket_type);
+GO
+
+-- Tiền hoàn theo tháng (chỉ khoản hoàn đã completed)
+CREATE VIEW v_refund_monthly AS
+SELECT CONVERT(CHAR(7), COALESCE(rf.processed_at, rf.requested_at), 126) AS [month],
+       COUNT(*)       AS refund_count,
+       SUM(rf.amount) AS refunded_amount
+FROM refunds rf
+WHERE rf.status = 'completed'
+GROUP BY CONVERT(CHAR(7), COALESCE(rf.processed_at, rf.requested_at), 126);
 GO
 
 -- =====================================================================
@@ -813,5 +898,12 @@ INSERT INTO role_permissions (role_id, permission_id)
 SELECT r.id, p.id FROM roles r
 JOIN permissions p ON p.code IN ('order.confirm','inventory.manage','invoice.manage','ticket.handle')
 WHERE r.code = 'staff';
+
+-- ===== ĐƠN VỊ VẬN CHUYỂN (FastShip là đối tác giả lập, chạy local) =====
+INSERT INTO carriers (code, name, api_base_url, tracking_url_template, hotline, is_active) VALUES
+  ('fastship',    N'FastShip Express (Đối Tác)', 'http://localhost:8081/api/v1', 'http://localhost:8082/track?code={code}', '19006868', 1),
+  ('ghn',         N'Giao Hàng Nhanh (GHN)',      NULL, 'https://donhang.ghn.vn/?order_code={code}', '1900636677', 0),
+  ('ghtk',        N'Giao Hàng Tiết Kiệm (GHTK)', NULL, 'https://i.ghtk.vn/{code}', '19006092', 0),
+  ('viettelpost', N'Viettel Post',               NULL, 'https://viettelpost.com.vn/tra-cuu-hanh-trinh-don/?code={code}', '19008095', 0);
 
 GO
