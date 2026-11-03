@@ -37,9 +37,9 @@ function HeaderIcon({ type }) {
 }
 
 export default function PublicHeader({ management = false }) {
-  const { data } = useShop();
+  const shop = useShop();
   const { user, logout } = useAuth();
-  const count = data.cart_items.reduce((sum, item) => sum + item.quantity, 0);
+  const count = (shop?.data?.cart_items || []).reduce((sum, item) => sum + item.quantity, 0);
 
   return (
     <header className="store-header">

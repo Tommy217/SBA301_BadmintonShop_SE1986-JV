@@ -1,13 +1,13 @@
 import { Alert, Badge, Button, Nav } from 'react-bootstrap';
 import { useSearchParams } from 'react-router';
-import { useShop } from '@/app/providers/shop/ShopContext';
+import { useCatalog } from './CatalogContext';
 import { formatMoney } from '@/shared/utils/format';
 import CatalogSection from './CatalogSection';
 import { optionLabels } from '@/modules/management/utils/managementUtils';
 import { voucherSections } from '@/modules/management/utils/catalogNavigation';
 
 export default function VoucherManagementPage() {
-  const { data } = useShop();
+  const { data } = useCatalog();
   const [params, setParams] = useSearchParams();
   const id = params.get('voucher');
   const voucher = (data.vouchers || []).find((v) => String(v.id) === id);
@@ -32,7 +32,7 @@ export default function VoucherManagementPage() {
           catalog="vouchers"
           onManage={select}
           onSaved={(result, savedId) => {
-            if (!savedId) select(result.vouchers.at(-1));
+            if (!savedId && result.saved) select(result.saved);
           }}
         />
       </>

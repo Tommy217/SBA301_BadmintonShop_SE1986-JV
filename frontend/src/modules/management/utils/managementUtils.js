@@ -108,6 +108,7 @@ export function createCatalogDefaults() {
   return {
     cost_price: 0,
     stock_quantity: 0,
+    weight_grams: 0,
     low_stock_threshold: 5,
     sort_order: 0,
     min_order: 0,

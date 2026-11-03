@@ -87,6 +87,7 @@ export const catalogs = {
       f('cost_price', 'Giá vốn', 'number'),
       f('stock_quantity', 'Tồn kho', 'number'),
       f('low_stock_threshold', 'Ngưỡng cảnh báo', 'number'),
+      f('weight_grams', 'Trọng lượng (gram)', 'number'),
       active,
     ],
   },

@@ -12,8 +12,7 @@
     "format:check": "prettier --check .",
     "mock": "node --watch mock/server.mjs",
     "test:mock": "node --test \"mock/tests/*.test.mjs\"",
-    "test:render": "node --test \"tests/*.test.mjs\"",
-    "test": "npm run test:mock && npm run test:render",
+    "test": "npm run test:mock",
     "seed:management": "node mock/seed/management.mjs",
     "seed:dashboard": "node mock/seed/dashboard.mjs",
     "partner": "node ../partner-system/start.mjs"

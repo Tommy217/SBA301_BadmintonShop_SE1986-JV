@@ -1,7 +1,24 @@
 import { httpClient } from '@/shared/api/httpClient';
+import { catalogApi } from '@/modules/management/api/catalog.api';
 
-// Temporary endpoint of the mock: GET returns the whole store snapshot, POST runs one action
-// ({ type, ... }) and returns the new snapshot. Removed when the Spring Boot backend is integrated.
-export const fetchShopData = (config) => httpClient.get('/shop', config);
+// Fetches the store snapshot: Carts and orders from mock server, Catalog (brands, categories, products, vouchers)
+// directly from the Java backend at http://localhost:8080.
+export async function fetchShopData(config) {
+  const [shopSnapshot, catalogData] = await Promise.all([
+    httpClient.get('/shop', config).catch(() => ({})),
+    catalogApi.list(config).catch((err) => {
+      console.warn('Không tải được catalog từ backend Java (8080):', err);
+      return {};
+    }),
+  ]);
+  return { ...shopSnapshot, ...catalogData };
+}
 
-export const sendShopAction = (action) => httpClient.post('/shop', action);
+// Dispatches shop actions (e.g. cart modifications) and merges latest catalog from Java backend (8080).
+export async function sendShopAction(action) {
+  const [shopSnapshot, catalogData] = await Promise.all([
+    httpClient.post('/shop', action),
+    catalogApi.list().catch(() => ({})),
+  ]);
+  return { ...shopSnapshot, ...catalogData };
+}

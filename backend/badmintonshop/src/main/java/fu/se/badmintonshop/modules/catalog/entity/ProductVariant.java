@@ -2,6 +2,9 @@ package fu.se.badmintonshop.modules.catalog.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.Nationalized;
+import org.hibernate.annotations.UpdateTimestamp;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -25,8 +28,7 @@ public class ProductVariant {
     @Column(name = "product_id", nullable = false)
     private Long productId;
 
-    // productId remains the writable FK for existing callers.
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "product_id", insertable = false, updatable = false)
     private Product product;
 
@@ -55,8 +57,8 @@ public class ProductVariant {
     @Builder.Default
     private Integer weightGrams = 0;
 
+    @Nationalized
     @Column(name = "color", length = 50)
-    @org.hibernate.annotations.Nationalized
     private String color;
 
     @Column(name = "size", length = 30)
@@ -66,10 +68,11 @@ public class ProductVariant {
     @Builder.Default
     private Boolean isActive = true;
 
-    @Column(name = "created_at", insertable = false, updatable = false)
+    @CreationTimestamp
+    @Column(name = "created_at", columnDefinition = "datetime2(0)")
     private LocalDateTime createdAt;
 
-    @Column(name = "updated_at", insertable = false, updatable = false)
+    @UpdateTimestamp
+    @Column(name = "updated_at", columnDefinition = "datetime2(0)")
     private LocalDateTime updatedAt;
 }
-

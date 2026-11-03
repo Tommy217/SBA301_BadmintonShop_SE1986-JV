@@ -1,4 +1,5 @@
 import { Outlet, useLocation } from 'react-router';
+import { Fragment } from 'react';
 import { useAuth } from '@/app/providers/auth/AuthContext';
 import ShopProvider from '@/app/providers/shop/ShopProvider';
 import { getToken } from '@/shared/auth/session';
@@ -10,13 +11,15 @@ import '@/modules/management/management.css';
 
 export default function ManagementLayout() {
   const { user } = useAuth();
-  const isDeliveryPage = useLocation().pathname.startsWith('/management/deliveries');
+  const pathname = useLocation().pathname;
+  const isDeliveryPage = pathname.startsWith('/management/deliveries');
+  const StoreProvider = pathname.startsWith('/management/catalog/') ? Fragment : ShopProvider;
   const mainClassName = isDeliveryPage
     ? 'management-delivery min-vh-100 p-3 p-md-4 p-xl-5'
     : 'shop-main management-content';
 
   return (
-    <ShopProvider key={getToken(user) || 'management'}>
+    <StoreProvider key={getToken(user) || 'management'}>
       <div className="shop-app management-app">
         <PublicHeader management />
         <div className="shop-layout">
@@ -27,6 +30,6 @@ export default function ManagementLayout() {
         </div>
         <PublicFooter />
       </div>
-    </ShopProvider>
+    </StoreProvider>
   );
 }

@@ -3,7 +3,7 @@ import { catalogListFields } from '@/modules/management/utils/catalogListFields'
 import { useState } from 'react';
 import { Alert, Badge, Button, Form, Modal, Table } from 'react-bootstrap';
 import { Link } from 'react-router';
-import { useShop } from '@/app/providers/shop/ShopContext';
+import { useCatalog } from './CatalogContext';
 import { formatDateTime, formatMoney } from '@/shared/utils/format';
 import { catalogs } from '@/modules/management/constants';
 import {
@@ -14,7 +14,7 @@ import {
   requiredFields,
   slugify,
 } from '@/modules/management/utils/managementUtils';
-import { catalogApi } from '../api/management.api';
+import { catalogApi } from '../api/catalog.api';
 
 const pageSize = 10;
 export default function CatalogSection({
@@ -25,7 +25,7 @@ export default function CatalogSection({
   onManage,
   onSaved,
 }) {
-  const { data, act, busy } = useShop();
+  const { data, act, busy } = useCatalog();
   const [search, setSearch] = useState('');
   const [active, setActive] = useState('');
   const [page, setPage] = useState(1);
@@ -275,11 +275,6 @@ export default function CatalogSection({
         </Alert>
       )}
       {error && !draft && !remove && <Alert variant="danger">{error}</Alert>}
-      {rows.some((r) => r.is_demo) && (
-        <Alert variant="info" className="small">
-          Các bản ghi có nhãn “Mẫu” là dữ liệu minh họa, có thể chỉnh sửa hoặc xóa.
-        </Alert>
-      )}
       {config.readonly && (
         <Alert variant="info">
           {catalog === 'product_price_history'
@@ -339,17 +334,12 @@ export default function CatalogSection({
                         <small className="d-block text-secondary">Thứ tự: {row.sort_order}</small>
                       </td>
                     )}
-                    {fields.map((f, i) => (
+                    {fields.map((f) => (
                       <td key={f.key} title={display(f, row)}>
                         {f.type === 'checkbox' ? (
                           <Badge bg={row[f.key] ? 'success' : 'secondary'}>{display(f, row)}</Badge>
                         ) : (
                           display(f, row)
-                        )}
-                        {i === 0 && row.is_demo && (
-                          <Badge bg="light" text="secondary" className="ms-2">
-                            Mẫu
-                          </Badge>
                         )}
                       </td>
                     ))}

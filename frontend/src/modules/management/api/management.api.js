@@ -1,11 +1,6 @@
 import { sendShopAction } from '@/app/providers/shop/shop.api';
 
 // Each function returns the new store snapshot from the mock API.
-export const catalogApi = {
-  save: (payload) => sendShopAction({ type: 'catalog_save', ...payload }),
-  remove: (payload) => sendShopAction({ type: 'catalog_delete', ...payload }),
-};
-
 export const managerOrderApi = {
   updateOrder: (payload) => sendShopAction({ type: 'manager_update_order', ...payload }),
 };

@@ -1,13 +1,13 @@
 import { Alert, Badge, Button, Nav } from 'react-bootstrap';
 import { useSearchParams } from 'react-router';
-import { useShop } from '@/app/providers/shop/ShopContext';
+import { useCatalog } from './CatalogContext';
 import { formatMoney } from '@/shared/utils/format';
 import CatalogSection from './CatalogSection';
 import { optionLabels } from '@/modules/management/utils/managementUtils';
 import { productSections } from '@/modules/management/utils/catalogNavigation';
 
 export default function ProductManagementPage() {
-  const { data } = useShop();
+  const { data } = useCatalog();
   const [params, setParams] = useSearchParams();
   const id = params.get('product');
   const product = data.products.find((p) => String(p.id) === id);
@@ -33,7 +33,7 @@ export default function ProductManagementPage() {
           catalog="products"
           onManage={select}
           onSaved={(result, savedId) => {
-            if (!savedId) select(result.products.at(-1));
+            if (!savedId && result.saved) select(result.saved);
           }}
         />
       </>
@@ -71,10 +71,11 @@ export default function ProductManagementPage() {
         </Button>
       </div>
       <div className="manager-entity-summary">
-        <img
-          src={images[0]?.url || '/products/' + product.product_type + '.svg'}
-          alt={product.name}
-        />
+        {images[0]?.url ? (
+          <img src={images[0].url} alt={product.name} />
+        ) : (
+          <span className="text-secondary">Chưa có ảnh</span>
+        )}
         <div>
           <Badge bg={product.is_active ? 'success' : 'secondary'}>
             {product.is_active ? 'Đang kinh doanh' : 'Tạm ẩn'}

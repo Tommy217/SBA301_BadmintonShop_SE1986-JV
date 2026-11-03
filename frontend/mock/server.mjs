@@ -66,20 +66,28 @@ function view(db, includeManagement = true) {
 function check(condition, message) {
   if (!condition) throw new Error(message);
 }
-export function mutate(db, action) {
+export function mutate(db, action, liveCatalog = null) {
   const now = new Date().toISOString();
   const cart = db.carts[0];
+  const allVariants = [
+    ...(liveCatalog?.product_variants || []),
+    ...(db.product_variants || []),
+  ];
+  const allProducts = [
+    ...(liveCatalog?.products || []),
+    ...(db.products || []),
+  ];
   const variant = (id) =>
-    db.product_variants.find((v) => {
-      const product = db.products.find((p) => p.id === v.product_id);
+    allVariants.find((v) => {
+      const product = allProducts.find((p) => p.id === v.product_id);
       return (
         v.id === id &&
         v.is_active &&
-        product?.is_active &&
-        !(db.brands || []).some((b) => b.id === product.brand_id && !b.is_active) &&
-        !(db.categories || []).some((c) => c.id === product.category_id && !c.is_active)
+        (!product || product.is_active) &&
+        !(db.brands || []).some((b) => b.id === product?.brand_id && !b.is_active) &&
+        !(db.categories || []).some((c) => c.id === product?.category_id && !c.is_active)
       );
-    });
+    }) || allVariants.find((v) => v.id === id);
   if (action.type === 'add') {
     const v = variant(action.variant_id);
     check(v, 'Không tìm thấy biến thể sản phẩm.');
@@ -812,11 +820,9 @@ export function createApiHandler(databasePath = dbPath) {
             return;
           }
         }
-        if (action.type === 'catalog_save') {
-          const actor = db.users.find((user) => user.email === sessions.get(token));
-          saveCatalog(db, action, actor.id || actor.email);
-        } else if (action.type === 'catalog_delete') deleteCatalog(db, action, catalogs);
-        else if (action.type === 'manager_update_order') {
+        if (action.type === 'catalog_save' || action.type === 'catalog_delete') {
+          throw new Error('Dữ liệu catalog được quản lý trực tiếp qua Spring Boot Backend (http://localhost:8080/api). Không còn lưu qua mock server.');
+        } else if (action.type === 'manager_update_order') {
           const actor = db.users.find((user) => user.email === sessions.get(token));
           updateManagedOrder(db, action, actor.id || actor.email);
         } else if (action.type?.startsWith('invoice_')) {
@@ -825,7 +831,23 @@ export function createApiHandler(databasePath = dbPath) {
         } else if (action.type?.startsWith('inventory_')) {
           const actor = db.users.find((user) => user.email === sessions.get(token));
           manageInventory(db, action, actor.id ?? null);
-        } else mutate(db, action);
+        } else {
+          let liveCatalog = null;
+          try {
+            const backendUrl = process.env.VITE_BACKEND_URL || 'http://localhost:8080';
+            const [variantsRes, productsRes] = await Promise.all([
+              fetch(`${backendUrl}/api/products/variants`),
+              fetch(`${backendUrl}/api/products`),
+            ]);
+            if (variantsRes.ok && productsRes.ok) {
+              liveCatalog = {
+                product_variants: await variantsRes.json(),
+                products: await productsRes.json(),
+              };
+            }
+          } catch {}
+          mutate(db, action, liveCatalog);
+        }
         syncCompletedOrderInvoices(db);
         prepareInventoryData(db);
         writeFileSync(databasePath + '.tmp', JSON.stringify(db, null, 2) + '\n');
