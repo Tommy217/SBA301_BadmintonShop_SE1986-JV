@@ -43,6 +43,18 @@ export const carriers = {
 };
 
 export const deliveryStatuses = {
+  requested: {
+    label: 'Chờ đối tác duyệt',
+    variant: 'light',
+    description: 'Shop đã gửi yêu cầu tạo vận đơn, chờ đối tác vận chuyển duyệt',
+    stepIndex: 0,
+  },
+  rejected: {
+    label: 'Đối tác từ chối',
+    variant: 'danger',
+    description: 'Đối tác vận chuyển từ chối yêu cầu, shop cần tạo lại vận đơn',
+    stepIndex: 0,
+  },
   pending_pickup: {
     label: 'Chờ lấy hàng',
     variant: 'warning',
