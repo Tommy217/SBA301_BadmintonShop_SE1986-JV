@@ -43,8 +43,11 @@ Mở `http://localhost:5173`. Mock API chạy chung với Vite dev server ở đ
 | Biến               | Mặc định                | Ý nghĩa                                                                  |
 | ------------------ | ----------------------- | ------------------------------------------------------------------------ |
 | `VITE_API_URL`     | `/api`                  | Base URL mà `httpClient` gọi tới                                         |
+| `VITE_CATALOG_API_URL` | `VITE_API_URL`       | Base URL riêng cho Catalog; đặt `http://localhost:8080/api` để gọi Java trực tiếp |
 | `VITE_USE_MOCK`    | `true`                  | `true`: dùng mock trong `mock/`. `false`: proxy `/api` sang backend thật |
 | `VITE_BACKEND_URL` | `http://localhost:8080` | Địa chỉ backend Spring Boot khi `VITE_USE_MOCK=false`                    |
+
+Gọi Java trực tiếp từ trình duyệt cần backend cho phép CORS từ `http://localhost:5173`. Nếu không đặt `VITE_CATALOG_API_URL`, Catalog dùng `/api` qua Vite proxy.
 
 Không commit file `.env`. Khi thêm biến mới thì thêm vào `.env.example` kèm giá trị mẫu.
 

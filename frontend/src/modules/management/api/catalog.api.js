@@ -1,39 +1,16 @@
-import axios from 'axios';
-import { AUTH_EXPIRED_EVENT, clearSession, getToken } from '@/shared/auth/session';
+import { httpClient } from '@/shared/api/httpClient';
 
-// Direct connection to Spring Boot Java backend on port 8080
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080';
-export const CATALOG_API_BASE_URL = `${BACKEND_URL}/api`;
+const catalogBaseURL = import.meta.env.VITE_BACKEND_URL || httpClient.defaults.baseURL;
 
-export const catalogClient = axios.create({
-  baseURL: CATALOG_API_BASE_URL,
-  headers: { 'Content-Type': 'application/json' },
-});
+const catalogHttp = {
+  get: (url, config) => httpClient.get(url, { ...config, baseURL: catalogBaseURL }),
+  post: (url, data, config) => httpClient.post(url, data, { ...config, baseURL: catalogBaseURL }),
+  put: (url, data, config) => httpClient.put(url, data, { ...config, baseURL: catalogBaseURL }),
+  delete: (url, config) => httpClient.delete(url, { ...config, baseURL: catalogBaseURL }),
+};
 
-catalogClient.interceptors.request.use((config) => {
-  const token = getToken();
-  if (token) config.headers.Authorization = `Bearer ${token}`;
-  return config;
-});
-
-catalogClient.interceptors.response.use(
-  (response) => response.data,
-  (error) => {
-    if (axios.isCancel(error)) return Promise.reject(error);
-    const status = error.response?.status;
-    if (status === 401 && error.config?.headers?.Authorization) {
-      clearSession();
-      window.dispatchEvent(new Event(AUTH_EXPIRED_EVENT));
-    }
-    const message = error.response
-      ? error.response.data?.message || 'Yêu cầu không thành công. Vui lòng thử lại.'
-      : 'Không kết nối được server Java (8080). Hãy khởi động backend Spring Boot.';
-    return Promise.reject(Object.assign(new Error(message), { status, cause: error }));
-  },
-);
-
-// Each collection belongs to one of the four Java resource controllers.
-export const catalogEndpoints = Object.freeze({
+// Danh sách đường dẫn API tương ứng với từng bảng Catalog
+export const catalogEndpoints = {
   brands: '/brands',
   categories: '/categories',
   products: '/products',
@@ -46,23 +23,73 @@ export const catalogEndpoints = Object.freeze({
   vouchers: '/vouchers',
   voucher_scopes: '/vouchers/scopes',
   voucher_usages: '/vouchers/usages',
-});
+};
 
-function endpoint(table, writable = false) {
-  if (!Object.hasOwn(catalogEndpoints, table)) throw new Error('Catalog không hợp lệ.');
-  if (writable && ['product_price_history', 'voucher_usages'].includes(table))
-    throw new Error('Dữ liệu lịch sử chỉ cho phép đọc.');
-  return catalogEndpoints[table];
-}
-
-// Assemble the same UI shape directly from the Spring Boot backend on port 8080.
+// API Catalog dùng chung cho giao diện quản lý và hiển thị
 export const catalogApi = {
-  list: async (config) => Object.fromEntries(await Promise.all(
-    Object.entries(catalogEndpoints).map(async ([table, url]) => [table, await catalogClient.get(url, config)]),
-  )),
-  save: ({ table, id, record }) =>
-    id == null
-      ? catalogClient.post(endpoint(table, true), record)
-      : catalogClient.put(`${endpoint(table, true)}/${encodeURIComponent(id)}`, record),
-  remove: ({ table, id }) => catalogClient.delete(`${endpoint(table, true)}/${encodeURIComponent(id)}`),
+  // 1. Lấy toàn bộ dữ liệu Catalog từ Backend Java
+  async list(config) {
+    const tables = Object.keys(catalogEndpoints);
+    const requests = tables.map((table) => catalogHttp.get(catalogEndpoints[table], config));
+    const responses = await Promise.all(requests);
+
+    const data = {};
+    tables.forEach((table, index) => {
+      data[table] = responses[index] || [];
+    });
+    return data;
+  },
+
+  // 2. Thêm mới hoặc cập nhật một bản ghi
+  save({ table, id, record }) {
+    const endpoint = catalogEndpoints[table];
+    if (!endpoint) throw new Error(`Không tìm thấy bảng: ${table}`);
+
+    // Nếu có id thì gọi PUT để cập nhật, không có id thì gọi POST để thêm mới
+    if (id) {
+      return catalogHttp.put(`${endpoint}/${id}`, record);
+    }
+    return catalogHttp.post(endpoint, record);
+  },
+
+  // 3. Xóa một bản ghi theo id
+  remove({ table, id }) {
+    const endpoint = catalogEndpoints[table];
+    if (!endpoint) throw new Error(`Không tìm thấy bảng: ${table}`);
+
+    return catalogHttp.delete(`${endpoint}/${id}`);
+  },
+};
+
+// API chi tiết theo từng thực thể (viết rõ ràng, dễ gọi riêng lẻ)
+export const brandApi = {
+  getAll: () => catalogHttp.get('/brands'),
+  getById: (id) => catalogHttp.get(`/brands/${id}`),
+  create: (data) => catalogHttp.post('/brands', data),
+  update: (id, data) => catalogHttp.put(`/brands/${id}`, data),
+  delete: (id) => catalogHttp.delete(`/brands/${id}`),
+};
+
+export const categoryApi = {
+  getAll: () => catalogHttp.get('/categories'),
+  getById: (id) => catalogHttp.get(`/categories/${id}`),
+  create: (data) => catalogHttp.post('/categories', data),
+  update: (id, data) => catalogHttp.put(`/categories/${id}`, data),
+  delete: (id) => catalogHttp.delete(`/categories/${id}`),
+};
+
+export const productApi = {
+  getAll: () => catalogHttp.get('/products'),
+  getById: (id) => catalogHttp.get(`/products/${id}`),
+  create: (data) => catalogHttp.post('/products', data),
+  update: (id, data) => catalogHttp.put(`/products/${id}`, data),
+  delete: (id) => catalogHttp.delete(`/products/${id}`),
+};
+
+export const voucherApi = {
+  getAll: () => catalogHttp.get('/vouchers'),
+  getById: (id) => catalogHttp.get(`/vouchers/${id}`),
+  create: (data) => catalogHttp.post('/vouchers', data),
+  update: (id, data) => catalogHttp.put(`/vouchers/${id}`, data),
+  delete: (id) => catalogHttp.delete(`/vouchers/${id}`),
 };

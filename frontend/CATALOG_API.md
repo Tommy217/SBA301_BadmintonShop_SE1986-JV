@@ -47,10 +47,10 @@ Frontend đã có Axios. `httpClient.js` là Axios instance chung với base URL
 
 1. Chuẩn bị SQL Server theo `badminton_shop.sql`; không chạy lại phần CREATE trên database đã có.
 2. Chạy Java: `mvnw.cmd spring-boot:run`.
-3. Chạy frontend: `npm run dev`. Giữ `VITE_USE_MOCK=true` cho module khác; `VITE_BACKEND_URL` là địa chỉ Java (mặc định `http://localhost:8080`).
+3. Chạy frontend: `npm run dev`. Giữ `VITE_USE_MOCK=true` cho module khác. Mặc định Catalog dùng Vite proxy nên request trên trình duyệt hiển thị cổng 5173. Để gọi Java trực tiếp, đặt `VITE_BACKEND_URL=http://localhost:8080/api`; backend phải cho phép CORS từ frontend.
 4. Khởi động lại Java và Vite nếu đang chạy route cũ.
 
-Vite dev/preview proxy riêng `/api/brands`, `/api/categories`, `/api/products`, `/api/vouchers` vào Java. Production reverse proxy phải ánh xạ tương tự. Nếu `VITE_API_URL` là URL tuyệt đối, máy chủ đó phải phục vụ các endpoint trên.
+Vite dev/preview proxy riêng `/api/brands`, `/api/categories`, `/api/products`, `/api/vouchers` vào Java. Production reverse proxy phải ánh xạ tương tự.
 
 ## Nghiệp vụ giữ nguyên
 
