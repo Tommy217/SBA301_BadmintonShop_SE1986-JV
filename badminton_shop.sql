@@ -1,3 +1,13 @@
+-- Script duy nhất của DB shop: pull về chạy lại toàn bộ file này là có DB mới nhất.
+-- CẢNH BÁO: chạy lại sẽ XOÁ database badminton_shop cũ cùng toàn bộ dữ liệu trong đó.
+USE master;
+GO
+IF DB_ID('badminton_shop') IS NOT NULL
+BEGIN
+    ALTER DATABASE badminton_shop SET SINGLE_USER WITH ROLLBACK IMMEDIATE;
+    DROP DATABASE badminton_shop;
+END
+GO
 CREATE DATABASE badminton_shop COLLATE Vietnamese_CI_AS;
 GO
 USE badminton_shop;
