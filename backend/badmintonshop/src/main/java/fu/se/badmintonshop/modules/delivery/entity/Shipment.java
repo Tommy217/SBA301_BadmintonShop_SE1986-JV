@@ -16,6 +16,7 @@ import java.util.List;
 @Entity
 @Table(name = "shipments", indexes = {
         @Index(name = "idx_ship_tracking", columnList = "tracking_code"),
+        @Index(name = "idx_ship_partner_ref", columnList = "partner_ref"),
         @Index(name = "idx_ship_order", columnList = "order_id"),
         @Index(name = "idx_ship_status", columnList = "status, created_at")
 })
@@ -38,6 +39,10 @@ public class Shipment {
     @JoinColumn(name = "carrier_id")
     private Carrier carrier;
 
+    // id van don cua partner shipment
+    @Column(name = "partner_ref", length = 64)
+    private String partnerRef;
+
     @Column(name = "tracking_code", length = 80)
     private String trackingCode;
 
@@ -49,10 +54,10 @@ public class Shipment {
     @Builder.Default
     private String serviceType = "standard";
 
-    /** Giá trị xem {@link ShipmentStatus}. */
+    // {@link ShipmentStatus}
     @Column(name = "status", nullable = false, length = 20)
     @Builder.Default
-    private String status = ShipmentStatus.PENDING_PICKUP.getValue();
+    private String status = ShipmentStatus.REQUESTED.getValue();
 
     @Nationalized
     @Column(name = "carrier_status_text", length = 300)

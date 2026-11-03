@@ -25,6 +25,10 @@ public class ShipmentEvent {
     @JoinColumn(name = "shipment_id", nullable = false)
     private Shipment shipment;
 
+    //eventId cua webhook doi tac; unique (khi khac NULL) => bo qua event gui trung
+    @Column(name = "external_event_id", length = 64)
+    private String externalEventId;
+
     //trang thai phia đoi tac tai thoi diem ghi nhan
     @Column(name = "status", nullable = false, length = 40)
     private String status;
