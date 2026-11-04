@@ -1,7 +1,8 @@
 import InventoryOverview from '@/modules/management/components/InventoryOverview';
+import useInventory from '@/modules/management/hooks/useInventory';
 import { buildInventory } from '@/modules/management/utils/inventoryData';
 import { useState } from 'react';
-import { Badge, Button, Form, Table } from 'react-bootstrap';
+import { Alert, Badge, Button, Form, Table } from 'react-bootstrap';
 import { Link } from 'react-router';
 import { useShop } from '@/app/providers/shop/ShopContext';
 import { formatMoney, formatNumber } from '@/shared/utils/format';
@@ -14,9 +15,10 @@ export default function DashboardPage() {
   const [from, setFrom] = useState(''),
     [to, setTo] = useState('');
   const report = buildReport(data, from, to);
-  const inventory = buildInventory(data);
+  const { data: stockData, error: stockError, refresh: refreshInventory } = useInventory();
+  const inventory = stockData ? buildInventory(stockData) : null;
   const max = Math.max(...report.months.map((m) => m.revenue), 1);
-  const low = data.product_variants.filter(
+  const low = (stockData?.product_variants || []).filter(
     (v) => v.is_active && v.stock_quantity <= (v.low_stock_threshold ?? 5),
   );
   function period(value) {
@@ -45,8 +47,8 @@ export default function DashboardPage() {
       <div className="eyebrow">TỔNG QUAN KINH DOANH</div>
       {data.orders.some((o) => o.is_demo) && (
         <div className="manager-demo-note">
-          Dữ liệu minh họa đã được bổ sung để xem báo cáo tồn kho và doanh thu. Các giao dịch mẫu có
-          mã DEMO và được lưu trong db.json.
+          Dữ liệu minh họa dùng cho báo cáo doanh thu; tồn kho được tải từ backend Java. Các giao
+          dịch mẫu có mã DEMO và được lưu trong db.json.
         </div>
       )}
       <div className="manager-title">
@@ -58,21 +60,22 @@ export default function DashboardPage() {
           <Button
             variant="outline-primary"
             disabled={busy}
-            onClick={() => refresh().catch(() => {})}
+            onClick={() => Promise.all([refresh(), refreshInventory()]).catch(() => {})}
           >
             Làm mới
           </Button>
           <Button onClick={download}>Xuất báo cáo</Button>
         </div>
       </div>
+      {stockError && <Alert variant="danger">{stockError}</Alert>}
       <div className="manager-overview-banner">
         <a href="#dashboard-inventory">
           <span>TỔNG TỒN KHO</span>
           <strong>
-            {formatNumber(inventory.totalQuantity)} <small>sản phẩm</small>
+            {inventory ? formatNumber(inventory.totalQuantity) : '—'} <small>sản phẩm</small>
           </strong>
           <p>
-            {inventory.totalProducts} mẫu sản phẩm · {inventory.totalVariants} SKU →
+            {inventory?.totalProducts ?? '—'} mẫu sản phẩm · {inventory?.totalVariants ?? '—'} SKU →
           </p>
         </a>
         <a href="#dashboard-revenue">
@@ -85,7 +88,11 @@ export default function DashboardPage() {
         </a>
       </div>
       <div id="dashboard-inventory">
-        <InventoryOverview inventory={inventory} />
+        {inventory ? (
+          <InventoryOverview inventory={inventory} />
+        ) : (
+          <p>Đang tải tồn kho từ backend Java…</p>
+        )}
       </div>
       <div id="dashboard-revenue" className="manager-section-heading mt-5">
         <div>
@@ -321,7 +328,9 @@ export default function DashboardPage() {
             {low.slice(0, 8).map((v) => (
               <tr key={v.id}>
                 <td>{v.sku}</td>
-                <td>{data.products.find((p) => String(p.id) === String(v.product_id))?.name}</td>
+                <td>
+                  {stockData.products.find((p) => String(p.id) === String(v.product_id))?.name}
+                </td>
                 <td>
                   <Badge
                     bg={v.stock_quantity === 0 ? 'danger' : 'warning'}
@@ -335,7 +344,9 @@ export default function DashboardPage() {
             ))}
           </tbody>
         </Table>
-        {!low.length && <p className="text-secondary">Không có biến thể cần bổ sung tồn kho.</p>}
+        {stockData && !low.length && (
+          <p className="text-secondary">Không có biến thể cần bổ sung tồn kho.</p>
+        )}
       </div>
     </section>
   );

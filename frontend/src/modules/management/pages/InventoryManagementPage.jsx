@@ -1,11 +1,13 @@
 import { useMemo, useState } from 'react';
 import { Alert, Badge, Button, Form, Modal, Nav, Table } from 'react-bootstrap';
-import { useShop } from '@/app/providers/shop/ShopContext';
+import useInventory from '@/modules/management/hooks/useInventory';
 import { formatDateTime, formatMoney, formatNumber } from '@/shared/utils/format';
 import { buildInventory } from '@/modules/management/utils/inventoryData';
 import InventoryOverview from '@/modules/management/components/InventoryOverview';
 import { ManagerSearch } from '@/shared/components/ManagerControls';
 import { inventoryApi } from '@/modules/management/api/management.api';
+
+const EMPTY_INVENTORY = { products: [], product_variants: [] };
 
 const movementLabels = {
   stock_in: 'Nhập kho',
@@ -25,7 +27,8 @@ function productName(data, variantId) {
 }
 
 export default function InventoryManagementPage() {
-  const { data, act, busy, refresh } = useShop();
+  const { data: inventoryData, act, busy, refresh, error: loadError } = useInventory();
+  const data = inventoryData || EMPTY_INVENTORY;
   const [tab, setTab] = useState('stock');
   const [search, setSearch] = useState('');
   const [showReceipt, setShowReceipt] = useState(false);
@@ -113,7 +116,7 @@ export default function InventoryManagementPage() {
     setError('');
     try {
       const result = await act(() => inventoryApi.startAudit({ note: '' }));
-      const audit = result.stock_audits.at(-1);
+      const audit = result;
       if (audit) {
         setActiveAuditId(String(audit.id));
         setAuditCounts({});
@@ -167,6 +170,21 @@ export default function InventoryManagementPage() {
     setError('');
   }
 
+  if (!inventoryData) {
+    return (
+      <section className="manager-page">
+        <h1>Quản lý kho</h1>
+        {loadError ? (
+          <Alert variant="danger">
+            {loadError} <Button onClick={() => refresh().catch(fail)}>Thử lại</Button>
+          </Alert>
+        ) : (
+          <p>Đang tải dữ liệu kho từ backend Java…</p>
+        )}
+      </section>
+    );
+  }
+
   const openAlerts = alerts.filter((alert) => alert.status === 'open');
   return (
     <section className="manager-page">
@@ -181,6 +199,7 @@ export default function InventoryManagementPage() {
             Làm mới
           </Button>
           <Button
+            disabled={busy}
             onClick={() => {
               setSupplierId(String(data.suppliers?.[0]?.id || ''));
               setShowReceipt(true);
@@ -193,6 +212,7 @@ export default function InventoryManagementPage() {
           </Button>
         </div>
       </div>
+      {loadError && <Alert variant="danger">{loadError}</Alert>}
       {notice && (
         <Alert variant="success" dismissible onClose={() => setNotice('')}>
           {notice}
@@ -281,6 +301,7 @@ export default function InventoryManagementPage() {
                         <Button
                           size="sm"
                           variant="outline-primary"
+                          disabled={busy}
                           onClick={() => {
                             setAdjustVariant(String(variant.id));
                             setNewQuantity(String(variant.stock_quantity));
@@ -420,6 +441,7 @@ export default function InventoryManagementPage() {
                             <Button
                               size="sm"
                               variant="outline-danger"
+                              disabled={busy}
                               className="ms-2"
                               onClick={() => cancelAudit(audit.id)}
                             >
@@ -649,7 +671,7 @@ export default function InventoryManagementPage() {
           <Modal.Body>
             {error && <Alert variant="danger">{error}</Alert>}
             <Form.Group className="mb-3">
-              <Form.Label>Nhà cung cấp (danh sách cố định)</Form.Label>
+              <Form.Label>Nhà cung cấp</Form.Label>
               <Form.Select
                 value={supplierId}
                 onChange={(event) => setSupplierId(event.target.value)}

@@ -4,7 +4,6 @@ import { catalogs } from '../src/modules/management/constants.js';
 import { catalogView, saveCatalog } from './actions/catalog.mjs';
 import { manageInvoice, syncCompletedOrderInvoices } from './actions/invoice.mjs';
 import {
-  manageInventory,
   prepareInventoryData,
   recordOrderStockOut,
 } from './actions/inventory.mjs';
@@ -829,8 +828,7 @@ export function createApiHandler(databasePath = dbPath) {
           const actor = db.users.find((user) => user.email === sessions.get(token));
           manageInvoice(db, action, actor.id ?? null);
         } else if (action.type?.startsWith('inventory_')) {
-          const actor = db.users.find((user) => user.email === sessions.get(token));
-          manageInventory(db, action, actor.id ?? null);
+          throw new Error('Quản lý kho đã chuyển sang http://localhost:8080/api/inventory.');
         } else {
           let liveCatalog = null;
           try {

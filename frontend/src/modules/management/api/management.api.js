@@ -5,14 +5,7 @@ export const managerOrderApi = {
   updateOrder: (payload) => sendShopAction({ type: 'manager_update_order', ...payload }),
 };
 
-export const inventoryApi = {
-  receiveStock: (payload) => sendShopAction({ type: 'inventory_receive', ...payload }),
-  adjustStock: (payload) => sendShopAction({ type: 'inventory_adjust', ...payload }),
-  startAudit: (payload) => sendShopAction({ type: 'inventory_audit_start', ...payload }),
-  updateAudit: (payload) => sendShopAction({ type: 'inventory_audit_update', ...payload }),
-  completeAudit: (payload) => sendShopAction({ type: 'inventory_audit_complete', ...payload }),
-  cancelAudit: (payload) => sendShopAction({ type: 'inventory_audit_cancel', ...payload }),
-};
+export { inventoryApi } from './inventory.api';
 
 export const invoiceApi = {
   adjust: (payload) => sendShopAction({ type: 'invoice_adjust', ...payload }),

@@ -4,11 +4,30 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { updateManagedOrder } from '../actions/management.mjs';
-import { manageInventory, prepareInventoryData, suppliers } from '../actions/inventory.mjs';
+import { manageInventory, prepareInventoryData } from '../actions/inventory.mjs';
 import { mutate, startServer } from '../server.mjs';
+
+const suppliers = [{ id: 1, name: 'Test supplier' }];
 
 function seed() {
   const db = JSON.parse(readFileSync(new URL('../db.json', import.meta.url), 'utf8'));
+  db.products = [{ id: 901, name: 'Test racket', product_type: 'racket', is_active: true }];
+  db.product_variants = [
+    {
+      id: 902,
+      product_id: 901,
+      sku: 'TEST-902',
+      is_active: true,
+      stock_quantity: 20,
+      low_stock_threshold: 5,
+      price: 100000,
+      cost_price: 50000,
+      color: 'Black',
+      size: '4U',
+    },
+  ];
+  db.product_variants.push({ ...db.product_variants[0], id: 903, sku: 'TEST-903' });
+  db.suppliers = suppliers.map((supplier) => ({ ...supplier }));
   db.invoices = [];
   db.invoice_items = [];
   db.invoice_deliveries = [];
@@ -21,7 +40,7 @@ function seed() {
   return db;
 }
 
-test('seeds fixed suppliers and synchronizes one stock alert per low-stock period', () => {
+test('preserves supplied fixtures and synchronizes one stock alert per low-stock period', () => {
   const db = seed();
   const variant = db.product_variants[0];
   for (const item of db.product_variants) {
@@ -201,7 +220,7 @@ test('checkout and cancellation append stock-out and return entries', () => {
   assert.equal(variant.stock_quantity, initial);
 });
 
-test('staff can receive stock and see invoices while customers cannot access inventory APIs', async () => {
+test('mock rejects inventory mutations after migration to Java', async () => {
   const directory = mkdtempSync(join(tmpdir(), 'inventory-management-'));
   const path = join(directory, 'db.json');
   const db = seed();
@@ -235,10 +254,9 @@ test('staff can receive stock and see invoices while customers cannot access inv
         items: [{ variant_id: variant.id, quantity: 2, unit_cost: 1000 }],
       }),
     });
-    assert.equal(response.status, 200);
-    const result = await response.json();
-    assert.equal(result.goods_receipts.length, 1);
-    assert.equal(result.inventory_movements[0].movement_type, 'stock_in');
+    assert.equal(response.status, 400);
+    assert.match((await response.json()).message, /8080/);
+    assert.equal(JSON.parse(readFileSync(path, 'utf8')).goods_receipts.length, 0);
 
     const customer = await login('customer1@gmail.com');
     const denied = await fetch(`${base}/api/shop`, {

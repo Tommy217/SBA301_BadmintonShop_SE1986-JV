@@ -13,7 +13,10 @@ export default function ManagementLayout() {
   const { user } = useAuth();
   const pathname = useLocation().pathname;
   const isDeliveryPage = pathname.startsWith('/management/deliveries');
-  const StoreProvider = pathname.startsWith('/management/catalog/') ? Fragment : ShopProvider;
+  const StoreProvider =
+    pathname.startsWith('/management/catalog/') || pathname.startsWith('/management/inventory')
+      ? Fragment
+      : ShopProvider;
   const mainClassName = isDeliveryPage
     ? 'management-delivery min-vh-100 p-3 p-md-4 p-xl-5'
     : 'shop-main management-content';

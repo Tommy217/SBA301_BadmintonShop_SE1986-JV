@@ -34,13 +34,15 @@ class BrandServiceTest {
 
     @Test
     void rejectsDuplicateSlugIgnoringCase() {
-        when(brandRepository.existsBySlugIgnoreCase("yonex")).thenReturn(true);
+        when(brandRepository.existsBySlugIgnoreCase("YONEX")).thenReturn(true);
         BrandRequest request = BrandRequest.builder()
                 .name("Yonex")
                 .slug("YONEX")
                 .isActive(true)
                 .build();
         assertThrows(CatalogException.class, () -> service.create(request));
+        verify(brandRepository).existsBySlugIgnoreCase("YONEX");
+        verify(brandRepository, never()).save(any());
     }
 
     @Test

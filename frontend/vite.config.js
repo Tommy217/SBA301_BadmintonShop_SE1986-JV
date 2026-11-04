@@ -8,7 +8,7 @@ function mockApi() {
   const handler = createApiHandler();
   const install = (server) => {
     server.middlewares.use((req, res, next) => {
-      if (/^\/api\/(brands|categories|products|vouchers)(?:[/?]|$)/.test(req.url || '')) return next();
+      if (/^\/api\/(brands|categories|products|vouchers|inventory)(?:[/?]|$)/.test(req.url || '')) return next();
       if (req.url?.startsWith('/api/')) return handler(req, res);
       next();
     });
@@ -21,7 +21,7 @@ export default defineConfig(({ mode }) => {
   const useMock = env.VITE_USE_MOCK !== 'false';
   const backendUrl = env.VITE_BACKEND_URL || 'http://localhost:8080';
   const catalogProxy = Object.fromEntries(
-    ['brands', 'categories', 'products', 'vouchers'].map((resource) => [
+    ['brands', 'categories', 'products', 'vouchers', 'inventory'].map((resource) => [
       `/api/${resource}`, { target: backendUrl, changeOrigin: true },
     ]),
   );

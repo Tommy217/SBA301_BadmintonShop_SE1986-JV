@@ -11,6 +11,7 @@ import fu.se.badmintonshop.modules.catalog.repository.ProductVariantRepository;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
+import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase;
 import org.springframework.test.context.ActiveProfiles;
 
 import java.math.BigDecimal;
@@ -19,6 +20,7 @@ import java.util.Optional;
 import static org.junit.jupiter.api.Assertions.*;
 
 @DataJpaTest
+@AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
 @ActiveProfiles("test")
 class ProductRepositoryTest {
 
@@ -46,6 +48,7 @@ class ProductRepositoryTest {
         assertNotNull(saved.getId());
         assertEquals("Yonex Japan", saved.getName());
         assertTrue(brandRepository.existsBySlugIgnoreCase("yonex-japan"));
+        assertTrue(brandRepository.existsBySlugIgnoreCase("YONEX-JAPAN"));
 
         Optional<Brand> found = brandRepository.findById(saved.getId());
         assertTrue(found.isPresent());

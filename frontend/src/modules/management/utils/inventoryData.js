@@ -48,9 +48,11 @@ export function buildInventory(data) {
         v.is_active && v.stock_quantity > 0 && v.stock_quantity <= (v.low_stock_threshold ?? 5),
     ).length,
     out: variants.filter((v) => v.is_active && v.stock_quantity === 0).length,
-    allocated: (data.order_items || [])
-      .filter((i) => allocatedOrders.has(i.order_id))
-      .reduce((s, i) => s + Number(i.quantity), 0),
+    allocated:
+      data.allocated_quantity ??
+      (data.order_items || [])
+        .filter((i) => allocatedOrders.has(i.order_id))
+        .reduce((s, i) => s + Number(i.quantity), 0),
     groups: ['racket', 'shoes', 'apparel'].map((type) => ({
       type,
       products: rows.filter((p) => p.product_type === type).length,

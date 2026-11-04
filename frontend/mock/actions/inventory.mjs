@@ -1,29 +1,5 @@
 import { randomUUID } from 'node:crypto';
 
-export const suppliers = [
-  {
-    id: 1,
-    name: 'Công ty Cầu lông Việt',
-    phone: '02838220001',
-    email: 'sales@caulongviet.vn',
-    address: 'Quận 5, TP. Hồ Chí Minh',
-  },
-  {
-    id: 2,
-    name: 'Nhà phân phối Yonex Việt Nam',
-    phone: '02838220002',
-    email: 'orders@yonex-vn.vn',
-    address: 'Quận 1, TP. Hồ Chí Minh',
-  },
-  {
-    id: 3,
-    name: 'Nhà phân phối thể thao tổng hợp',
-    phone: '02438220003',
-    email: 'supply@sport-vn.vn',
-    address: 'Cầu Giấy, Hà Nội',
-  },
-];
-
 const check = (condition, message) => {
   if (!condition) throw new Error(message);
 };
@@ -55,9 +31,7 @@ export function prepareInventoryData(db) {
     'stock_audit_items',
     'stock_alerts',
   ].some((table) => !Array.isArray(db[table]));
-  if (!Array.isArray(db.suppliers) || !db.suppliers.length) {
-    db.suppliers = suppliers.map((supplier) => ({ ...supplier }));
-  }
+  db.suppliers ||= [];
   db.goods_receipts ||= [];
   db.goods_receipt_items ||= [];
   db.inventory_movements ||= [];
