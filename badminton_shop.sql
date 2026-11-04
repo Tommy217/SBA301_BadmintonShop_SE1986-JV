@@ -1,3 +1,13 @@
+-- Script duy nhất của DB shop: pull về chạy lại toàn bộ file này là có DB mới nhất.
+-- CẢNH BÁO: chạy lại sẽ XOÁ database badminton_shop cũ cùng toàn bộ dữ liệu trong đó.
+USE master;
+GO
+IF DB_ID('badminton_shop') IS NOT NULL
+BEGIN
+    ALTER DATABASE badminton_shop SET SINGLE_USER WITH ROLLBACK IMMEDIATE;
+    DROP DATABASE badminton_shop;
+END
+GO
 CREATE DATABASE badminton_shop COLLATE Vietnamese_CI_AS;
 GO
 USE badminton_shop;
@@ -454,11 +464,12 @@ CREATE TABLE shipments (                            -- Vận đơn gửi sang Đ
   id                      BIGINT IDENTITY(1,1) PRIMARY KEY,
   order_id                BIGINT NOT NULL,
   carrier_id              INT NULL,
+  partner_ref             VARCHAR(64) NULL,                    -- id vận đơn phía đối tác (FastShip trả về khi nhận yêu cầu)
   tracking_code           VARCHAR(80),                         -- mã vận đơn đối tác cấp
   tracking_url            VARCHAR(500),                        -- link tra cứu trên website đối tác
   service_type            VARCHAR(20) NOT NULL DEFAULT 'standard' CHECK (service_type IN ('standard','fast','express')),
   status                  VARCHAR(20)
-                          NOT NULL DEFAULT 'pending_pickup' CHECK (status IN ('pending_pickup','in_transit','out_for_delivery','delivered','delivery_failed','returned','cancelled')),
+                          NOT NULL DEFAULT 'requested' CHECK (status IN ('requested','rejected','pending_pickup','in_transit','out_for_delivery','delivered','delivery_failed','returned','cancelled')),
   carrier_status_text     NVARCHAR(300),                       -- mô tả trạng thái mới nhất từ đối tác
   shipping_fee            DECIMAL(12,0) NOT NULL DEFAULT 0,    -- cước đối tác báo
   cod_amount              DECIMAL(12,0) NOT NULL DEFAULT 0,
@@ -481,6 +492,7 @@ CREATE TABLE shipments (                            -- Vận đơn gửi sang Đ
   FOREIGN KEY (carrier_id) REFERENCES carriers(id) ON DELETE SET NULL,
   FOREIGN KEY (created_by) REFERENCES users(id),
   INDEX idx_ship_tracking (tracking_code),
+  INDEX idx_ship_partner_ref (partner_ref),
   INDEX idx_ship_order (order_id),
   INDEX idx_ship_status (status, created_at)
 );
@@ -488,6 +500,7 @@ CREATE TABLE shipments (                            -- Vận đơn gửi sang Đ
 CREATE TABLE shipment_events (                      -- Delivery Status Sync (hành trình)
   id          BIGINT IDENTITY(1,1) PRIMARY KEY,
   shipment_id BIGINT NOT NULL,
+  external_event_id VARCHAR(64) NULL,                -- eventId của webhook đối tác, chống ghi trùng
   status      VARCHAR(40) NOT NULL,                  -- trạng thái phía đối tác tại thời điểm đó
   title       NVARCHAR(150),                         -- vd: "Nhập kho trung chuyển"
   description NVARCHAR(300),
@@ -638,6 +651,7 @@ GO
 -- =====================================================================
 CREATE UNIQUE INDEX uq_users_phone       ON users(phone)               WHERE phone    IS NOT NULL;
 CREATE UNIQUE INDEX uq_variants_barcode  ON product_variants(barcode)  WHERE barcode  IS NOT NULL;
+CREATE UNIQUE INDEX uq_se_external_event ON shipment_events(external_event_id) WHERE external_event_id IS NOT NULL;
 GO
 
 -- =====================================================================
