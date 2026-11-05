@@ -58,6 +58,21 @@ class ProductServiceTest {
     }
 
     @Test
+    void productResponseIncludesDatabaseImagesInDisplayOrder() {
+        Product product = Product.builder().id(15L).name("Database product").build();
+        product.getImages().add(ProductImage.builder().id(2L).product(product)
+                .url("https://example.com/second.jpg").sortOrder(2).build());
+        product.getImages().add(ProductImage.builder().id(1L).product(product)
+                .url("https://example.com/first.jpg").sortOrder(0).build());
+        when(productRepository.findAll()).thenReturn(java.util.List.of(product));
+        ProductResponse response = service.listProducts().getFirst();
+        assertEquals("Database product", response.getName());
+        assertEquals(2, response.getImages().size());
+        assertEquals("https://example.com/first.jpg", response.getImages().getFirst().getUrl());
+        assertEquals(15L, response.getImages().getFirst().getProductId());
+    }
+
+    @Test
     void validatesSpecAndImageOwnership() {
         Product racket = Product.builder().id(1L).productType("racket").build();
         when(productRepository.findById(1L)).thenReturn(Optional.of(racket));
@@ -126,7 +141,7 @@ class ProductServiceTest {
         when(productVariantRepository.existsByProductId(1L)).thenReturn(true);
 
         assertThrows(CatalogException.class, () -> service.deleteProduct(1L));
-        verify(productRepository, never()).delete(any());
+        verify(productRepository, never()).delete(any(Product.class));
     }
 
     @Test

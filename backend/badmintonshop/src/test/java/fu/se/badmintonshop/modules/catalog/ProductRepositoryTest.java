@@ -89,4 +89,31 @@ class ProductRepositoryTest {
         assertTrue(productVariantRepository.existsBySkuIgnoreCase("TK-90K-4U"));
         assertEquals(1, productVariantRepository.findByProductId(savedProduct.getId()).size());
     }
+
+    @Test
+    void storefrontPaginatesInDatabaseAndFiltersBeforeCounting() {
+        Brand brand = brandRepository.save(Brand.builder().name("Paging Brand").slug("paging-brand").build());
+        Category category = categoryRepository.save(Category.builder().name("Paging Category").slug("paging-category").build());
+        for (int i = 0; i < 12; i++) {
+            productRepository.save(Product.builder().brand(brand).category(category)
+                    .productType(i == 11 ? "shoes" : "racket").name("Paging Item " + i)
+                    .slug(i == 10 ? "demo-product-racket" : "paging-item-" + i)
+                    .basePrice(BigDecimal.valueOf(100000)).build());
+        }
+        var service = new fu.se.badmintonshop.modules.catalog.service.ProductService(
+                productRepository, null, null, null, null, null, null,
+                brandRepository, categoryRepository, null, null, null);
+        var first = service.pageProducts(0, "Paging", "racket");
+        var second = service.pageProducts(1, "Paging", "racket");
+        assertEquals(8, ((java.util.List<?>) first.get("content")).size());
+        assertEquals(2, ((java.util.List<?>) second.get("content")).size());
+        assertEquals(10L, first.get("totalElements"));
+        assertEquals(2, first.get("totalPages"));
+        assertEquals(8, first.get("size"));
+        assertEquals(1L, service.pageProducts(0, "Paging Item 1", "racket").get("totalElements"));
+        assertEquals(0L, service.pageProducts(0, "Missing", "").get("totalElements"));
+        assertTrue(((java.util.List<?>) service.pageProducts(5, "Paging", "racket").get("content")).isEmpty());
+        assertThrows(fu.se.badmintonshop.modules.catalog.exception.CatalogException.class,
+                () -> service.pageProducts(-1, "", ""));
+    }
 }
