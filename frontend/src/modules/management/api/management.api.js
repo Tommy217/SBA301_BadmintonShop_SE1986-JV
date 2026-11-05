@@ -7,9 +7,4 @@ export const managerOrderApi = {
 
 export { inventoryApi } from './inventory.api';
 
-export const invoiceApi = {
-  adjust: (payload) => sendShopAction({ type: 'invoice_adjust', ...payload }),
-  deliver: (payload) => sendShopAction({ type: 'invoice_delivery', ...payload }),
-  replace: (payload) => sendShopAction({ type: 'invoice_replace', ...payload }),
-  cancel: (payload) => sendShopAction({ type: 'invoice_cancel', ...payload }),
-};
+export { invoiceApi } from './invoice.api';

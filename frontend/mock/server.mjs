@@ -2,7 +2,7 @@ import { calculateVoucher } from '../src/modules/shop/utils/voucherRules.js';
 import { deleteCatalog, updateManagedOrder } from './actions/management.mjs';
 import { catalogs } from '../src/modules/management/constants.js';
 import { catalogView, saveCatalog } from './actions/catalog.mjs';
-import { manageInvoice, syncCompletedOrderInvoices } from './actions/invoice.mjs';
+
 import {
   prepareInventoryData,
   recordOrderStockOut,
@@ -788,7 +788,7 @@ export function createApiHandler(databasePath = dbPath) {
         return;
       }
       const inventoryChanged = prepareInventoryData(db);
-      if (syncCompletedOrderInvoices(db) || inventoryChanged) {
+      if (inventoryChanged) {
         writeFileSync(databasePath + '.tmp', JSON.stringify(db, null, 2) + '\n');
         renameSync(databasePath + '.tmp', databasePath);
       }
@@ -825,8 +825,7 @@ export function createApiHandler(databasePath = dbPath) {
           const actor = db.users.find((user) => user.email === sessions.get(token));
           updateManagedOrder(db, action, actor.id || actor.email);
         } else if (action.type?.startsWith('invoice_')) {
-          const actor = db.users.find((user) => user.email === sessions.get(token));
-          manageInvoice(db, action, actor.id ?? null);
+          throw new Error('Quản lý hóa đơn đã chuyển sang http://localhost:8080/api/invoices.');
         } else if (action.type?.startsWith('inventory_')) {
           throw new Error('Quản lý kho đã chuyển sang http://localhost:8080/api/inventory.');
         } else {
@@ -846,7 +845,6 @@ export function createApiHandler(databasePath = dbPath) {
           } catch {}
           mutate(db, action, liveCatalog);
         }
-        syncCompletedOrderInvoices(db);
         prepareInventoryData(db);
         writeFileSync(databasePath + '.tmp', JSON.stringify(db, null, 2) + '\n');
         renameSync(databasePath + '.tmp', databasePath);

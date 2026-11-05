@@ -1,8 +1,8 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Alert, Badge, Button, Form, Modal, Table } from 'react-bootstrap';
 import { useSearchParams } from 'react-router';
 import { ManagerPagination, ManagerSearch } from '@/shared/components/ManagerControls';
-import { useShop } from '@/app/providers/shop/ShopContext';
+
 import { formatDateTime, formatMoney } from '@/shared/utils/format';
 import { exportCsv, localDate } from '@/modules/management/utils/managementUtils';
 import { invoiceApi } from '@/modules/management/api/management.api';
@@ -38,7 +38,17 @@ function escapeHtml(value) {
 }
 
 export default function InvoiceManagementPage() {
-  const { data, act, busy, refresh } = useShop();
+  const [invoices, setInvoices] = useState([]);
+  const [busy, setBusy] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [showCreate, setShowCreate] = useState(false);
+  const [draft, setDraft] = useState({
+    orderId: '',
+    buyerName: '',
+    buyerEmail: '',
+    buyerAddress: '',
+    buyerTaxCode: '',
+  });
   const [params, setParams] = useSearchParams();
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState('');
@@ -54,9 +64,64 @@ export default function InvoiceManagementPage() {
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
 
-  const invoices = useMemo(() => data.invoices || [], [data.invoices]);
-  const invoiceItems = data.invoice_items || [];
-  const deliveries = data.invoice_deliveries || [];
+  const refresh = useCallback(async () => {
+    setLoading(true);
+    try {
+      setInvoices(await invoiceApi.list());
+      setError('');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    invoiceApi
+      .list({ signal: controller.signal })
+      .then((result) => {
+        if (!controller.signal.aborted) setInvoices(result);
+      })
+      .catch((e) => {
+        if (!controller.signal.aborted) setError(e.message);
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setLoading(false);
+      });
+    return () => controller.abort();
+  }, []);
+
+  async function act(request) {
+    setBusy(true);
+    try {
+      const result = await request();
+      try {
+        await refresh();
+      } catch (e) {
+        setError('Thao tác đã lưu, nhưng tải lại thất bại: ' + e.message);
+      }
+      return result;
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function createInvoice(event) {
+    event.preventDefault();
+    setError('');
+    try {
+      const result = await act(() =>
+        invoiceApi.create({ ...draft, orderId: Number(draft.orderId) }),
+      );
+      setShowCreate(false);
+      setParams({ invoice: result.id });
+      setNotice('Đã phát hành hóa đơn.');
+    } catch (e) {
+      setError(e.message);
+    }
+  }
+
+  const invoiceItems = invoices.flatMap((invoice) => invoice.items);
+  const deliveries = invoices.flatMap((invoice) => invoice.deliveries);
   const selected = invoices.find((invoice) => String(invoice.id) === params.get('invoice'));
   const rows = useMemo(
     () =>
@@ -158,7 +223,7 @@ export default function InvoiceManagementPage() {
         )
         .join('');
       printWindow.document.write(
-        `<!doctype html><html lang="vi"><head><meta charset="utf-8"><title>${escapeHtml(selected.invoice_no)}</title><style>body{font:14px Arial,sans-serif;max-width:800px;margin:40px auto;color:#173d5b}h1{font-size:24px}table{width:100%;border-collapse:collapse;margin:24px 0}th,td{border:1px solid #ccd8e0;padding:10px;text-align:left}th{background:#f1f6fa}.total{text-align:right;font-size:18px;font-weight:bold}</style></head><body><h1>HÓA ĐƠN BÁN HÀNG</h1><p><strong>${escapeHtml(selected.invoice_no)}</strong><br>Ngày phát hành: ${escapeHtml(formatDateTime(selected.issued_at))}</p><p>Người mua: ${escapeHtml(selected.buyer_name)}<br>Email: ${escapeHtml(selected.buyer_email)}<br>Địa chỉ: ${escapeHtml(selected.buyer_address)}<br>Mã số thuế: ${escapeHtml(selected.buyer_tax_code)}</p><p>Mã đơn hàng: ${escapeHtml(data.orders.find((order) => String(order.id) === String(selected.order_id))?.order_code)}</p><table><thead><tr><th>Diễn giải</th><th>Số lượng</th><th>Đơn giá</th><th>Thành tiền</th></tr></thead><tbody>${lines}</tbody></table><p>Tạm tính: ${formatMoney(selected.subtotal)}<br>Giảm giá: ${formatMoney(selected.discount_amount)}<br>Phí giao hàng: ${formatMoney(selected.shipping_fee)}</p><p class="total">Tổng thanh toán: ${formatMoney(selected.total_amount)}</p><script>window.onload=()=>window.print()</script></body></html>`,
+        `<!doctype html><html lang="vi"><head><meta charset="utf-8"><title>${escapeHtml(selected.invoice_no)}</title><style>body{font:14px Arial,sans-serif;max-width:800px;margin:40px auto;color:#173d5b}h1{font-size:24px}table{width:100%;border-collapse:collapse;margin:24px 0}th,td{border:1px solid #ccd8e0;padding:10px;text-align:left}th{background:#f1f6fa}.total{text-align:right;font-size:18px;font-weight:bold}</style></head><body><h1>HÓA ĐƠN BÁN HÀNG</h1><p><strong>${escapeHtml(selected.invoice_no)}</strong><br>Ngày phát hành: ${escapeHtml(formatDateTime(selected.issued_at))}</p><p>Người mua: ${escapeHtml(selected.buyer_name)}<br>Email: ${escapeHtml(selected.buyer_email)}<br>Địa chỉ: ${escapeHtml(selected.buyer_address)}<br>Mã số thuế: ${escapeHtml(selected.buyer_tax_code)}</p><p>Mã đơn hàng: ${escapeHtml(selected.order_code)}</p><table><thead><tr><th>Diễn giải</th><th>Số lượng</th><th>Đơn giá</th><th>Thành tiền</th></tr></thead><tbody>${lines}</tbody></table><p>Tạm tính: ${formatMoney(selected.subtotal)}<br>Giảm giá: ${formatMoney(selected.discount_amount)}<br>Phí giao hàng: ${formatMoney(selected.shipping_fee)}</p><p class="total">Tổng thanh toán: ${formatMoney(selected.total_amount)}</p><script>window.onload=()=>window.print()</script></body></html>`,
       );
       printWindow.document.close();
       setNotice(
@@ -185,7 +250,7 @@ export default function InvoiceManagementPage() {
       ],
       rows.map((invoice) => [
         invoice.invoice_no,
-        data.orders.find((order) => String(order.id) === String(invoice.order_id))?.order_code,
+        invoice.order_code,
         invoice.buyer_name,
         invoice.buyer_email,
         invoiceType[invoice.invoice_type],
@@ -202,12 +267,21 @@ export default function InvoiceManagementPage() {
       <div className="manager-title">
         <div>
           <h1>Quản lý hóa đơn</h1>
-          <p>Hóa đơn được tự động tạo khi đơn hàng hoàn tất và đã thanh toán.</p>
+          <p>Phát hành và quản lý hóa đơn cho đơn hàng hoàn tất, đã thanh toán.</p>
         </div>
         <div className="d-flex gap-2 flex-wrap">
           <Button
+            disabled={busy || loading}
+            onClick={() => {
+              setError('');
+              setShowCreate(true);
+            }}
+          >
+            Phát hành hóa đơn
+          </Button>
+          <Button
             variant="outline-primary"
-            disabled={busy}
+            disabled={busy || loading}
             onClick={() => refresh().catch((requestError) => setError(requestError.message))}
           >
             Làm mới
@@ -222,11 +296,12 @@ export default function InvoiceManagementPage() {
           {notice}
         </Alert>
       )}
-      {error && !showAdjust && !showEmail && !showReplace && (
+      {error && !showCreate && !showAdjust && !showEmail && !showReplace && (
         <Alert variant="danger" dismissible onClose={() => setError('')}>
           {error}
         </Alert>
       )}
+      {loading && <p role="status">Đang tải hóa đơn…</p>}
       <div className="manager-invoice-stats">
         <div>
           <span>Tổng hóa đơn</span>
@@ -246,15 +321,14 @@ export default function InvoiceManagementPage() {
           <span>Đơn hoàn tất có hóa đơn</span>
           <strong>
             {
-              data.orders.filter(
-                (order) =>
-                  order.status === 'completed' &&
-                  invoices.some(
+              new Set(
+                invoices
+                  .filter(
                     (invoice) =>
-                      String(invoice.order_id) === String(order.id) &&
-                      invoice.invoice_type === 'sale',
-                  ),
-              ).length
+                      invoice.order_status === 'completed' && invoice.invoice_type === 'sale',
+                  )
+                  .map((invoice) => invoice.order_id),
+              ).size
             }
           </strong>
         </div>
@@ -346,8 +420,7 @@ export default function InvoiceManagementPage() {
                   <td>
                     <strong>{invoice.invoice_no}</strong>
                     <small className="d-block text-secondary">
-                      {data.orders.find((order) => String(order.id) === String(invoice.order_id))
-                        ?.order_code || `Đơn #${invoice.order_id}`}
+                      {invoice.order_code || `Đơn #${invoice.order_id}`}
                     </small>
                   </td>
                   <td>
@@ -380,8 +453,8 @@ export default function InvoiceManagementPage() {
               {!rows.length && (
                 <tr>
                   <td colSpan="7" className="text-center py-5">
-                    Chưa có hóa đơn phù hợp. Hóa đơn bán sẽ tự tạo khi đơn hàng hoàn tất và đã thanh
-                    toán.
+                    Chưa có hóa đơn phù hợp. Chọn “Phát hành hóa đơn” cho đơn hàng đã hoàn tất và
+                    thanh toán.
                   </td>
                 </tr>
               )}
@@ -417,10 +490,7 @@ export default function InvoiceManagementPage() {
               <div className="manager-invoice-detail">
                 <div>
                   <span>Đơn hàng</span>
-                  <strong>
-                    {data.orders.find((order) => String(order.id) === String(selected.order_id))
-                      ?.order_code || `#${selected.order_id}`}
-                  </strong>
+                  <strong>{selected.order_code || `#${selected.order_id}`}</strong>
                 </div>
                 <div>
                   <span>Ngày phát hành</span>
@@ -511,9 +581,12 @@ export default function InvoiceManagementPage() {
               )}
               {selected.status === 'issued' && (
                 <div className="d-flex flex-wrap gap-2 mt-4">
-                  <Button onClick={printInvoice}>Tải / In PDF</Button>
+                  <Button onClick={printInvoice} disabled={busy || loading}>
+                    Tải / In PDF
+                  </Button>
                   <Button
                     variant="outline-primary"
+                    disabled={busy || loading}
                     onClick={() => {
                       setRecipient(selected.buyer_email || '');
                       setError('');
@@ -526,6 +599,7 @@ export default function InvoiceManagementPage() {
                     <>
                       <Button
                         variant="outline-primary"
+                        disabled={busy || loading}
                         onClick={() => {
                           setAdjustment({ amount: '', description: '', reason: '' });
                           setError('');
@@ -536,6 +610,7 @@ export default function InvoiceManagementPage() {
                       </Button>
                       <Button
                         variant="outline-primary"
+                        disabled={busy || loading}
                         onClick={() => {
                           setError('');
                           setShowReplace(true);
@@ -545,7 +620,11 @@ export default function InvoiceManagementPage() {
                       </Button>
                     </>
                   )}
-                  <Button variant="outline-danger" onClick={cancelInvoice} disabled={busy}>
+                  <Button
+                    variant="outline-danger"
+                    onClick={cancelInvoice}
+                    disabled={busy || loading}
+                  >
                     Hủy hóa đơn
                   </Button>
                 </div>
@@ -553,6 +632,49 @@ export default function InvoiceManagementPage() {
             </>
           )}
         </Modal.Body>
+      </Modal>
+
+      <Modal show={showCreate} onHide={() => setShowCreate(false)} centered>
+        <Form onSubmit={createInvoice}>
+          <Modal.Header closeButton>
+            <Modal.Title>Phát hành hóa đơn</Modal.Title>
+          </Modal.Header>
+          <Modal.Body>
+            {error && <Alert variant="danger">{error}</Alert>}
+            <Form.Group className="mb-3">
+              <Form.Label>ID đơn hàng đã hoàn tất và thanh toán</Form.Label>
+              <Form.Control
+                type="number"
+                min="1"
+                step="1"
+                required
+                value={draft.orderId}
+                onChange={(e) => setDraft({ ...draft, orderId: e.target.value })}
+              />
+            </Form.Group>
+            {[
+              ['buyerName', 'Tên người mua (để trống dùng tên người nhận)', 150],
+              ['buyerEmail', 'Email người mua', 190],
+              ['buyerAddress', 'Địa chỉ (để trống dùng địa chỉ đơn hàng)', 500],
+              ['buyerTaxCode', 'Mã số thuế', 30],
+            ].map(([key, label, max]) => (
+              <Form.Group className="mb-3" key={key}>
+                <Form.Label>{label}</Form.Label>
+                <Form.Control
+                  type={key === 'buyerEmail' ? 'email' : 'text'}
+                  maxLength={max}
+                  value={draft[key]}
+                  onChange={(e) => setDraft({ ...draft, [key]: e.target.value })}
+                />
+              </Form.Group>
+            ))}
+          </Modal.Body>
+          <Modal.Footer>
+            <Button type="submit" disabled={busy || loading}>
+              Phát hành
+            </Button>
+          </Modal.Footer>
+        </Form>
       </Modal>
 
       <Modal show={showAdjust} onHide={() => setShowAdjust(false)} centered>
@@ -602,7 +724,7 @@ export default function InvoiceManagementPage() {
             <Button variant="outline-secondary" onClick={() => setShowAdjust(false)}>
               Đóng
             </Button>
-            <Button type="submit" disabled={busy}>
+            <Button type="submit" disabled={busy || loading}>
               Lập điều chỉnh
             </Button>
           </Modal.Footer>
@@ -634,7 +756,7 @@ export default function InvoiceManagementPage() {
             <Button variant="outline-secondary" onClick={() => setShowEmail(false)}>
               Đóng
             </Button>
-            <Button type="submit" disabled={busy}>
+            <Button type="submit" disabled={busy || loading}>
               Tạo yêu cầu gửi
             </Button>
           </Modal.Footer>
@@ -653,7 +775,7 @@ export default function InvoiceManagementPage() {
           <Button variant="outline-secondary" onClick={() => setShowReplace(false)}>
             Đóng
           </Button>
-          <Button variant="primary" disabled={busy} onClick={replaceInvoice}>
+          <Button variant="primary" disabled={busy || loading} onClick={replaceInvoice}>
             Xác nhận thay thế
           </Button>
         </Modal.Footer>

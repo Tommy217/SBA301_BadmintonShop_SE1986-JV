@@ -14,7 +14,9 @@ export default function ManagementLayout() {
   const pathname = useLocation().pathname;
   const isDeliveryPage = pathname.startsWith('/management/deliveries');
   const StoreProvider =
-    pathname.startsWith('/management/catalog/') || pathname.startsWith('/management/inventory')
+    pathname.startsWith('/management/catalog/') ||
+    pathname.startsWith('/management/inventory') ||
+    pathname.startsWith('/management/invoices')
       ? Fragment
       : ShopProvider;
   const mainClassName = isDeliveryPage
