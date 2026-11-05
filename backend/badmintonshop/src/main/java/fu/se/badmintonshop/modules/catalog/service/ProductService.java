@@ -10,6 +10,9 @@ import fu.se.badmintonshop.modules.inventory.repository.InventoryMovementReposit
 import fu.se.badmintonshop.modules.order.repository.OrderItemRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
@@ -45,6 +48,32 @@ public class ProductService {
     // ==========================================
     // 1. PRODUCTS
     // ==========================================
+
+    @Transactional(readOnly = true)
+    public Map<String, Object> pageProducts(int page, String search, String type) {
+        if (page < 0) throw new CatalogException(400, "Trang phải lớn hơn hoặc bằng 0.");
+        if (type != null && !type.isBlank() && !ALLOWED_PRODUCT_TYPES.contains(type))
+            throw new CatalogException(400, "Loại sản phẩm không hợp lệ.");
+        Set<String> demoSlugs = Set.of("yonex-astrox-88d-play-1", "victor-thruster-k-220h-2", "li-ning-windstorm-72-3", "yonex-power-cushion-39-4", "victor-a170-ii-5", "ao-cau-long-training-essential-6", "demo-product-racket", "demo-product-shoes", "demo-product-apparel");
+        Specification<Product> filter = (root, query, cb) -> {
+            var predicates = new ArrayList<jakarta.persistence.criteria.Predicate>();
+            predicates.add(cb.isTrue(root.get("isActive")));
+            predicates.add(cb.isTrue(root.join("brand").get("isActive")));
+            predicates.add(cb.isTrue(root.join("category").get("isActive")));
+            predicates.add(cb.not(root.get("slug").in(demoSlugs)));
+            if (search != null && !search.isBlank()) {
+                String term = search.trim().toLowerCase(Locale.ROOT)
+                        .replace("!", "!!").replace("%", "!%").replace("_", "!_");
+                predicates.add(cb.like(cb.lower(root.get("name")), "%" + term + "%", '!'));
+            }
+            if (type != null && !type.isBlank()) predicates.add(cb.equal(root.get("productType"), type));
+            return cb.and(predicates.toArray(jakarta.persistence.criteria.Predicate[]::new));
+        };
+        var result = productRepository.findAll(filter, PageRequest.of(page, 8, Sort.by("id")));
+        return Map.of("content", result.getContent().stream().map(this::toProductResponse).toList(),
+                "number", result.getNumber(), "size", result.getSize(),
+                "totalElements", result.getTotalElements(), "totalPages", result.getTotalPages());
+    }
 
     @Transactional(readOnly = true)
     public List<ProductResponse> listProducts() {
@@ -661,6 +690,11 @@ public class ProductService {
                 .name(product.getName())
                 .slug(product.getSlug())
                 .description(product.getDescription())
+                .images(product.getImages().stream()
+                        .sorted(Comparator.comparing(ProductImage::getSortOrder,
+                                Comparator.nullsLast(Comparator.naturalOrder()))
+                                .thenComparing(ProductImage::getId, Comparator.nullsLast(Comparator.naturalOrder())))
+                        .map(this::toImageResponse).toList())
                 .basePrice(product.getBasePrice())
                 .isActive(product.getIsActive())
                 .createdBy(product.getCreatedBy())

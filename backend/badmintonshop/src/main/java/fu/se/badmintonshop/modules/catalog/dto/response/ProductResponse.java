@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.annotation.JsonNaming;
 import lombok.*;
 
 import java.math.BigDecimal;
+import java.util.List;
 import java.time.LocalDateTime;
 
 @Data
@@ -25,6 +26,7 @@ public class ProductResponse {
     private String name;
     private String slug;
     private String description;
+    private List<ProductImageResponse> images;
     @JsonProperty("base_price")
     private BigDecimal basePrice;
     @JsonProperty("is_active")

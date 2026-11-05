@@ -10,6 +10,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/products")
@@ -22,6 +23,13 @@ public class ProductController {
     @GetMapping("")
     public List<ProductResponse> listProducts() {
         return service.listProducts();
+    }
+
+    @GetMapping("/page")
+    public Map<String, Object> pageProducts(@RequestParam(defaultValue = "0") int page,
+                                          @RequestParam(defaultValue = "") String search,
+                                          @RequestParam(defaultValue = "") String type) {
+        return service.pageProducts(page, search, type);
     }
 
     @GetMapping("/{id}")
