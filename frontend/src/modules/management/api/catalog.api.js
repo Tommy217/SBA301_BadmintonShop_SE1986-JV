@@ -1,6 +1,16 @@
 import { httpClient } from '@/shared/api/httpClient';
 
-const catalogBaseURL = import.meta.env.VITE_BACKEND_URL || httpClient.defaults.baseURL;
+const backendUrl = import.meta.env.VITE_BACKEND_URL?.replace(/\/+$/, '');
+const catalogBaseURL = import.meta.env.VITE_CATALOG_API_URL ||
+  (backendUrl ? backendUrl.replace(/\/api$/, '') + '/api' : httpClient.defaults.baseURL);
+
+export function resolveImageUrl(url) {
+  if (!url?.trim()) return '';
+  const value = url.trim();
+  if (/^https?:\/\//i.test(value) || /^\/products\/[^/]+\.svg$/.test(value)) return value;
+  const base = new URL(catalogBaseURL, window.location.origin);
+  return new URL(value, base.origin + '/').href;
+}
 
 const catalogHttp = {
   get: (url, config) => httpClient.get(url, { ...config, baseURL: catalogBaseURL }),
@@ -36,6 +46,7 @@ export const catalogApi = {
     const data = {};
     tables.forEach((table, index) => {
       data[table] = responses[index] || [];
+      if (table === 'product_images') data[table] = data[table].map((row) => ({ ...row, url: resolveImageUrl(row.url) }));
     });
     return data;
   },
@@ -79,6 +90,7 @@ export const categoryApi = {
 };
 
 export const productApi = {
+  getPage: (params, config) => catalogHttp.get('/products/page', { ...config, params }),
   getAll: () => catalogHttp.get('/products'),
   getById: (id) => catalogHttp.get(`/products/${id}`),
   create: (data) => catalogHttp.post('/products', data),

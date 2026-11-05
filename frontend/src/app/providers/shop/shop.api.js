@@ -6,10 +6,7 @@ import { catalogApi } from '@/modules/management/api/catalog.api';
 export async function fetchShopData(config) {
   const [shopSnapshot, catalogData] = await Promise.all([
     httpClient.get('/shop', config).catch(() => ({})),
-    catalogApi.list(config).catch((err) => {
-      console.warn('Không tải được catalog từ backend Java (8080):', err);
-      return {};
-    }),
+    catalogApi.list(config),
   ]);
   return { ...shopSnapshot, ...catalogData };
 }
@@ -18,7 +15,7 @@ export async function fetchShopData(config) {
 export async function sendShopAction(action) {
   const [shopSnapshot, catalogData] = await Promise.all([
     httpClient.post('/shop', action),
-    catalogApi.list().catch(() => ({})),
+    catalogApi.list(),
   ]);
   return { ...shopSnapshot, ...catalogData };
 }
