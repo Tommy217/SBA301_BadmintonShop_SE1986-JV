@@ -1,3 +1,4 @@
+import { productImage, productImageFallback } from '../utils/productImages';
 import { calculateVoucher } from '@/modules/shop/utils/voucherRules';
 import Icon from '@/shared/components/Icon';
 import QuantityControl from '@/shared/components/QuantityControl';
@@ -27,7 +28,7 @@ export default function OrderPage() {
   });
   const lock = useRef(false);
   const navigate = useNavigate();
-  const variant = data.product_variants.find((v) => v.id === directVariant && v.is_active);
+  const variant = data.product_variants.find((v) => String(v.id) === directVariant && v.is_active);
   const items = directVariant
     ? variant
       ? [{ id: 'direct', variant_id: variant.id, quantity }]
@@ -197,7 +198,7 @@ export default function OrderPage() {
                       <div className="summary-row">
                         <img
                           className="order-product-image"
-                          src={'/products/' + p.product_type + '.svg'}
+                          src={productImage(data, p, v.id)} onError={(event) => productImageFallback(event, p)}
                           alt={p.name}
                         />
                         <div className="order-product-copy">

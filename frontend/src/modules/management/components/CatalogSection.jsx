@@ -1,3 +1,5 @@
+import { isDemoProduct } from '@/modules/shop/utils/catalogProducts';
+import { productImage, productImageFallback } from '@/modules/shop/utils/productImages';
 import { ManagerSearch, ManagerPagination } from '@/shared/components/ManagerControls';
 import { catalogListFields } from '@/modules/management/utils/catalogListFields';
 import { useState } from 'react';
@@ -47,7 +49,7 @@ export default function CatalogSection({
         ? value.map(String).includes(String(row[field]))
         : String(row[field]) === String(value),
     );
-  const rows = (data[catalog] || []).filter(matchesScope);
+  const rows = (data[catalog] || []).filter((row) => matchesScope(row) && (catalog !== 'products' || !isDemoProduct(row)));
   const key = config.key || 'id';
   const required = requiredFields[catalog] || [];
   const hasActive = config.fields.some((f) => f.key === 'is_active');
@@ -318,7 +320,7 @@ export default function CatalogSection({
             <Table hover className="align-middle manager-table">
               <thead>
                 <tr>
-                  {catalog === 'product_images' && <th>Hình ảnh</th>}
+                  {['products', 'product_images'].includes(catalog) && <th>Hình ảnh</th>}
                   {fields.map((f) => (
                     <th key={f.key}>{f.label}</th>
                   ))}
@@ -328,6 +330,9 @@ export default function CatalogSection({
               <tbody>
                 {visible.map((row) => (
                   <tr key={row[key]}>
+                    {catalog === 'products' && (
+                      <td><img className="manager-image-thumb" src={productImage(data, row)} onError={(event) => productImageFallback(event, row)} alt={row.name} /></td>
+                    )}
                     {catalog === 'product_images' && (
                       <td>
                         <img className="manager-image-thumb" src={row.url} alt="Ảnh sản phẩm" />
@@ -358,7 +363,7 @@ export default function CatalogSection({
                 {!filtered.length && (
                   <tr>
                     <td
-                      colSpan={fields.length + 1 + (catalog === 'product_images' ? 1 : 0)}
+                      colSpan={fields.length + 1 + (['products', 'product_images'].includes(catalog) ? 1 : 0)}
                       className="text-center py-5"
                     >
                       <strong className="d-block mb-2">

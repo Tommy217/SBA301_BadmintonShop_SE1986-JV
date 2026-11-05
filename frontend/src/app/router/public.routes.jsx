@@ -6,6 +6,7 @@ import Checkout from '@/modules/payment/pages/CheckoutPage';
 import QrPayment from '@/modules/payment/pages/QrPaymentPage';
 import PaymentResult from '@/modules/payment/pages/PaymentResultPage';
 import Home from '@/modules/shop/pages/HomePage';
+import ProductDetailPage from '@/modules/shop/pages/ProductDetailPage';
 
 import CartPage from '@/modules/shop/pages/CartPage';
 import OrderPage from '@/modules/shop/pages/OrderPage';
@@ -24,6 +25,7 @@ export const publicRoutes = [
     children: [
       { index: true, element: <Home /> },
       { path: 'products', element: <Home catalog /> },
+      { path: 'products/:productId', element: <ProductDetailPage /> },
       {
         element: <ProtectedRoute />,
         children: [

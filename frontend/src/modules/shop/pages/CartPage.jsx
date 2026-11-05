@@ -1,3 +1,4 @@
+import { productImage, productImageFallback } from '../utils/productImages';
 import { Button, Card, Col, Form, Row } from 'react-bootstrap';
 import { Link } from 'react-router';
 import { useShop } from '@/app/providers/shop/ShopContext';
@@ -74,7 +75,7 @@ export default function CartPage() {
                       />
                       <img
                         className="cart-image"
-                        src={'/products/' + p.product_type + '.svg'}
+                        src={productImage(data, p, v.id)} onError={(event) => productImageFallback(event, p)}
                         alt={p.name}
                       />
                       <div className="cart-product-copy">

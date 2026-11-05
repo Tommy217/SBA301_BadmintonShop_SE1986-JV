@@ -4,7 +4,7 @@ import Loading from '@/shared/components/Loading';
 import { ShopContext } from './ShopContext';
 import { fetchShopData } from './shop.api';
 
-const LOAD_ERROR = 'Không tải được dữ liệu. Hãy khởi động ứng dụng bằng npm run dev rồi thử lại.';
+const LOAD_ERROR = 'Không tải được sản phẩm từ database. Hãy kiểm tra backend Java và kết nối database rồi thử lại.';
 
 // Holds the store snapshot from the mock API. `act(request)` runs a module API call that
 // returns a new snapshot and stores it.

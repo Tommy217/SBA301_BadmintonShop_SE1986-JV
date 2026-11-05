@@ -1,20 +1,35 @@
+import { productApi } from '@/modules/management/api/catalog.api';
+import { productImage, productImageFallback } from '../utils/productImages';
 import { useAuth } from '@/app/providers/auth/AuthContext';
+import { cartApi } from '../api/shop.api';
+import { getToken } from '@/shared/auth/session';
 import Icon from '@/shared/components/Icon';
 import '@/modules/shop/shop.css';
-import { useState } from 'react';
-import { Alert, Badge, Button, Card, Col, Form, Row } from 'react-bootstrap';
+import { useEffect, useState } from 'react';
+import { Alert, Badge, Button, Card, Col, Form, Modal, Pagination, Row } from 'react-bootstrap';
 import { Link, useNavigate } from 'react-router';
 import { useShop } from '@/app/providers/shop/ShopContext';
 import { formatMoney } from '@/shared/utils/format';
-import { cartApi } from '../api/shop.api';
-import { getToken } from '@/shared/auth/session';
 export default function HomePage({ catalog = false }) {
   const { user } = useAuth();
   const { data, busy, act } = useShop(),
     [search, setSearch] = useState(''),
     [type, setType] = useState(''),
-    [choices, setChoices] = useState({}),
-    [notice, setNotice] = useState('');
+    [notice, setNotice] = useState(''),
+    [preview, setPreview] = useState(null);
+  const [page, setPage] = useState(0);
+  const [result, setResult] = useState(null);
+  const [loadError, setLoadError] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [retry, setRetry] = useState(0);
+  useEffect(() => {
+    const controller = new AbortController();
+    productApi.getPage({ page, search, type }, { signal: controller.signal })
+      .then((value) => { if (!controller.signal.aborted) { setResult(value); setLoadError(''); setLoading(false); } })
+      .catch((error) => { if (!controller.signal.aborted) { setLoadError(error.message); setLoading(false); } });
+    return () => controller.abort();
+  }, [page, search, type, retry]);
+  function changePage(next) { setLoading(true); setPage(next); }
   const navigate = useNavigate();
   async function add(id, buy) {
     if (!getToken(user)) {
@@ -40,14 +55,8 @@ export default function HomePage({ catalog = false }) {
       /* Error shown by provider. */
     }
   }
-  const products = data.products.filter(
-    (p) =>
-      p.is_active &&
-      !(data.brands || []).some((b) => b.id === p.brand_id && !b.is_active) &&
-      !(data.categories || []).some((c) => c.id === p.category_id && !c.is_active) &&
-      p.name.toLocaleLowerCase('vi').includes(search.toLocaleLowerCase('vi')) &&
-      (!type || p.product_type === type),
-  );
+
+  const products = result?.content || [];
   return (
     <div className="commerce-page catalog-page">
       {!catalog && (
@@ -105,12 +114,12 @@ export default function HomePage({ catalog = false }) {
               aria-label="Tìm sản phẩm"
               placeholder="Tìm tên sản phẩm…"
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={(e) => { setLoading(true); setSearch(e.target.value); setPage(0); }}
             />
           </div>
         </Col>
         <Col md={4}>
-          <Form.Select aria-label="Danh mục" value={type} onChange={(e) => setType(e.target.value)}>
+          <Form.Select aria-label="Danh mục" value={type} onChange={(e) => { setLoading(true); setType(e.target.value); setPage(0); }}>
             <option value="">Tất cả danh mục</option>
             <option value="racket">Vợt cầu lông</option>
             <option value="shoes">Giày cầu lông</option>
@@ -123,70 +132,34 @@ export default function HomePage({ catalog = false }) {
           {notice} <Link to="/cart">Xem giỏ hàng</Link>
         </Alert>
       )}
-      {!products.length && <div className="empty-state">Không tìm thấy sản phẩm phù hợp.</div>}
+      {loadError && <Alert variant="danger">{loadError} <Button onClick={() => { setLoading(true); setRetry((n) => n + 1); }}>Thử lại</Button></Alert>}
+      {loading && <p role="status">Đang tải sản phẩm…</p>}
+      {!loading && !loadError && !products.length && <div className="empty-state">Không tìm thấy sản phẩm phù hợp.</div>}
       <Row className="g-4">
-        {products.map((p) => {
+        {!loading && !loadError && products.map((p) => {
           const options = data.product_variants.filter((v) => v.product_id === p.id && v.is_active),
-            v = options.find((v) => v.id === choices[p.id]) || options[0];
-          if (!v) return null;
-          const image = (data.product_images || [])
-            .filter((i) => i.product_id === p.id && (!i.variant_id || i.variant_id === v.id))
-            .sort((a, b) => a.sort_order - b.sort_order)[0];
+            v = options.find((v) => v.stock_quantity > 0) || options[0];
           return (
-            <Col sm={6} xl={4} key={p.id}>
+            <Col xs={12} sm={6} xl={3} key={p.id}>
               <Card className="product-card h-100">
                 <div className={'product-art art-' + p.product_type}>
                   <Badge bg="light" text="primary">
                     {p.brand}
                   </Badge>
-                  <img src={image?.url || '/products/' + p.product_type + '.svg'} alt={p.name} />
+                  <button type="button" className="product-image-button" onClick={() => setPreview({ product: p, variantId: v?.id })} aria-label={'Phóng to ảnh ' + p.name}>
+                    <img src={productImage(data, p, v?.id)} onError={productImageFallback} alt={p.name} loading="lazy" />
+                    <span className="product-image-hint"><Icon name="search" size={16} /> Xem ảnh lớn</span>
+                  </button>
                 </div>
                 <Card.Body className="d-flex flex-column">
-                  <small className="text-secondary">
-                    {p.product_type === 'racket'
-                      ? 'VỢT CẦU LÔNG'
-                      : p.product_type === 'shoes'
-                        ? 'GIÀY CẦU LÔNG'
-                        : 'TRANG PHỤC'}
-                  </small>
-                  <Card.Title as="h3" className="h6 fw-bold mt-2">
-                    {p.name}
-                  </Card.Title>
-                  <p className="product-description">{p.description}</p>
-                  <Form.Select
-                    size="sm"
-                    aria-label={'Biến thể ' + p.name}
-                    value={v.id}
-                    onChange={(e) => setChoices({ ...choices, [p.id]: e.target.value })}
-                  >
-                    {options.map((o) => (
-                      <option key={o.id} value={o.id}>
-                        {o.color} / {o.size}
-                      </option>
-                    ))}
-                  </Form.Select>
+                  <Card.Title as="h3" className="h6 fw-bold mt-2"><Link className="product-name-link" to={'/products/' + p.id}>{p.name}</Link></Card.Title>
                   <div className="product-price-row">
-                    <strong className="text-primary">{formatMoney(v.price)}</strong>
-                    <small className="text-secondary">Còn {v.stock_quantity}</small>
+                    <strong className="text-primary">{formatMoney(v?.price ?? p.base_price)}</strong>
+                    <Badge bg={v?.stock_quantity ? 'success' : 'secondary'}>{v?.stock_quantity ? 'Còn ' + v.stock_quantity + ' sản phẩm' : 'Hết hàng'}</Badge>
                   </div>
                   <div className="product-actions mt-auto">
-                    <Button
-                      variant="outline-primary"
-                      className="icon-button"
-                      disabled={busy || !v.stock_quantity}
-                      onClick={() => add(v.id, false)}
-                    >
-                      <Icon name="cart" size={18} />
-                      Thêm vào giỏ
-                    </Button>
-                    <Button
-                      className="icon-button"
-                      disabled={busy || !v.stock_quantity}
-                      onClick={() => add(v.id, true)}
-                    >
-                      <Icon name="bag" size={18} />
-                      Đặt hàng
-                    </Button>
+                    <Button variant="outline-primary" className="icon-button" disabled={busy || !v?.stock_quantity} aria-label={'Thêm ' + p.name + ' vào giỏ'} title="Thêm vào giỏ" onClick={() => options.length > 1 ? navigate('/products/' + p.id) : add(v.id, false)}><Icon name="cart" size={18} /></Button>
+                    <Button className="icon-button" disabled={busy || !v?.stock_quantity} onClick={() => options.length > 1 ? navigate('/products/' + p.id) : add(v.id, true)}><Icon name="bag" size={18} />Đặt hàng</Button>
                   </div>
                 </Card.Body>
               </Card>
@@ -194,6 +167,20 @@ export default function HomePage({ catalog = false }) {
           );
         })}
       </Row>
+      {result?.totalPages > 1 && !loadError && <div className="d-flex justify-content-between align-items-center flex-wrap gap-2 mt-4">
+        <small className="text-secondary">Trang {page + 1} / {result.totalPages} · {result.totalElements} sản phẩm</small>
+        <Pagination className="mb-0" aria-label="Phân trang sản phẩm">
+          <Pagination.Prev disabled={loading || page === 0} onClick={() => changePage(page - 1)} />
+          {Array.from({ length: result.totalPages }, (_, index) => <Pagination.Item key={index} active={page === index} disabled={loading} onClick={() => changePage(index)}>{index + 1}</Pagination.Item>)}
+          <Pagination.Next disabled={loading || page >= result.totalPages - 1} onClick={() => changePage(page + 1)} />
+        </Pagination>
+      </div>}
+      <Modal show={Boolean(preview)} onHide={() => setPreview(null)} centered size="lg">
+        <Modal.Header closeButton><Modal.Title className="h5">{preview?.product.name}</Modal.Title></Modal.Header>
+        <Modal.Body className="product-preview">
+          {preview && <img src={productImage(data, preview.product, preview.variantId)} onError={productImageFallback} alt={preview.product.name} />}
+        </Modal.Body>
+      </Modal>
     </div>
   );
 }
