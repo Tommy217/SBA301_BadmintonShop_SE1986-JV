@@ -321,3 +321,39 @@
     font-size: 38px;
   }
 }
+
+/* Readable dark text on the storefront's white and pale surfaces. */
+.shop-app {
+  color: #000;
+  --bs-body-color: #000;
+  --bs-secondary-color: #000;
+  --color-text: #000;
+  --color-text-muted: #000;
+}
+.shop-app .shop-sidebar,
+.shop-app .shop-sidebar .eyebrow,
+.shop-app .shop-sidebar .nav-link,
+.shop-app .shop-sidebar .nav-link.active,
+.shop-app .shop-sidebar .nav-link:hover,
+.shop-app .shop-sidebar .sidebar-icon,
+.shop-app .shop-sidebar .nav-link.active .sidebar-icon,
+.shop-app .shop-sidebar .nav-link:hover .sidebar-icon,
+.shop-app .shop-sidebar .sidebar-tip,
+.shop-app .shop-sidebar .sidebar-tip strong,
+.shop-app .shop-sidebar .sidebar-tip p,
+.shop-app .text-secondary,
+.shop-app .text-muted,
+.shop-app .shop-hero p,
+.shop-app .eyebrow,
+.shop-app .commerce-heading p,
+.shop-app .order-page > p,
+.shop-app .order-page .form-label,
+.shop-app .shop-footer,
+.shop-app .shop-footer p,
+.shop-app .shop-footer a,
+.shop-app .shop-footer small {
+  color: #000 !important;
+}
+.shop-app .form-control,
+.shop-app .form-select { color: #000; }
+.shop-app .form-control::placeholder { color: #000; opacity: 1; }
