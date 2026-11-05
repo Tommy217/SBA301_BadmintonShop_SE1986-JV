@@ -2260,7 +2260,7 @@ BEGIN TRY
 
  INSERT INTO dbo.product_images(product_id,variant_id,url,sort_order)
  SELECT p.id,NULL,s.url,s.sort_order FROM (VALUES
- (N'yonex-astrox-100zz', 'https://res.cloudinary.com/kzizr98t/image/upload/f_auto,q_auto/tải_xuống', 0), -- PNG: Yonex Astrox 100 ZZ
+ (N'yonex-astrox-100zz', 'https://res.cloudinary.com/kzizr98t/image/upload/f_auto,q_auto/images_14', 0), -- PNG: Yonex Astrox 100 ZZ
  (N'yonex-arcsaber-11-pro', 'https://res.cloudinary.com/kzizr98t/image/upload/f_auto,q_auto/images', 0), -- PNG: Yonex Arcsaber 11 Pro
  (N'yonex-nanoflare-1000z', 'https://res.cloudinary.com/kzizr98t/image/upload/f_auto,q_auto/images_1', 0), -- PNG: Yonex Nanoflare 1000 Z
  (N'victor-thruster-ryuga-ii', 'https://res.cloudinary.com/kzizr98t/image/upload/f_auto,q_auto/images_2', 0), -- PNG: Victor Thruster Ryuga II
