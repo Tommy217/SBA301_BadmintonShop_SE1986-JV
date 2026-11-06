@@ -642,63 +642,16 @@ export function mutate(db, action, liveCatalog = null) {
   cart.updated_at = now;
   return db;
 }
-// Admin user management (replaces the old json-server on port 3000). ADMIN only.
-function handleUsers(req, res, db, databasePath, sessionEmail, id, body) {
-  const send = (status, payload) => {
-    res.writeHead(status);
-    res.end(JSON.stringify(payload));
-  };
-  const actor = db.users.find((user) => user.email === sessionEmail);
-  if (!actor) return send(401, { message: 'Vui lòng đăng nhập để sử dụng chức năng này.' });
-  if (!actor.roles?.some((role) => role.toUpperCase() === 'ADMIN'))
-    return send(403, { message: 'Bạn không có quyền quản lý tài khoản.' });
-  const target = id == null ? null : db.users.find((user) => String(user.id) === String(id));
-  if (id != null && !target) return send(404, { message: 'Không tìm thấy tài khoản.' });
-  if (req.method === 'GET') return send(200, target || db.users);
-  const input = JSON.parse(body || '{}');
-  const email = input.email == null ? null : String(input.email).trim().toLowerCase();
-  if (
-    email &&
-    db.users.some((user) => user !== target && String(user.email).toLowerCase() === email)
-  )
-    return send(400, {
-      message: target
-        ? 'Email này đã được sử dụng bởi một tài khoản khác.'
-        : 'Email này đã tồn tại trong hệ thống. Vui lòng chọn email khác.',
-    });
-  let result;
-  if (req.method === 'POST' && !target) {
-    check(email, 'Vui lòng nhập email.');
-    const nextId = Math.max(0, ...db.users.map((user) => Number(user.id) || 0)) + 1;
-    result = {
-      ...input,
-      id: String(nextId),
-      email,
-      fullName: String(input.fullName || '').trim(),
-      roles: Array.isArray(input.roles) ? input.roles : [input.roles || 'CUSTOMER'],
-      isActive: input.isActive !== undefined ? input.isActive : true,
-    };
-    db.users.push(result);
-  } else if (req.method === 'PATCH' && target) {
-    Object.assign(target, input, email ? { email } : {});
-    result = target;
-  } else return send(405, { message: 'Phương thức không được hỗ trợ.' });
-  writeFileSync(databasePath + '.tmp', JSON.stringify(db, null, 2) + '\n');
-  renameSync(databasePath + '.tmp', databasePath);
-  send(req.method === 'POST' ? 201 : 200, result);
-}
-export function createApiHandler(databasePath = dbPath) {
-  const sessions = new Map();
+export function createApiHandler(databasePath = dbPath, backendUrl = process.env.VITE_BACKEND_URL || 'http://localhost:8080') {
   return async (req, res) => {
     res.setHeader('Content-Type', 'application/json; charset=utf-8');
-    const usersRoute = req.url.split('?')[0].match(/^\/api\/users(?:\/([^/]+))?$/);
-    if (req.url !== '/api/shop' && req.url !== '/api/auth/login' && !usersRoute) {
+    if (req.url !== '/api/shop') {
       res.writeHead(404);
       res.end(JSON.stringify({ message: 'Không tìm thấy API.' }));
       return;
     }
     try {
-      if (!['GET', 'POST'].includes(req.method) && !(usersRoute && req.method === 'PATCH')) {
+      if (!['GET', 'POST'].includes(req.method)) {
         res.writeHead(405);
         res.end('{}');
         return;
@@ -710,49 +663,18 @@ export function createApiHandler(databasePath = dbPath) {
       }
       // Read after receiving the body; synchronous mutation and rename keep each write together.
       const db = JSON.parse(readFileSync(databasePath, 'utf8'));
-      if (req.url === '/api/auth/login') {
-        if (req.method !== 'POST') {
-          res.writeHead(405);
-          res.end(JSON.stringify({ message: 'Yêu cầu POST.' }));
-          return;
-        }
-        const credentials = JSON.parse(body);
-        const email =
-          typeof credentials.email === 'string' ? credentials.email.trim().toLowerCase() : '';
-        const user = db.users.find(
-          (user) =>
-            user.email.toLowerCase() === email &&
-            typeof credentials.password === 'string' &&
-            user.password === credentials.password,
-        );
-        if (!user) {
-          res.writeHead(401);
-          res.end(JSON.stringify({ message: 'Email hoặc mật khẩu không đúng.' }));
-          return;
-        }
-        res.setHeader('Cache-Control', 'no-store');
-        const authToken = 'mock-' + randomUUID();
-        sessions.set(authToken, user.email);
-        res.end(
-          JSON.stringify({
-            id: user.id || user.email,
-            email: user.email,
-            fullName: user.fullName,
-            roles: user.roles,
-            authToken,
-          }),
-        );
-        return;
-      }
       const token = req.headers.authorization?.replace(/^Bearer /, '');
-      if (usersRoute) {
-        handleUsers(req, res, db, databasePath, sessions.get(token), usersRoute[1], body);
-        return;
+      let sessionUser = null;
+      if (token) {
+        const identity = await fetch(backendUrl + '/api/auth/me', {
+          headers: { Authorization: 'Bearer ' + token }, signal: AbortSignal.timeout(5000),
+        });
+        if (identity.ok) sessionUser = await identity.json();
+        else if (identity.status !== 401) throw new Error('Không xác minh được phiên đăng nhập với backend.');
       }
-      const authenticated = sessions.has(token);
-      const sessionUser = db.users.find((user) => user.email === sessions.get(token));
+      const authenticated = Boolean(sessionUser);
       const canViewManagement = sessionUser?.roles?.some((role) =>
-        ['MANAGER', 'STAFF'].includes(role.toUpperCase()),
+        ['ADMIN', 'MANAGER', 'STAFF'].includes(role.toUpperCase()),
       );
       if ((token && !authenticated) || (req.method === 'POST' && !authenticated)) {
         res.writeHead(401);
@@ -794,10 +716,24 @@ export function createApiHandler(databasePath = dbPath) {
       }
       if (req.method === 'POST') {
         const action = JSON.parse(body);
+        if (action.type === 'manager_decision_support_ticket' && !sessionUser.roles.some(role => ['ADMIN', 'MANAGER'].includes(role))) {
+          res.writeHead(403);
+          res.end(JSON.stringify({ message: 'Chỉ quản lý được quyết định xử lý phiếu.' }));
+          return;
+        }
         const invoiceAction = action.type?.startsWith('invoice_');
         const inventoryAction = action.type?.startsWith('inventory_');
         if (
           [
+            'review_support_ticket',
+            'inspect_support_ticket',
+            'approve_refund_support_ticket',
+            'manager_decision_support_ticket',
+            'ship_exchange_support_ticket',
+            'replacement_unavailable_support_ticket',
+            'refund_transfer_support_ticket',
+            'create_shipment',
+            'sync_carrier_status',
             'update_support_ticket',
             'catalog_save',
             'catalog_delete',
@@ -806,9 +742,8 @@ export function createApiHandler(databasePath = dbPath) {
           invoiceAction ||
           inventoryAction
         ) {
-          const email = sessions.get(token);
-          const actor = db.users.find((user) => user.email === email);
-          const allowedRoles = ['MANAGER', 'STAFF'];
+          const actor = sessionUser;
+          const allowedRoles = ['ADMIN', 'MANAGER', 'STAFF'];
           if (!actor?.roles?.some((role) => allowedRoles.includes(role.toUpperCase()))) {
             res.writeHead(403);
             res.end(
@@ -822,7 +757,7 @@ export function createApiHandler(databasePath = dbPath) {
         if (action.type === 'catalog_save' || action.type === 'catalog_delete') {
           throw new Error('Dữ liệu catalog được quản lý trực tiếp qua Spring Boot Backend (http://localhost:8080/api). Không còn lưu qua mock server.');
         } else if (action.type === 'manager_update_order') {
-          const actor = db.users.find((user) => user.email === sessions.get(token));
+          const actor = sessionUser;
           updateManagedOrder(db, action, actor.id || actor.email);
         } else if (action.type?.startsWith('invoice_')) {
           throw new Error('Quản lý hóa đơn đã chuyển sang http://localhost:8080/api/invoices.');
@@ -831,8 +766,7 @@ export function createApiHandler(databasePath = dbPath) {
         } else {
           let liveCatalog = null;
           try {
-            const backendUrl = process.env.VITE_BACKEND_URL || 'http://localhost:8080';
-            const [variantsRes, productsRes] = await Promise.all([
+                const [variantsRes, productsRes] = await Promise.all([
               fetch(`${backendUrl}/api/products/variants`),
               fetch(`${backendUrl}/api/products`),
             ]);
