@@ -53,7 +53,11 @@ Không commit file `.env`. Khi thêm biến mới thì thêm vào `.env.example`
 
 ### Tài khoản thử
 
-Tài khoản mẫu nằm trong `mock/db.json` (mảng `users`). Mỗi role có ít nhất một tài khoản: `ADMIN`, `MANAGER`, `STAFF`, `CUSTOMER`.
+Tài khoản lấy từ SQL Server (`users`, `roles`, `user_roles`), không còn user trong `mock/db.json`. Chạy backend Java ở cổng 8080 trước khi đăng nhập.
+
+Bốn tài khoản trong SQL seed: `admin@gmail.com`, `manager@gmail.com`, `staff@gmail.com`, `customer@gmail.com`; mật khẩu seed: `123`.
+
+`/api/auth/*` và `/api/users/*` luôn đi tới Java kể cả khi `VITE_USE_MOCK=true`. Backend kiểm tra BCrypt, trạng thái tài khoản và role trong database. Token có hạn 8 giờ, bị thu hồi khi đăng xuất; khởi động lại backend sẽ yêu cầu đăng nhập lại. Các API mock còn lại xác minh token qua `/api/auth/me`, không tự xác thực mật khẩu. Frontend chỉ giữ token, hiển thị và điều hướng theo thông tin backend trả về.
 
 ### Các cổng trong toàn hệ thống
 

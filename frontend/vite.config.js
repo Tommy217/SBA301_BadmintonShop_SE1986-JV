@@ -4,11 +4,16 @@ import { defineConfig, loadEnv } from 'vite';
 import { createApiHandler } from './mock/server.mjs';
 
 // Serves the mock API on the Vite server, so `npm run dev` is enough while the backend is not ready.
-function mockApi() {
-  const handler = createApiHandler();
+function mockApi(backendUrl) {
+  const handler = createApiHandler(undefined, backendUrl);
   const install = (server) => {
     server.middlewares.use((req, res, next) => {
-      if (/^\/api\/(brands|categories|products|vouchers|inventory)(?:[/?]|$)/.test(req.url || '')) return next();
+      if (
+        /^\/api\/(auth|users|brands|categories|products|vouchers|inventory)(?:[/?]|$)/.test(
+          req.url || '',
+        )
+      )
+        return next();
       if (req.url?.startsWith('/api/')) return handler(req, res);
       next();
     });
@@ -21,21 +26,19 @@ export default defineConfig(({ mode }) => {
   const useMock = env.VITE_USE_MOCK !== 'false';
   const backendUrl = env.VITE_BACKEND_URL || 'http://localhost:8080';
   const catalogProxy = Object.fromEntries(
-    ['brands', 'categories', 'products', 'vouchers', 'inventory'].map((resource) => [
-      `/api/${resource}`, { target: backendUrl, changeOrigin: true },
-    ]),
+    ['auth', 'users', 'brands', 'categories', 'products', 'vouchers', 'inventory'].map(
+      (resource) => [`/api/${resource}`, { target: backendUrl, changeOrigin: true }],
+    ),
   );
 
   return {
-    plugins: [react(), useMock && mockApi()],
+    plugins: [react(), useMock && mockApi(backendUrl)],
     resolve: {
       alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) },
     },
     server: {
       port: 5173,
-      proxy: useMock
-        ? catalogProxy
-        : { '/api': { target: backendUrl, changeOrigin: true } },
+      proxy: useMock ? catalogProxy : { '/api': { target: backendUrl, changeOrigin: true } },
     },
     preview: { proxy: catalogProxy },
   };

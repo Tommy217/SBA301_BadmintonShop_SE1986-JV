@@ -9,7 +9,7 @@ Web bán đồ cầu lông của nhóm SE1986-JV (môn SBA301).
 | Cơ sở dữ liệu | MS SQL Server | |
 | Hệ thống giao hàng đối tác (giả lập) | FastShip | `partner-system/` (chạy bằng `npm run partner` trong `frontend/`) |
 
-Hiện frontend dùng mock API (Vite middleware, dữ liệu ở `frontend/mock/db.json`). Khi có backend, đặt `VITE_USE_MOCK=false` trong `frontend/.env` để chuyển `/api` sang backend.
+Đăng nhập, phân quyền và quản lý tài khoản dùng Spring Boot + SQL Server; cần chạy backend cổng 8080. `frontend/mock/db.json` không chứa user. Một số chức năng cửa hàng vẫn dùng mock API (Vite middleware). Khi có backend, đặt `VITE_USE_MOCK=false` trong `frontend/.env` để chuyển `/api` sang backend.
 
 ## Bắt đầu
 

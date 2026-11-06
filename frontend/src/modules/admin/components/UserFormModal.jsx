@@ -13,7 +13,7 @@ export default function UserFormModal({ show, onHide, user, onSave }) {
           fullName: user.fullName,
           email: user.email,
           roles: user.roles,
-          password: user.password,
+          password: '',
           isActive: user.isActive,
         }
       : { fullName: '', email: '', roles: ['STAFF'], password: '', isActive: true },
@@ -60,7 +60,7 @@ export default function UserFormModal({ show, onHide, user, onSave }) {
       setError('Vui lòng nhập địa chỉ email.');
       return;
     }
-    if (!formData.password.trim()) {
+    if (!isEditing && !formData.password.trim()) {
       setError('Vui lòng nhập mật khẩu.');
       return;
     }
@@ -132,16 +132,16 @@ export default function UserFormModal({ show, onHide, user, onSave }) {
           {!isCustomer && (
             <Form.Group className="mb-3">
               <Form.Label style={{ fontSize: '13px', fontWeight: 600, color: '#334155' }}>
-                Mật khẩu <span style={{ color: '#ef4444' }}>*</span>
+                Mật khẩu {!isEditing && <span style={{ color: '#ef4444' }}>*</span>}
               </Form.Label>
               <Form.Control
-                type="text"
+                type="password"
                 name="password"
-                placeholder="Nhập mật khẩu"
+                placeholder={isEditing ? 'Để trống để giữ mật khẩu hiện tại' : 'Nhập mật khẩu'}
                 value={formData.password}
                 onChange={handleChange}
                 disabled={submitting}
-                required
+                required={!isEditing}
               />
             </Form.Group>
           )}
