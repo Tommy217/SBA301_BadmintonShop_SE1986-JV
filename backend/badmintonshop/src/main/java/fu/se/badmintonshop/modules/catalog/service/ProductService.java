@@ -35,7 +35,6 @@ public class ProductService {
     private final OrderItemRepository orderItemRepository;
     private final InventoryMovementRepository inventoryMovementRepository;
 
-    private static final String URL_REGEX = "(?i)^(https?://[^\\s]+|/(?!/)[^\\s]*)$";
     private static final Set<String> ALLOWED_PRODUCT_TYPES = Set.of("racket", "shoes", "apparel");
     private static final Set<String> ALLOWED_BALANCE_TYPES = Set.of("head_heavy", "even", "head_light");
     private static final Set<String> ALLOWED_FLEX = Set.of("stiff", "medium", "flexible");
@@ -373,10 +372,10 @@ public class ProductService {
         ProductImage image = ProductImage.builder()
                 .product(product)
                 .variant(variant)
-                .url(request.getUrl().trim())
                 .sortOrder(request.getSortOrder() != null ? request.getSortOrder() : 0)
                 .build();
 
+        image.setUrl(request.getUrl().trim());
         return toImageResponse(productImageRepository.save(image));
     }
 
@@ -675,9 +674,7 @@ public class ProductService {
     // ==========================================
 
     private void validateUrl(String url) {
-        if (url != null && !url.isBlank() && !url.matches(URL_REGEX)) {
-            throw new CatalogException(400, "URL ảnh không hợp lệ.");
-        }
+        fu.se.badmintonshop.modules.catalog.entity.ImageBytesConverter.validate(url);
     }
 
     public ProductResponse toProductResponse(Product product) {

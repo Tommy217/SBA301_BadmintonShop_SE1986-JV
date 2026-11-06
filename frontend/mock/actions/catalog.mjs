@@ -26,7 +26,11 @@ export function saveCatalog(db, action, actor) {
       check(Number.isFinite(value) && value >= 0, field.label + ': giá trị phải là số không âm.');
     } else {
       value = String(value).trim();
-      check(value.length <= 500, field.label + ': tối đa 500 ký tự.');
+      const maxLength = field.type === 'image' ? 6990544 : 500;
+      check(
+        value.length <= maxLength,
+        field.label + (field.type === 'image' ? ': ảnh tối đa 5 MB.' : ': tối đa 500 ký tự.'),
+      );
     }
     if (field.type === 'select')
       check(field.options.includes(value), field.label + ': chọn giá trị hợp lệ.');

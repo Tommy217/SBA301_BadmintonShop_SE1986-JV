@@ -22,7 +22,7 @@ public class ProductImageRequest {
     private Long variantId;
 
     @NotBlank(message = "URL hình ảnh không được để trống")
-    @Size(max = 500, message = "URL tối đa 500 ký tự")
+    @Size(max = 6990544, message = "Image must be at most 5 MB")
     private String url;
 
     @JsonProperty("sort_order")

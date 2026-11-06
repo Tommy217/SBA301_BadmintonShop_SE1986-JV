@@ -7,7 +7,7 @@ export const catalogs = {
     fields: [
       f('name', 'Tên thương hiệu'),
       f('slug', 'Slug'),
-      f('logo_url', 'URL logo', 'url'),
+      f('logo_url', 'Logo thương hiệu', 'image'),
       active,
     ],
   },
@@ -96,7 +96,7 @@ export const catalogs = {
     fields: [
       ref('product_id', 'Sản phẩm', 'products'),
       ref('variant_id', 'Biến thể (tùy chọn)', 'product_variants'),
-      f('url', 'URL hình ảnh', 'url'),
+      f('url', 'Hình ảnh', 'image'),
       f('sort_order', 'Thứ tự', 'number'),
     ],
   },

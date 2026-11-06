@@ -26,8 +26,33 @@ public class Brand {
     @Column(name = "slug", nullable = false, length = 120)
     private String slug;
 
-    @Column(name = "logo_url", length = 500)
+    @Column(name = "logo_url", columnDefinition = "varchar(max)")
     private String logoUrl;
+
+    @Column(name = "logo_data", columnDefinition = "varbinary(max)")
+    private byte[] logoData;
+
+    public String getLogoUrl() {
+        return logoData != null ? new ImageBytesConverter().convertToEntityAttribute(logoData) : logoUrl;
+    }
+
+    public void setLogoUrl(String value) {
+        ImageBytesConverter.validate(value);
+        if (value != null && value.startsWith("data:")) {
+            logoData = new ImageBytesConverter().convertToDatabaseColumn(value);
+            logoUrl = null;
+        } else {
+            logoUrl = value;
+            logoData = null;
+        }
+    }
+
+    // Lombok builders bypass setters, so normalize builder input before persistence too.
+    @PrePersist
+    @PreUpdate
+    private void prepareImage() {
+        if (logoUrl != null && logoUrl.startsWith("data:")) setLogoUrl(logoUrl);
+    }
 
     @Column(name = "is_active", nullable = false)
     @Builder.Default

@@ -113,7 +113,8 @@ CREATE TABLE brands (
   id        INT IDENTITY(1,1) PRIMARY KEY,
   name      NVARCHAR(100) NOT NULL UNIQUE,
   slug      VARCHAR(120) NOT NULL UNIQUE,
-  logo_url  VARCHAR(500),
+  logo_url  VARCHAR(MAX) NULL,       -- Existing remote / Cloudinary URL
+  logo_data VARBINARY(MAX) NULL,     -- Bytes for newly uploaded logos
   is_active BIT NOT NULL DEFAULT 1
 );
 
@@ -194,7 +195,8 @@ CREATE TABLE product_images (
   id         BIGINT IDENTITY(1,1) PRIMARY KEY,
   product_id BIGINT NOT NULL,
   variant_id BIGINT NULL,
-  url        VARCHAR(500) NOT NULL,
+  url        VARCHAR(MAX) NULL,     -- Existing remote / Cloudinary URL
+  image_data VARBINARY(MAX) NULL,    -- Bytes for newly uploaded images
   sort_order INT NOT NULL DEFAULT 0,
   FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE,
   FOREIGN KEY (variant_id) REFERENCES product_variants(id)

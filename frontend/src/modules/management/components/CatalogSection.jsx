@@ -1,3 +1,4 @@
+import ImagePicker from './ImagePicker';
 import { isDemoProduct } from '@/modules/shop/utils/catalogProducts';
 import { productImage, productImageFallback } from '@/modules/shop/utils/productImages';
 import { ManagerSearch, ManagerPagination } from '@/shared/components/ManagerControls';
@@ -28,6 +29,7 @@ export default function CatalogSection({
   onSaved,
 }) {
   const { data, act, busy } = useCatalog();
+  const [imageReading, setImageReading] = useState(false);
   const [search, setSearch] = useState('');
   const [active, setActive] = useState('');
   const [page, setPage] = useState(1);
@@ -49,7 +51,9 @@ export default function CatalogSection({
         ? value.map(String).includes(String(row[field]))
         : String(row[field]) === String(value),
     );
-  const rows = (data[catalog] || []).filter((row) => matchesScope(row) && (catalog !== 'products' || !isDemoProduct(row)));
+  const rows = (data[catalog] || []).filter(
+    (row) => matchesScope(row) && (catalog !== 'products' || !isDemoProduct(row)),
+  );
   const key = config.key || 'id';
   const required = requiredFields[catalog] || [];
   const hasActive = config.fields.some((f) => f.key === 'is_active');
@@ -60,6 +64,7 @@ export default function CatalogSection({
   function display(field, row) {
     const value = row[field.key];
     if (value == null || value === '') return '—';
+    if (field.type === 'image') return 'Đã có ảnh';
     if (field.type === 'checkbox') return value ? 'Hoạt động' : 'Tạm ẩn';
     if (field.type === 'ref') return label(field.options, value);
     if (field.key === 'scope_id')
@@ -106,6 +111,15 @@ export default function CatalogSection({
   }
   async function save(e) {
     e.preventDefault();
+    if (imageReading || busy) return;
+    if (
+      config.fields.some(
+        (f) => f.type === 'image' && required.includes(f.key) && !draft.record[f.key],
+      )
+    ) {
+      setError('Vui lòng chọn hình ảnh.');
+      return;
+    }
     const record = { ...draft.record };
     for (const f of config.fields)
       if (f.type === 'datetime-local' && record[f.key])
@@ -200,7 +214,7 @@ export default function CatalogSection({
         {hasActive && (
           <Button
             variant="outline-secondary"
-            disabled={busy}
+            disabled={busy || imageReading}
             onClick={() => {
               setDetail(null);
               perform(
@@ -320,7 +334,7 @@ export default function CatalogSection({
             <Table hover className="align-middle manager-table">
               <thead>
                 <tr>
-                  {['products', 'product_images'].includes(catalog) && <th>Hình ảnh</th>}
+                  {['brands', 'products', 'product_images'].includes(catalog) && <th>Hình ảnh</th>}
                   {fields.map((f) => (
                     <th key={f.key}>{f.label}</th>
                   ))}
@@ -330,8 +344,22 @@ export default function CatalogSection({
               <tbody>
                 {visible.map((row) => (
                   <tr key={row[key]}>
+                    {catalog === 'brands' && (
+                      <td>
+                        {row.logo_url && (
+                          <img className="manager-image-thumb" src={row.logo_url} alt={row.name} />
+                        )}
+                      </td>
+                    )}
                     {catalog === 'products' && (
-                      <td><img className="manager-image-thumb" src={productImage(data, row)} onError={(event) => productImageFallback(event, row)} alt={row.name} /></td>
+                      <td>
+                        <img
+                          className="manager-image-thumb"
+                          src={productImage(data, row)}
+                          onError={(event) => productImageFallback(event, row)}
+                          alt={row.name}
+                        />
+                      </td>
                     )}
                     {catalog === 'product_images' && (
                       <td>
@@ -363,7 +391,11 @@ export default function CatalogSection({
                 {!filtered.length && (
                   <tr>
                     <td
-                      colSpan={fields.length + 1 + (['products', 'product_images'].includes(catalog) ? 1 : 0)}
+                      colSpan={
+                        fields.length +
+                        1 +
+                        (['brands', 'products', 'product_images'].includes(catalog) ? 1 : 0)
+                      }
                       className="text-center py-5"
                     >
                       <strong className="d-block mb-2">
@@ -394,7 +426,7 @@ export default function CatalogSection({
         scrollable
         className="manager-modal"
         show={!!draft}
-        onHide={() => !busy && setDraft(null)}
+        onHide={() => !busy && !imageReading && setDraft(null)}
         size="lg"
         centered
       >
@@ -426,7 +458,15 @@ export default function CatalogSection({
                         {f.label}
                         {required.includes(f.key) && ' *'}
                       </Form.Label>
-                      {f.type === 'checkbox' ? (
+                      {f.type === 'image' ? (
+                        <ImagePicker
+                          value={draft?.record[f.key]}
+                          onChange={(value) => change(f.key, value)}
+                          disabled={busy || imageReading}
+                          required={required.includes(f.key)}
+                          onBusyChange={setImageReading}
+                        />
+                      ) : f.type === 'checkbox' ? (
                         <Form.Check
                           label="Đang hoạt động"
                           checked={!!draft?.record[f.key]}
@@ -486,10 +526,10 @@ export default function CatalogSection({
             )}
           </Modal.Body>
           <Modal.Footer>
-            <Button variant="light" disabled={busy} onClick={() => setDraft(null)}>
+            <Button variant="light" disabled={busy || imageReading} onClick={() => setDraft(null)}>
               Đóng
             </Button>
-            <Button type="submit" disabled={busy}>
+            <Button type="submit" disabled={busy || imageReading}>
               {busy ? 'Đang lưu…' : 'Lưu thay đổi'}
             </Button>
           </Modal.Footer>
@@ -548,7 +588,7 @@ export default function CatalogSection({
           </Button>
           <Button
             variant="danger"
-            disabled={busy}
+            disabled={busy || imageReading}
             onClick={async () => {
               if (
                 await perform(

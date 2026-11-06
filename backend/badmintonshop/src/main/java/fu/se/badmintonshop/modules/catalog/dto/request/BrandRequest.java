@@ -21,7 +21,7 @@ public class BrandRequest {
     private String slug;
 
     @JsonProperty("logo_url")
-    @Size(max = 500, message = "URL logo tối đa 500 ký tự")
+    @Size(max = 6990544, message = "Image must be at most 5 MB")
     private String logoUrl;
 
     @JsonProperty("is_active")

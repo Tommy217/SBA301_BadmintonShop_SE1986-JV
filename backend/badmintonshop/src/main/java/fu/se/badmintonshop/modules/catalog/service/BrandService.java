@@ -20,7 +20,6 @@ public class BrandService {
     private final ProductRepository productRepository;
     private final VoucherScopeRepository voucherScopeRepository;
 
-    private static final String URL_REGEX = "(?i)^(https?://[^\\s]+|/(?!/)[^\\s]*)$";
 
     @Transactional(readOnly = true)
     public List<BrandResponse> list() {
@@ -51,10 +50,10 @@ public class BrandService {
         Brand brand = Brand.builder()
                 .name(request.getName().trim())
                 .slug(slug)
-                .logoUrl(request.getLogoUrl() != null && !request.getLogoUrl().isBlank() ? request.getLogoUrl().trim() : null)
                 .isActive(request.getIsActive() != null ? request.getIsActive() : true)
                 .build();
 
+        brand.setLogoUrl(request.getLogoUrl());
         return toResponse(brandRepository.save(brand));
     }
 
@@ -101,9 +100,7 @@ public class BrandService {
     }
 
     private void validateLogoUrl(String url) {
-        if (url != null && !url.isBlank() && !url.matches(URL_REGEX)) {
-            throw new CatalogException(400, "URL ảnh không hợp lệ.");
-        }
+        fu.se.badmintonshop.modules.catalog.entity.ImageBytesConverter.validate(url);
     }
 
     public BrandResponse toResponse(Brand brand) {

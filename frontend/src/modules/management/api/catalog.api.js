@@ -9,6 +9,7 @@ const catalogBaseURL =
 export function resolveImageUrl(url) {
   if (!url?.trim()) return '';
   const value = url.trim();
+  if (/^data:image\/(png|jpeg|gif|webp);base64,/i.test(value)) return value;
   if (/^https?:\/\//i.test(value) || /^\/products\/[^/]+\.svg$/.test(value)) return value;
   const base = new URL(catalogBaseURL, window.location.origin);
   return new URL(value, base.origin + '/').href;
@@ -53,6 +54,11 @@ export const catalogApi = {
     const data = {};
     tables.forEach((table, index) => {
       data[table] = responses[index] || [];
+      if (table === 'brands')
+        data[table] = data[table].map((row) => ({
+          ...row,
+          logo_url: resolveImageUrl(row.logo_url),
+        }));
       if (table === 'product_images')
         data[table] = data[table].map((row) => ({ ...row, url: resolveImageUrl(row.url) }));
     });
