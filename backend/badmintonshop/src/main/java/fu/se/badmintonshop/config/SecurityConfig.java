@@ -19,14 +19,25 @@ import java.util.List;
 public class SecurityConfig {
 
     @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+    public SecurityFilterChain securityFilterChain(HttpSecurity http, fu.se.badmintonshop.modules.auth.AuthService authService) throws Exception {
         http
             .cors(Customizer.withDefaults())
             .csrf(AbstractHttpConfigurer::disable)
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+            .addFilterBefore(new fu.se.badmintonshop.modules.auth.TokenFilter(authService), org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter.class)
+            .exceptionHandling(e -> e.authenticationEntryPoint((req,res,ex) -> res.sendError(401)).accessDeniedHandler((req,res,ex) -> res.sendError(403)))
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/error").permitAll()
-                .anyRequest().permitAll() // Cho phép trong giai đoạn phát triển ban đầu
+                .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/auth/login", "/api/v1/payments/payos/webhook").permitAll()
+                .requestMatchers("/api/auth/**").authenticated()
+                .requestMatchers("/api/users/**").hasRole("ADMIN")
+                .requestMatchers("/api/manager/**").hasAnyRole("MANAGER", "ADMIN")
+                .requestMatchers("/api/staff/**", "/api/inventory/**", "/api/invoices/**").hasAnyRole("STAFF", "MANAGER", "ADMIN")
+                .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/vouchers/usages", "/api/vouchers/usages/**").hasAnyRole("STAFF", "MANAGER", "ADMIN")
+                .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/products/**", "/api/categories/**", "/api/brands/**", "/api/vouchers/**", "/api/carriers/**").permitAll()
+                .requestMatchers("/api/products/**", "/api/categories/**", "/api/brands/**", "/api/vouchers/**").hasAnyRole("STAFF", "MANAGER", "ADMIN")
+                .requestMatchers("/api/v1/payments/payos/confirm-webhook").hasRole("ADMIN")
+                .anyRequest().authenticated()
             );
 
         return http.build();
