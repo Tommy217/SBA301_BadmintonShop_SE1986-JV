@@ -48,6 +48,9 @@ public class Payment {
     @Column(name = "qr_code_url", length = 500)
     private String qrCodeUrl;
 
+    @Column(name = "checkout_url", length = 1000)
+    private String checkoutUrl;
+
     @Column(name = "paid_at")
     private LocalDateTime paidAt;
 

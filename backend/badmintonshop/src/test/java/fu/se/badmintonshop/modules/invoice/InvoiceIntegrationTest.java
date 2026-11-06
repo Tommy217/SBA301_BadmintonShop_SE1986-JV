@@ -123,6 +123,7 @@ class InvoiceIntegrationTest {
     }
 
     @Test
+    @org.springframework.security.test.context.support.WithMockUser(roles = "STAFF")
     void httpContractIncludesNestedDataAndRejectsInvalidRequests() throws Exception {
         var invoice = service.create(request());
         mvc.perform(get("/api/invoices/" + invoice.id()))

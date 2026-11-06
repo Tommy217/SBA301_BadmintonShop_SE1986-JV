@@ -61,18 +61,10 @@ public class PayOSServiceImpl implements PayOSService {
         String retUrl = returnUrl != null && !returnUrl.isBlank() ? returnUrl : "http://localhost:5173/payments/result?order=" + orderCode;
         String canUrl = cancelUrl != null && !cancelUrl.isBlank() ? cancelUrl : "http://localhost:5173/payments?order=" + orderCode;
 
-        // Nếu chưa cấu hình credentials thật, fallback sang Mock/Demo VietQR link
+        // A missing configuration must never produce a fake payment link.
         if (!isConfigured()) {
-            log.warn("payOS credentials chưa được cấu hình đầy đủ. Đang sinh link VietQR giả lập cho orderCode: {}", orderCode);
-            String qrUrl = String.format(
-                    "https://img.vietqr.io/image/970422-0912345678-compact2.png?amount=%d&addInfo=%s",
-                    intAmount,
-                    URLEncoder.encode(desc, StandardCharsets.UTF_8)
-            );
-            result.put("checkoutUrl", retUrl);
-            result.put("qrCodeUrl", qrUrl);
-            result.put("paymentLinkId", "mock-link-" + orderCode);
-            return result;
+            throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.SERVICE_UNAVAILABLE,
+                    "Chưa cấu hình payOS. Vui lòng cấu hình PAYOS_CLIENT_ID, PAYOS_API_KEY và PAYOS_CHECKSUM_KEY trên backend.");
         }
 
         try {
@@ -119,12 +111,7 @@ public class PayOSServiceImpl implements PayOSService {
                     if (qrCode != null && !qrCode.isBlank()) {
                         qrCodeUrl = "https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=" +
                                 URLEncoder.encode(qrCode, StandardCharsets.UTF_8);
-                    } else {
-                        qrCodeUrl = String.format(
-                                "https://img.vietqr.io/image/970422-0912345678-compact2.png?amount=%d&addInfo=%s",
-                                intAmount, URLEncoder.encode(desc, StandardCharsets.UTF_8)
-                        );
-                    }
+                    } else throw new IllegalStateException("payOS chưa trả mã QR thanh toán.");
 
                     result.put("checkoutUrl", checkoutUrl);
                     result.put("qrCodeUrl", qrCodeUrl);
@@ -141,16 +128,9 @@ public class PayOSServiceImpl implements PayOSService {
 
         } catch (Exception e) {
             log.error("Ngoại lệ khi gọi payOS API: {}", e.getMessage(), e);
-            // Fallback sang demo VietQR URL để luồng thanh toán không bị gián đoạn
-            String qrUrl = String.format(
-                    "https://img.vietqr.io/image/970422-0912345678-compact2.png?amount=%d&addInfo=%s",
-                    intAmount,
-                    URLEncoder.encode(desc, StandardCharsets.UTF_8)
-            );
-            result.put("checkoutUrl", retUrl);
-            result.put("qrCodeUrl", qrUrl);
-            result.put("paymentLinkId", "fallback-link-" + orderCode);
-            return result;
+            if (e instanceof InterruptedException) Thread.currentThread().interrupt();
+            throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.BAD_GATEWAY,
+                    "Không tạo được phiên thanh toán payOS. Vui lòng thử lại.");
         }
     }
 
@@ -160,10 +140,9 @@ public class PayOSServiceImpl implements PayOSService {
             return false;
         }
 
-        // Nếu checksumKey chưa được cấu hình hoặc là mock test, chấp nhận và log warning
+        // Refuse callbacks when signature verification is not configured.
         if (checksumKey == null || checksumKey.isBlank() || checksumKey.contains("here") || checksumKey.equals("mock")) {
-            log.warn("PAYOS_CHECKSUM_KEY chưa được cấu hình. Bỏ qua xác thực chữ ký Webhook trong môi trường Dev.");
-            return true;
+            return false;
         }
 
         try {

@@ -73,6 +73,17 @@ public class Order {
     @Column(name = "note", length = 500)
     private String note;
 
+    @Column(name = "confirmed_by")
+    private Long confirmedBy;
+    @Column(name = "confirmed_at")
+    private LocalDateTime confirmedAt;
+    @Column(name = "cancelled_by")
+    private Long cancelledBy;
+    @Column(name = "cancelled_at")
+    private LocalDateTime cancelledAt;
+    @Column(name = "cancel_reason", length = 300)
+    private String cancelReason;
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;

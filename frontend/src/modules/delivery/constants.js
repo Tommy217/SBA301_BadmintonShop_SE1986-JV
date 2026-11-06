@@ -1,3 +1,7 @@
+const fastshipPortal =
+  import.meta.env.VITE_FASTSHIP_PORTAL_URL ||
+  (import.meta.env.DEV ? 'http://localhost:8082/track' : '');
+
 export const carriers = {
   fastship: {
     code: 'fastship',
@@ -6,8 +10,10 @@ export const carriers = {
     badgeColor: '#1d4ed8',
     badgeBg: '#dbeafe',
     hotline: '1900 6868',
-    website: 'http://localhost:8082/track',
-    trackingUrl: (code) => `http://localhost:8082/track?code=${encodeURIComponent(code)}`,
+    website: fastshipPortal,
+    trackingUrl: fastshipPortal
+      ? (code) => `${fastshipPortal}?code=${encodeURIComponent(code)}`
+      : null,
   },
   ghn: {
     code: 'ghn',

@@ -28,6 +28,7 @@ public class SecurityConfig {
             .exceptionHandling(e -> e.authenticationEntryPoint((req,res,ex) -> res.sendError(401)).accessDeniedHandler((req,res,ex) -> res.sendError(403)))
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/error").permitAll()
+                .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/shop").permitAll()
                 .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/auth/login", "/api/v1/payments/payos/webhook").permitAll()
                 .requestMatchers("/api/auth/**").authenticated()
                 .requestMatchers("/api/users/**").hasRole("ADMIN")

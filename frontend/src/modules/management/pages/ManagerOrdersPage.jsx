@@ -89,6 +89,17 @@ export default function ManagerOrdersPage() {
       originalPayment: selected.payment_status,
     });
   }
+  if (!data.ordersAvailable) {
+    return (
+      <section className="manager-page">
+        <h1>Quản lý đơn hàng</h1>
+        <Alert variant="warning">Chưa tải được dữ liệu đơn hàng. Vui lòng thử lại sau.</Alert>
+        <Button disabled={busy} onClick={() => refresh().catch(() => {})}>
+          Thử lại
+        </Button>
+      </section>
+    );
+  }
   return (
     <section className="manager-page">
       <div className="eyebrow">KHÁCH HÀNG & ĐƠN HÀNG</div>
@@ -341,6 +352,21 @@ export default function ManagerOrdersPage() {
                   <Button as={Link} to="/management/deliveries" variant="outline-primary">
                     Quản lý giao hàng
                   </Button>
+                  {['confirmed', 'preparing'].includes(selected.status) &&
+                    !data.deliveries.some(
+                      (d) =>
+                        d.order_id === selected.id && !['cancelled', 'rejected'].includes(d.status),
+                    ) && (
+                      <Button
+                        disabled={busy}
+                        variant="outline-primary"
+                        onClick={() =>
+                          act(() => managerOrderApi.createShipment(selected.id)).catch(() => {})
+                        }
+                      >
+                        Tạo vận đơn FastShip
+                      </Button>
+                    )}
                 </div>
                 {edit && (
                   <Form onSubmit={update} className="mt-3">

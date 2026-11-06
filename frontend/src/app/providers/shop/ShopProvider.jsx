@@ -4,9 +4,10 @@ import Loading from '@/shared/components/Loading';
 import { ShopContext } from './ShopContext';
 import { fetchShopData } from './shop.api';
 
-const LOAD_ERROR = 'Không tải được sản phẩm từ database. Hãy kiểm tra backend Java và kết nối database rồi thử lại.';
+const LOAD_ERROR =
+  'Không tải được dữ liệu cửa hàng. Hãy kiểm tra backend Java, kết nối database và đăng nhập rồi thử lại.';
 
-// Holds the store snapshot from the mock API. `act(request)` runs a module API call that
+// Holds the store snapshot from Java. `act(request)` runs a module API call that
 // returns a new snapshot and stores it.
 export default function ShopProvider({ children }) {
   const [data, setData] = useState(null);
@@ -37,7 +38,12 @@ export default function ShopProvider({ children }) {
     setError('');
     try {
       const result = await request();
-      setData(result);
+      setData((previous) => ({ ...previous, ...result }));
+      if (result.catalogRefreshFailed) {
+        setError(
+          'Đã lưu thành công nhưng chưa tải lại được danh mục/tồn kho. Hãy làm mới trang để cập nhật.',
+        );
+      }
       return result;
     } catch (e) {
       setError(e.message);

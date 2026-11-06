@@ -4,8 +4,10 @@ import { formatMoney } from '@/shared/utils/format';
 
 function PaymentQR({ payment, onCheckResult, onChooseAnotherMethod }) {
   const qrImageUrl = getPaymentQrImageUrl(payment);
-  const instructions =
-    payment.paymentMethod === 'momo'
+  const isPlaceholder = !qrImageUrl;
+  const instructions = isPlaceholder
+    ? 'Ảnh minh họa — chưa có mã thanh toán.'
+    : payment.paymentMethod === 'momo'
       ? 'Sử dụng ứng dụng MoMo để quét mã QR.'
       : 'Sử dụng ứng dụng MB Bank hoặc ứng dụng ngân hàng hỗ trợ quét QR.';
 
@@ -15,17 +17,23 @@ function PaymentQR({ payment, onCheckResult, onChooseAnotherMethod }) {
         <section className="qr-payment-card">
           <p className="qr-payment-eyebrow mb-3">THANH TOÁN</p>
           <p className="qr-payment-step mb-2">BƯỚC 2 / 2</p>
-          <h1 className="h3 fw-bold mb-2">Quét mã QR để thanh toán</h1>
+          <h1 className="h3 fw-bold mb-2">
+            {isPlaceholder ? 'Ảnh thanh toán tạm' : 'Quét mã QR để thanh toán'}
+          </h1>
           <p className="qr-payment-instructions mb-4">{instructions}</p>
 
           <div className="qr-payment-code">
             <img
-              src={qrImageUrl}
-              alt={`Mã QR minh họa cho đơn hàng ${payment.orderCode}`}
+              src={qrImageUrl || '/images/payment-placeholder-cat.png'}
+              alt={
+                isPlaceholder
+                  ? 'Ảnh mèo minh họa tạm thời'
+                  : `Mã QR thanh toán đơn hàng ${payment.orderCode}`
+              }
               width="200"
               height="200"
             />
-            <span>Minh họa mã QR</span>
+            <span>{isPlaceholder ? 'Ảnh mặc định' : 'VietQR qua payOS'}</span>
           </div>
 
           <div className="qr-payment-amount">
@@ -44,20 +52,31 @@ function PaymentQR({ payment, onCheckResult, onChooseAnotherMethod }) {
             </div>
             <div>
               <span>Trạng thái</span>
-              <strong className="qr-payment-pending">Đang chờ thanh toán</strong>
+              <strong className="qr-payment-pending">
+                {isPlaceholder ? 'Chưa tạo phiên thanh toán' : 'Đang chờ thanh toán'}
+              </strong>
             </div>
           </div>
 
-          <div className="qr-payment-waiting" role="status">
-            <span className="spinner-border spinner-border-sm" aria-hidden="true" />
-            <span>Hệ thống đang chờ xác nhận giao dịch...</span>
-          </div>
+          {!isPlaceholder && (
+            <div className="qr-payment-waiting" role="status">
+              <span className="spinner-border spinner-border-sm" aria-hidden="true" />
+              <span>Hệ thống đang chờ xác nhận giao dịch...</span>
+            </div>
+          )}
 
           <p className="qr-payment-disclaimer mb-3">
-            Đây là bản minh họa giao diện, mã QR không dùng để thanh toán thật.
+            {isPlaceholder
+              ? 'Ảnh này không dùng để chuyển tiền. Đơn hàng vẫn chưa được thanh toán.'
+              : 'Chỉ ghi nhận thanh toán sau khi hệ thống nhận xác nhận từ cổng thanh toán.'}
           </p>
           <div className="d-flex flex-wrap justify-content-center gap-2">
-            <Button variant="primary" onClick={onCheckResult}>
+            {payment.checkoutUrl && (
+              <Button as="a" href={payment.checkoutUrl} variant="outline-primary">
+                Mở trang thanh toán payOS
+              </Button>
+            )}
+            <Button variant="primary" onClick={onCheckResult} disabled={isPlaceholder}>
               Kiểm tra kết quả giao dịch
             </Button>
             <Button variant="outline-secondary" onClick={onChooseAnotherMethod}>

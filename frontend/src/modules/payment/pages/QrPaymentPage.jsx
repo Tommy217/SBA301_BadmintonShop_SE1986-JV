@@ -13,7 +13,7 @@ export default function QrPaymentPage() {
         <Spinner animation="border" />
       </Container>
     );
-  if (!model.available || !model.record.gateway)
+  if (!model.available)
     return (
       <Container className="py-5">
         <Alert variant="info">

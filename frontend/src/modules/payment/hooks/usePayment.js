@@ -27,7 +27,7 @@ export default function usePayment() {
   }, [orderId]);
   const data = snapshot?.orderId === orderId ? snapshot.data : null;
   const order = data?.orders.find((o) => o.id === orderId);
-  const record = data?.payments.find((p) => p.order_id === orderId);
+  const record = data?.payments.filter((p) => p.order_id === orderId).at(-1);
   const orderItems = (data?.order_items || [])
     .filter((i) => i.order_id === orderId)
     .map((i) => ({
@@ -44,6 +44,8 @@ export default function usePayment() {
         orderCode: order.order_code,
         total: order.total_amount,
         paymentMethod: record.gateway || paymentMethod,
+        qrCodeUrl: record.qr_code_url,
+        checkoutUrl: record.checkout_url,
       }
     : null;
   async function startPayment(event) {
@@ -61,6 +63,9 @@ export default function usePayment() {
       navigate('/payments/qr?order=' + encodeURIComponent(orderId));
     } catch (err) {
       setError(err.message);
+      // Allow the requested placeholder view when no payment provider is configured.
+      // The backend still rejects payment creation and the order stays unpaid.
+      if (err.status === 503) navigate('/payments/qr?order=' + encodeURIComponent(orderId));
     } finally {
       lock.current = false;
       setBusy(false);

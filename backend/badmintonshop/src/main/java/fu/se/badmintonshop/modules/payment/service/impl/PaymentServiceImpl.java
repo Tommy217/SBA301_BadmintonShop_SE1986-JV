@@ -53,7 +53,10 @@ public class PaymentServiceImpl implements PaymentService {
             throw new IllegalStateException("Đơn hàng #" + order.getOrderCode() + " đã bị hủy, không thể thanh toán.");
         }
 
-        BigDecimal payAmount = request.getAmount() != null ? request.getAmount() : order.getTotalAmount();
+        BigDecimal payAmount = order.getTotalAmount();
+        if (request.getAmount() != null && request.getAmount().compareTo(payAmount) != 0) {
+            throw new IllegalArgumentException("Số tiền phải khớp tổng đơn hàng trong database.");
+        }
         if (payAmount == null || payAmount.compareTo(BigDecimal.ZERO) <= 0) {
             throw new IllegalArgumentException("Số tiền thanh toán phải lớn hơn 0.");
         }
@@ -92,6 +95,7 @@ public class PaymentServiceImpl implements PaymentService {
         String checkoutUrl = payosResult.get("checkoutUrl");
         String qrCodeUrl = payosResult.get("qrCodeUrl");
         payment.setQrCodeUrl(qrCodeUrl);
+        payment.setCheckoutUrl(checkoutUrl);
         payment = paymentRepository.save(payment);
 
         // Ghi log giao dịch gửi request

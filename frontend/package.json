@@ -10,11 +10,7 @@
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "mock": "node --watch mock/server.mjs",
-    "test:mock": "node --test \"mock/tests/*.test.mjs\"",
-    "test": "npm run test:mock",
-    "seed:management": "node mock/seed/management.mjs",
-    "seed:dashboard": "node mock/seed/dashboard.mjs",
+    "test": "node --test \"tests/*.test.mjs\"",
     "partner": "node ../partner-system/start.mjs"
   },
   "dependencies": {

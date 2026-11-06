@@ -29,7 +29,7 @@ public class SupportTicket {
     @Column(name = "user_id", nullable = false)
     private Long userId;
 
-    @Column(name = "order_id", nullable = false, unique = true)
+    @Column(name = "order_id", nullable = false)
     private Long orderId;
 
     @Column(name = "ticket_type", nullable = false, length = 20)
@@ -54,7 +54,8 @@ public class SupportTicket {
     @Column(name = "refund_amount", precision = 12, scale = 0)
     private BigDecimal refundAmount;
 
-    @Column(name = "refund_qr_url", nullable = false, length = 500)
+    @Lob
+    @Column(name = "refund_qr_url", columnDefinition = "NVARCHAR(MAX)")
     private String refundQrUrl;
 
     @Column(name = "reviewed_by")

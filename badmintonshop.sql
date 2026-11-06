@@ -2327,3 +2327,118 @@ BEGIN CATCH
  THROW;
 END CATCH;
 GO
+
+-- =====================================================================
+-- UPDATE 2026-11-06: JAVA SHOP API (BO MOCK SERVER)
+-- Database da co: chi chay tu marker nay den cuoi file de giu du lieu.
+-- Toan bo file van co DROP DATABASE o dau; KHONG chay toan bo neu can giu DB.
+-- Cac lenh ben duoi co the chay lai, khong seed don hang/doanh thu gia.
+-- =====================================================================
+USE badminton_shop;
+GO
+SET XACT_ABORT ON;
+GO
+IF COL_LENGTH('dbo.payments', 'checkout_url') IS NULL
+    ALTER TABLE dbo.payments ADD checkout_url VARCHAR(1000) NULL;
+GO
+IF COL_LENGTH('dbo.support_tickets', 'cause') IS NULL
+    ALTER TABLE dbo.support_tickets ADD cause VARCHAR(25) NULL;
+IF COL_LENGTH('dbo.support_tickets', 'reject_reason') IS NULL
+    ALTER TABLE dbo.support_tickets ADD reject_reason NVARCHAR(500) NULL;
+IF COL_LENGTH('dbo.support_tickets', 'refund_amount') IS NULL
+    ALTER TABLE dbo.support_tickets ADD refund_amount DECIMAL(12,0) NULL;
+IF COL_LENGTH('dbo.support_tickets', 'refund_qr_url') IS NULL
+    ALTER TABLE dbo.support_tickets ADD refund_qr_url NVARCHAR(MAX) NULL;
+IF COL_LENGTH('dbo.support_tickets', 'reviewed_by') IS NULL
+    ALTER TABLE dbo.support_tickets ADD reviewed_by BIGINT NULL REFERENCES dbo.users(id);
+IF COL_LENGTH('dbo.support_tickets', 'reviewed_at') IS NULL
+    ALTER TABLE dbo.support_tickets ADD reviewed_at DATETIME2(0) NULL;
+IF COL_LENGTH('dbo.support_tickets', 'approved_by') IS NULL
+    ALTER TABLE dbo.support_tickets ADD approved_by BIGINT NULL REFERENCES dbo.users(id);
+IF COL_LENGTH('dbo.support_tickets', 'approved_at') IS NULL
+    ALTER TABLE dbo.support_tickets ADD approved_at DATETIME2(0) NULL;
+GO
+IF COL_LENGTH('dbo.ticket_items', 'replacement_variant_id') IS NULL
+    ALTER TABLE dbo.ticket_items ADD replacement_variant_id BIGINT NULL REFERENCES dbo.product_variants(id);
+GO
+UPDATE dbo.ticket_items SET replacement_variant_id=exchange_variant_id
+WHERE replacement_variant_id IS NULL AND exchange_variant_id IS NOT NULL;
+GO
+-- Keep legacy ticket types/statuses, and accept the workflow already used by Java.
+DECLARE @ticketChecks NVARCHAR(MAX) = N'';
+SELECT @ticketChecks += N'ALTER TABLE dbo.support_tickets DROP CONSTRAINT ' + QUOTENAME(name) + N';'
+FROM sys.check_constraints
+WHERE parent_object_id = OBJECT_ID('dbo.support_tickets')
+  AND (definition LIKE '%ticket_type%' OR definition LIKE '%status%');
+EXEC sp_executesql @ticketChecks;
+GO
+ALTER TABLE dbo.support_tickets ALTER COLUMN status VARCHAR(30) NOT NULL;
+ALTER TABLE dbo.support_tickets ALTER COLUMN refund_qr_url NVARCHAR(MAX) NULL;
+ALTER TABLE dbo.support_tickets ADD CONSTRAINT CK_shop_ticket_type_v2 CHECK
+    (ticket_type IN ('return','exchange','warranty','complaint','REFUND','EXCHANGE'));
+ALTER TABLE dbo.support_tickets ADD CONSTRAINT CK_shop_ticket_status_v2 CHECK
+    (status IN ('open','under_review','approved','rejected','resolved','cancelled',
+        'PENDING','REJECTED','AWAITING_RETURN','INSPECTION_FAILED','PENDING_APPROVAL',
+        'PENDING_TRANSFER','REFUNDED','COMPLETED','CANCELLED'));
+GO
+IF OBJECT_ID('dbo.ticket_evidence', 'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.ticket_evidence (
+        id BIGINT IDENTITY(1,1) PRIMARY KEY,
+        ticket_id BIGINT NOT NULL REFERENCES dbo.support_tickets(id) ON DELETE CASCADE,
+        file_url NVARCHAR(MAX) NOT NULL,
+        file_type VARCHAR(20) NOT NULL DEFAULT 'image',
+        uploaded_at DATETIME2(0) NOT NULL DEFAULT SYSDATETIME()
+    );
+END;
+GO
+ALTER TABLE dbo.ticket_evidence ALTER COLUMN file_url NVARCHAR(MAX) NOT NULL;
+GO
+IF OBJECT_ID('dbo.ticket_status_history', 'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.ticket_status_history (
+        id BIGINT IDENTITY(1,1) PRIMARY KEY,
+        ticket_id BIGINT NOT NULL REFERENCES dbo.support_tickets(id) ON DELETE CASCADE,
+        from_status VARCHAR(30) NULL,
+        to_status VARCHAR(30) NOT NULL,
+        actor_id BIGINT NULL REFERENCES dbo.users(id),
+        note NVARCHAR(500) NULL,
+        created_at DATETIME2(0) NOT NULL DEFAULT SYSDATETIME()
+    );
+END;
+GO
+IF OBJECT_ID('dbo.ticket_inspection', 'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.ticket_inspection (
+        id BIGINT IDENTITY(1,1) PRIMARY KEY,
+        ticket_id BIGINT NOT NULL UNIQUE REFERENCES dbo.support_tickets(id) ON DELETE CASCADE,
+        staff_id BIGINT NOT NULL REFERENCES dbo.users(id),
+        result VARCHAR(20) NOT NULL CHECK (result IN ('PASSED','FAILED')),
+        note NVARCHAR(MAX) NULL,
+        inspected_at DATETIME2(0) NOT NULL DEFAULT SYSDATETIME()
+    );
+END;
+GO
+IF OBJECT_ID('dbo.refund_records', 'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.refund_records (
+        id BIGINT IDENTITY(1,1) PRIMARY KEY,
+        ticket_id BIGINT NOT NULL UNIQUE REFERENCES dbo.support_tickets(id),
+        payment_id BIGINT NULL REFERENCES dbo.payments(id),
+        order_id BIGINT NOT NULL REFERENCES dbo.orders(id),
+        amount DECIMAL(12,0) NOT NULL CHECK (amount > 0),
+        bank_reference VARCHAR(100) NOT NULL UNIQUE,
+        transferred_by BIGINT NOT NULL REFERENCES dbo.users(id),
+        note NVARCHAR(300) NULL,
+        transferred_at DATETIME2(0) NOT NULL DEFAULT SYSDATETIME()
+    );
+END;
+GO
+-- Copy existing attachments once; old records are preserved.
+INSERT INTO dbo.ticket_evidence(ticket_id,file_url,file_type,uploaded_at)
+SELECT a.ticket_id,a.file_url,a.file_type,a.created_at
+FROM dbo.ticket_attachments a
+WHERE NOT EXISTS (SELECT 1 FROM dbo.ticket_evidence e WHERE e.ticket_id=a.ticket_id AND e.file_url=a.file_url);
+GO
+PRINT N'JAVA SHOP API schema updated. Restart backend, then rebuild frontend.';
+GO

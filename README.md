@@ -5,11 +5,15 @@ Web bán đồ cầu lông của nhóm SE1986-JV (môn SBA301).
 | Phần | Công nghệ | Thư mục |
 | --- | --- | --- |
 | Frontend | React 19, Vite, React Router, React Bootstrap | `frontend/` |
-| Backend (chưa làm) | Spring Boot REST API, chạy ở `http://localhost:8080` | `backend/` |
+| Backend | Spring Boot REST API, chạy ở `http://localhost:8080` | `backend/` |
 | Cơ sở dữ liệu | MS SQL Server | |
 | Hệ thống giao hàng đối tác (giả lập) | FastShip | `partner-system/` (chạy bằng `npm run partner` trong `frontend/`) |
 
-Đăng nhập, phân quyền và quản lý tài khoản dùng Spring Boot + SQL Server; cần chạy backend cổng 8080. `frontend/mock/db.json` không chứa user. Một số chức năng cửa hàng vẫn dùng mock API (Vite middleware). Khi có backend, đặt `VITE_USE_MOCK=false` trong `frontend/.env` để chuyển `/api` sang backend.
+Toàn bộ API cửa hàng dùng Spring Boot + SQL Server, bao gồm giỏ hàng, đặt hàng, dashboard, hỗ trợ, kho, hóa đơn và thanh toán. Cần chạy backend cổng 8080. Vite không chạy mock server và không đọc `frontend/mock/db.json`. Thư mục `frontend/mock/` chỉ lưu mã mẫu/test cũ để tham khảo, không tham gia luồng chạy ứng dụng.
+
+Database đang có dữ liệu: chạy phần cuối `badmintonshop.sql` từ marker `UPDATE 2026-11-06: JAVA SHOP API (BO MOCK SERVER)` để cập nhật schema. Phần đầu file vẫn xóa và tạo lại database; chỉ chạy toàn bộ khi muốn tạo DB mới.
+
+Thanh toán thật cần `PAYOS_CLIENT_ID`, `PAYOS_API_KEY`, `PAYOS_CHECKSUM_KEY`; không tạo mã QR giả khi thiếu cấu hình. Giao vận FastShip cần backend đối tác tại `http://localhost:8081` (có thể đổi bằng `FASTSHIP_API_URL`). Nút đồng bộ chỉ đọc trạng thái phía đối tác, không tự chuyển trạng thái giao hàng.
 
 ## Bắt đầu
 

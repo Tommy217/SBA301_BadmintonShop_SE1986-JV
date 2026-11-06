@@ -3,7 +3,7 @@
 Giao diện web của Badminton Shop: trang mua hàng cho khách, trang quản trị người dùng cho System Admin và trang vận hành cửa hàng cho Manager/Staff.
 
 - **Stack:** React 19, Vite 8, React Router 8, React-Bootstrap 2 (Bootstrap 5), Axios
-- **Backend:** Spring Boot (dự kiến `http://localhost:8080`). Trong lúc backend chưa xong, frontend chạy với **mock API** có sẵn trong thư mục `mock/`.
+- **Backend:** Spring Boot tại `http://localhost:8080` + SQL Server. Toàn bộ API chạy ở Java; frontend không bật mock server.
 - **Quy tắc đóng góp code:** xem [CONTRIBUTING.md](./CONTRIBUTING.md). Đọc file đó trước khi tạo PR.
 
 ---
@@ -23,29 +23,24 @@ Mở `http://localhost:5173`. Mock API chạy chung với Vite dev server ở đ
 
 ### Các lệnh npm
 
-| Lệnh                                                 | Tác dụng                                                                |
-| ---------------------------------------------------- | ----------------------------------------------------------------------- |
-| `npm run dev`                                        | Chạy dev server + mock API (port 5173)                                  |
-| `npm run build`                                      | Build production vào `dist/`                                            |
-| `npm run preview`                                    | Chạy thử bản build                                                      |
-| `npm run lint`                                       | Kiểm tra ESLint, phải sạch trước khi tạo PR                             |
-| `npm run format`                                     | Format toàn bộ code bằng Prettier                                       |
-| `npm run format:check`                               | Kiểm tra format, không sửa file                                         |
-| `npm run test:mock`                                  | Chạy test của mock API (`mock/tests/`)                                  |
-| `npm run test:render`                                | Render thử các trang quản lý (`tests/`)                                 |
-| `npm test`                                           | Chạy cả hai bộ test trên                                                |
-| `npm run mock`                                       | Chạy riêng mock API ở port 3000 (thường không cần, `npm run dev` đã có) |
-| `npm run seed:management` / `npm run seed:dashboard` | Nạp lại dữ liệu mẫu vào `mock/db.json`                                  |
-| `npm run partner`                                    | Chạy hệ thống đối tác giao vận FastShip (`../partner-system`)           |
+| Lệnh                   | Tác dụng                                                          |
+| ---------------------- | ----------------------------------------------------------------- |
+| `npm run dev`          | Chạy Vite (port 5173), proxy `/api` sang Java                     |
+| `npm run build`        | Build production vào `dist/`                                      |
+| `npm run preview`      | Chạy thử bản build                                                |
+| `npm run lint`         | Kiểm tra ESLint, phải sạch trước khi tạo PR                       |
+| `npm run format`       | Format toàn bộ code bằng Prettier                                 |
+| `npm run format:check` | Kiểm tra format, không sửa file                                   |
+| `npm test`             | Chạy test frontend trong `tests/`; backend có bộ test Maven riêng |
+| `npm run partner`      | Chạy hệ thống đối tác giao vận FastShip (`../partner-system`)     |
 
 ### Biến môi trường (`.env`)
 
-| Biến               | Mặc định                | Ý nghĩa                                                                  |
-| ------------------ | ----------------------- | ------------------------------------------------------------------------ |
-| `VITE_API_URL`     | `/api`                  | Base URL mà `httpClient` gọi tới                                         |
-| `VITE_CATALOG_API_URL` | `VITE_API_URL`       | Base URL riêng cho Catalog; đặt `http://localhost:8080/api` để gọi Java trực tiếp |
-| `VITE_USE_MOCK`    | `true`                  | `true`: dùng mock trong `mock/`. `false`: proxy `/api` sang backend thật |
-| `VITE_BACKEND_URL` | `http://localhost:8080` | Địa chỉ backend Spring Boot khi `VITE_USE_MOCK=false`                    |
+| Biến                   | Mặc định                | Ý nghĩa                                                                           |
+| ---------------------- | ----------------------- | --------------------------------------------------------------------------------- |
+| `VITE_API_URL`         | `/api`                  | Base URL mà `httpClient` gọi tới                                                  |
+| `VITE_CATALOG_API_URL` | `VITE_API_URL`          | Base URL riêng cho Catalog; đặt `http://localhost:8080/api` để gọi Java trực tiếp |
+| `VITE_BACKEND_URL`     | `http://localhost:8080` | Địa chỉ backend Spring Boot                                                       |
 
 Gọi Java trực tiếp từ trình duyệt cần backend cho phép CORS từ `http://localhost:5173`. Nếu không đặt `VITE_CATALOG_API_URL`, Catalog dùng `/api` qua Vite proxy.
 
@@ -57,7 +52,7 @@ Tài khoản lấy từ SQL Server (`users`, `roles`, `user_roles`), không còn
 
 Bốn tài khoản trong SQL seed: `admin@gmail.com`, `manager@gmail.com`, `staff@gmail.com`, `customer@gmail.com`; mật khẩu seed: `123`.
 
-`/api/auth/*` và `/api/users/*` luôn đi tới Java kể cả khi `VITE_USE_MOCK=true`. Backend kiểm tra BCrypt, trạng thái tài khoản và role trong database. Token có hạn 8 giờ, bị thu hồi khi đăng xuất; khởi động lại backend sẽ yêu cầu đăng nhập lại. Các API mock còn lại xác minh token qua `/api/auth/me`, không tự xác thực mật khẩu. Frontend chỉ giữ token, hiển thị và điều hướng theo thông tin backend trả về.
+Mọi API đi tới Java. Backend kiểm tra BCrypt, trạng thái tài khoản và role trong database. Token có hạn 8 giờ, bị thu hồi khi đăng xuất; khởi động lại backend sẽ yêu cầu đăng nhập lại. Frontend chỉ giữ token, hiển thị và điều hướng theo thông tin backend trả về. `/api/shop` trả dữ liệu theo người dùng trong token; khách không được xem đơn hàng của người khác.
 
 ### Các cổng trong toàn hệ thống
 
@@ -89,7 +84,7 @@ Sau khi đăng nhập, người dùng được chuyển về trang chủ của r
 frontend/
 ├── .env.example
 ├── .editorconfig  .prettierrc.json  eslint.config.js  jsconfig.json  vite.config.js
-├── mock/                         # Mock API tạm thời, bỏ khi tích hợp backend
+├── mock/                         # Mã mẫu/test cũ, không còn được Vite hay ứng dụng chạy
 │   ├── server.mjs                # Handler /api/* gắn vào Vite (shop, auth/login, users)
 │   ├── actions/                  # Nghiệp vụ mock: catalog, management, inventory, invoice
 │   ├── seed/                     # Script nạp dữ liệu mẫu
@@ -103,7 +98,7 @@ frontend/
     │   ├── App.jsx
     │   ├── providers/
     │   │   ├── auth/             # AuthProvider, AuthContext + useAuth()
-    │   │   └── shop/             # ShopProvider, useShop(), shop.api.js (tạm, gắn với mock)
+    │   │   └── shop/             # ShopProvider, useShop(), shop.api.js (snapshot từ Java)
     │   ├── router/               # routes.js, public/admin/management.routes.jsx, ProtectedRoute
     │   └── layouts/
     │       ├── public/           # PublicLayout, PublicHeader, PublicSidebar
@@ -170,11 +165,11 @@ await act(() =>
 );
 ```
 
-Giai đoạn mock dùng endpoint gom `/api/shop`: `GET` trả về toàn bộ dữ liệu cửa hàng, `POST { type, ... }` chạy một thao tác và trả về dữ liệu mới. `ShopProvider` giữ dữ liệu đó, `useShop()` trả về `{ data, busy, act, refresh }`, còn `act(request)` chạy hàm API và cập nhật dữ liệu.
+Spring Boot cung cấp `/api/shop`: `GET` trả snapshot theo quyền và người dùng, `POST { type, ... }` ghi thao tác vào SQL Server rồi trả dữ liệu mới. Giá, voucher, tồn kho và quyền sở hữu được kiểm tra lại ở backend trong transaction. `ShopProvider` giữ snapshot; `useShop()` trả `{ data, busy, act, refresh }`.
 
 Riêng đăng nhập (`authApi.login` → `/api/auth/login`) và quản lý tài khoản (`adminApi` → `/api/users`) đã gọi theo kiểu REST.
 
-Khi tích hợp backend, chỉ sửa thân hàm trong file `.api.js` sang REST (ví dụ `httpClient.post('/support-tickets', payload)`), rồi bỏ `ShopProvider`. Bảng endpoint dự kiến nằm trong plan của nhóm.
+Các thao tác phiếu hỗ trợ sử dụng service Java hiện có; kho, catalog và hóa đơn dùng các endpoint REST riêng. Local và bản deploy sử dụng cùng nguồn dữ liệu SQL Server.
 
 `httpClient` tự làm các việc sau, page không cần lặp lại:
 
@@ -196,16 +191,16 @@ Khi tích hợp backend, chỉ sửa thân hàm trong file `.api.js` sang REST (
 ## 6. Giao vận (delivery) và đối tác FastShip
 
 - Shop chỉ tạo đơn và gửi yêu cầu tạo vận đơn sang hệ thống đối tác FastShip.
-- Khi đối tác cập nhật trạng thái, backend shop đồng bộ lại và đẩy cho trang quản lý giao hàng qua **WebSocket**.
+- Nút “Tạo vận đơn FastShip” trong chi tiết đơn gọi backend shop để gửi yêu cầu sang backend đối tác (`http://localhost:8081`).
 - Frontend delivery chỉ nói chuyện với backend shop, không gọi thẳng FastShip. Riêng link “Tra cứu trên FastShip” mở trang `http://localhost:8082/track?code=...`.
-- Trong giai đoạn mock, trạng thái được đồng bộ bằng nút “Đồng bộ” (action `sync_carrier_status`). Kết nối WebSocket sẽ thêm ở phase tích hợp backend.
+- Nút “Đồng bộ” đọc trạng thái và hành trình từ backend FastShip, lưu vào SQL Server. Nút này không tự tăng trạng thái giao hàng. WebSocket chưa được triển khai.
 
 ---
 
 ## 7. Lộ trình
 
-| Phase | Nội dung                                                                             | Trạng thái         |
-| ----- | ------------------------------------------------------------------------------------ | ------------------ |
-| 1     | Dọn cấu trúc, quy ước, lớp API chung, tài liệu                                       | Xong               |
-| 2     | Tích hợp backend Spring Boot, bỏ mock và `ShopProvider`, thêm WebSocket cho delivery | Chờ leader yêu cầu |
-| 3     | Cân nhắc TanStack Query thay cho custom hook                                         | Chờ leader yêu cầu |
+| Phase | Nội dung                                                                    | Trạng thái                     |
+| ----- | --------------------------------------------------------------------------- | ------------------------------ |
+| 1     | Dọn cấu trúc, quy ước, lớp API chung, tài liệu                              | Xong                           |
+| 2     | Dùng API Spring Boot cho toàn bộ luồng; giữ ShopProvider làm state frontend | Đã tích hợp; WebSocket chưa có |
+| 3     | Cân nhắc TanStack Query thay cho custom hook                                | Chờ leader yêu cầu             |

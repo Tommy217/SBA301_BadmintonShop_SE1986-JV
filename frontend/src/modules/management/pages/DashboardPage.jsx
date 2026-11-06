@@ -42,6 +42,33 @@ export default function DashboardPage() {
       report.months.map((m) => [m.month, m.orders, m.revenue]),
     );
   }
+  if (!data.ordersAvailable) {
+    return (
+      <section className="manager-page">
+        <h1>Dashboard tổng quan</h1>
+        <Alert variant="warning">
+          Chưa tải được dữ liệu đơn hàng. Báo cáo doanh thu tạm thời không khả dụng.
+        </Alert>
+        <Button
+          variant="outline-primary"
+          disabled={busy}
+          onClick={() => Promise.all([refresh(), refreshInventory()]).catch(() => {})}
+        >
+          Thử lại
+        </Button>
+        {stockError && (
+          <Alert variant="danger" className="mt-3">
+            {stockError}
+          </Alert>
+        )}
+        {inventory ? (
+          <InventoryOverview inventory={inventory} />
+        ) : (
+          !stockError && <p className="mt-3">Đang tải tồn kho…</p>
+        )}
+      </section>
+    );
+  }
   return (
     <section className="manager-page">
       <div className="eyebrow">TỔNG QUAN KINH DOANH</div>

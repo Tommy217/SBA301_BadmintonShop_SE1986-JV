@@ -22,7 +22,8 @@ public class TicketEvidence {
     @Column(name = "ticket_id", nullable = false)
     private Long ticketId;
 
-    @Column(name = "file_url", nullable = false, length = 500)
+    @Lob
+    @Column(name = "file_url", nullable = false, columnDefinition = "NVARCHAR(MAX)")
     private String fileUrl;
 
     @Column(name = "file_type", nullable = false, length = 20)

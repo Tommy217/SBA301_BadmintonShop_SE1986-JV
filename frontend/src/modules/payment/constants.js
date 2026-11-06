@@ -1,16 +1,15 @@
 export const paymentMethods = [
   {
     id: 'mbbank',
-    name: 'MB Bank',
-    description: 'Quét mã QR bằng ứng dụng ngân hàng MB Bank',
-    mark: 'MB',
+    name: 'VietQR qua payOS',
+    description: 'Quét mã bằng ứng dụng ngân hàng hỗ trợ VietQR',
+    mark: 'QR',
   },
-  { id: 'momo', name: 'Ví MoMo', description: 'Thanh toán nhanh bằng ví MoMo', mark: 'M' },
-  { id: 'card', name: 'Thẻ quốc tế', description: 'Visa, Mastercard, JCB', mark: 'CARD' },
 ];
 
 export const paymentMethodNames = {
   mbbank: 'MB Bank',
+  payos: 'VietQR qua payOS',
   momo: 'Ví MoMo',
   card: 'Thanh toán online',
 };

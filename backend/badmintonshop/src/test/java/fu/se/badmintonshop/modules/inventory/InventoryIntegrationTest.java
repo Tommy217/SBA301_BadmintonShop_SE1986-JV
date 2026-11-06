@@ -144,6 +144,7 @@ class InventoryIntegrationTest {
     }
 
     @Test
+    @org.springframework.security.test.context.support.WithMockUser(roles = "STAFF")
     void httpContractAndValidation() throws Exception {
         mvc.perform(get("/api/inventory")).andExpect(status().isOk())
                 .andExpect(jsonPath("$.productVariants").isArray())
