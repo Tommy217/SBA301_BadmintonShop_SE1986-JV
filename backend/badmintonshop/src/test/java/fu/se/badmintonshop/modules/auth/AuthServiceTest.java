@@ -1,84 +1,167 @@
 package fu.se.badmintonshop.modules.auth;
 
+import fu.se.badmintonshop.modules.auth.dto.request.LoginRequest;
+import fu.se.badmintonshop.modules.auth.dto.request.RegisterRequest;
+import fu.se.badmintonshop.modules.auth.dto.response.AuthResponse;
+import fu.se.badmintonshop.modules.auth.dto.response.UserResponse;
+import fu.se.badmintonshop.modules.auth.entity.Role;
+import fu.se.badmintonshop.modules.auth.entity.User;
+import fu.se.badmintonshop.modules.auth.repository.RoleRepository;
+import fu.se.badmintonshop.modules.auth.repository.UserRepository;
+import fu.se.badmintonshop.modules.auth.security.CustomUserDetails;
+import fu.se.badmintonshop.modules.auth.security.JwtProperties;
+import fu.se.badmintonshop.modules.auth.security.JwtService;
+import fu.se.badmintonshop.modules.auth.service.AuthService;
+import fu.se.badmintonshop.modules.auth.service.impl.AuthServiceImpl;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.jdbc.datasource.DriverManagerDataSource;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.web.server.ResponseStatusException;
+
+import java.util.*;
+
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
 
+@ExtendWith(MockitoExtension.class)
 class AuthServiceTest {
-    JdbcTemplate jdbc;
-    AuthService auth;
-    @BeforeEach void setup() {
-        // Keep the test database alive across JDBC connections.
-        jdbc = new JdbcTemplate(new DriverManagerDataSource("jdbc:h2:mem:auth" + java.util.UUID.randomUUID() + ";DB_CLOSE_DELAY=-1", "sa", ""));
-        jdbc.execute("CREATE TABLE users(id BIGINT PRIMARY KEY,email VARCHAR(190),password_hash VARCHAR(255),full_name VARCHAR(150),status VARCHAR(20),last_login_at TIMESTAMP)");
-        jdbc.execute("CREATE TABLE roles(id INT PRIMARY KEY,code VARCHAR(30))");
-        jdbc.execute("CREATE TABLE user_roles(user_id BIGINT,role_id INT)");
-        String hash = new BCryptPasswordEncoder().encode("123");
-        String[] roles = {"admin", "manager", "staff", "customer"};
-        for (int i = 0; i < roles.length; i++) {
-            jdbc.update("INSERT INTO users VALUES(?,?,?,?,?,NULL)",i+1,roles[i]+"@gmail.com",hash,roles[i],"active");
-            jdbc.update("INSERT INTO roles VALUES(?,?)",i+1,roles[i]);
-            jdbc.update("INSERT INTO user_roles VALUES(?,?)",i+1,i+1);
-        }
-        auth = new AuthService(jdbc);
-    }
-    @Test void authenticatesAllFourDatabaseRolesWithoutExposingPasswords() {
-        for (String role : new String[]{"admin","manager","staff","customer"}) {
-            var result = auth.login("  " + role.toUpperCase() + "@GMAIL.COM ", "123");
-            var user = auth.authenticate("Bearer " + result.get("authToken"));
-            assertEquals(java.util.List.of(role.toUpperCase()), user.roles());
-            assertFalse(result.containsKey("password_hash"));
-            assertFalse(result.containsKey("password"));
-        }
-    }
-    @Test void rejectsBadCredentialsAndMockTokens() {
-        assertThrows(ResponseStatusException.class, () -> auth.login("customer@gmail.com", "wrong"));
-        assertThrows(ResponseStatusException.class, () -> auth.login("missing@gmail.com", "123"));
-        assertNull(auth.authenticate("Bearer mock-old-token"));
-    }
-    @Test void reloadsRolesAndStatusFromDatabaseAndRevokesLogout() {
-        String header = "Bearer " + auth.login("customer@gmail.com", "123").get("authToken");
-        jdbc.update("UPDATE user_roles SET role_id=3 WHERE user_id=4");
-        assertEquals(java.util.List.of("STAFF"), auth.authenticate(header).roles());
-        auth.logout(header);
-        assertNull(auth.authenticate(header));
-        header = "Bearer " + auth.login("customer@gmail.com", "123").get("authToken");
-        jdbc.update("UPDATE users SET status='locked' WHERE id=4");
-        assertNull(auth.authenticate(header));
-        assertThrows(ResponseStatusException.class, () -> auth.login("customer@gmail.com", "123"));
+
+    @Mock
+    UserRepository userRepository;
+
+    @Mock
+    RoleRepository roleRepository;
+
+    PasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
+    JwtService jwtService;
+    AuthService authService;
+
+    @BeforeEach
+    void setUp() {
+        JwtProperties properties = new JwtProperties();
+        ReflectionTestUtils.setField(properties, "secretBase64", "404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970");
+        ReflectionTestUtils.setField(properties, "accessTokenTtlSeconds", 86400L);
+        jwtService = new JwtService(properties);
+
+        authService = new AuthServiceImpl(userRepository, roleRepository, passwordEncoder, jwtService);
     }
 
-    @Test void joinedIdentityReadKeepsUsersWithoutRolesAndCombinesMultipleRoles() {
-        jdbc.update("INSERT INTO user_roles(user_id,role_id) VALUES(4,3)");
-        assertEquals(java.util.Set.of("CUSTOMER", "STAFF"), new java.util.HashSet<>(auth.user(4).roles()));
-        jdbc.update("DELETE FROM user_roles WHERE user_id=4");
-        assertNotNull(auth.user(4));
-        assertTrue(auth.user(4).roles().isEmpty());
-        assertNull(auth.user(999));
+    @Test
+    void authenticatesValidUserAndGeneratesJwtToken() {
+        Role customerRole = Role.builder().id(1).code("CUSTOMER").name("Khách hàng").build();
+        User user = User.builder()
+            .id(1L)
+            .email("customer@gmail.com")
+            .fullName("Nguyen Van A")
+            .passwordHash(passwordEncoder.encode("123456"))
+            .status("active")
+            .roles(new HashSet<>(Set.of(customerRole)))
+            .build();
+
+        when(userRepository.findByEmailIgnoreCase("customer@gmail.com")).thenReturn(Optional.of(user));
+        when(userRepository.save(any(User.class))).thenReturn(user);
+
+        AuthResponse response = authService.login(LoginRequest.builder()
+            .email("customer@gmail.com")
+            .password("123456")
+            .build());
+
+        assertNotNull(response.getAccessToken());
+        assertNotNull(response.getAuthToken());
+        assertEquals("customer@gmail.com", response.getEmail());
+        assertEquals(List.of("CUSTOMER"), response.getRoles());
+        verify(userRepository).save(user);
     }
 
-    @Test void simultaneousAuthenticationDoesNotNeedANestedPoolConnection() throws Exception {
-        try (var pool = new com.zaxxer.hikari.HikariDataSource()) {
-            pool.setDataSource(jdbc.getDataSource());
-            pool.setMaximumPoolSize(2);
-            pool.setMinimumIdle(0);
-            pool.setConnectionTimeout(1000);
-            var measuredAuth = new AuthService(new JdbcTemplate(pool));
-            String header = "Bearer " + measuredAuth.login("customer@gmail.com", "123").get("authToken");
-            var gate = new java.util.concurrent.CountDownLatch(1);
-            try (var executor = java.util.concurrent.Executors.newFixedThreadPool(8)) {
-                var checks = new java.util.ArrayList<java.util.concurrent.Future<AuthService.User>>();
-                for (int i = 0; i < 16; i++) checks.add(executor.submit(() -> {
-                    gate.await();
-                    return measuredAuth.authenticate(header);
-                }));
-                gate.countDown();
-                for (var check : checks) assertEquals(java.util.List.of("CUSTOMER"), check.get(5, java.util.concurrent.TimeUnit.SECONDS).roles());
-            }
-        }
+    @Test
+    void rejectsBadCredentialsAndLockedUser() {
+        Role customerRole = Role.builder().id(1).code("CUSTOMER").name("Khách hàng").build();
+        User lockedUser = User.builder()
+            .id(2L)
+            .email("locked@gmail.com")
+            .fullName("Locked User")
+            .passwordHash(passwordEncoder.encode("123456"))
+            .status("locked")
+            .roles(new HashSet<>(Set.of(customerRole)))
+            .build();
+
+        when(userRepository.findByEmailIgnoreCase("locked@gmail.com")).thenReturn(Optional.of(lockedUser));
+        when(userRepository.findByEmailIgnoreCase("missing@gmail.com")).thenReturn(Optional.empty());
+
+        assertThrows(ResponseStatusException.class, () ->
+            authService.login(LoginRequest.builder().email("missing@gmail.com").password("123").build()));
+
+        assertThrows(ResponseStatusException.class, () ->
+            authService.login(LoginRequest.builder().email("locked@gmail.com").password("123456").build()));
+    }
+
+    @Test
+    void registersNewCustomerSuccessfully() {
+        Role customerRole = Role.builder().id(1).code("CUSTOMER").name("Khách hàng").build();
+        when(userRepository.existsByEmailIgnoreCase("newuser@gmail.com")).thenReturn(false);
+        when(roleRepository.findByCodeIgnoreCase("CUSTOMER")).thenReturn(Optional.of(customerRole));
+        when(userRepository.save(any(User.class))).thenAnswer(invocation -> {
+            User u = invocation.getArgument(0);
+            u.setId(10L);
+            return u;
+        });
+
+        AuthResponse response = authService.register(RegisterRequest.builder()
+            .email("newuser@gmail.com")
+            .fullName("New User")
+            .password("password123")
+            .phone("0912345678")
+            .build());
+
+        assertNotNull(response.getAccessToken());
+        assertEquals("newuser@gmail.com", response.getEmail());
+        assertEquals(List.of("CUSTOMER"), response.getRoles());
+    }
+
+    @Test
+    void rejectsDuplicateEmailOnRegister() {
+        when(userRepository.existsByEmailIgnoreCase("existing@gmail.com")).thenReturn(true);
+
+        assertThrows(ResponseStatusException.class, () ->
+            authService.register(RegisterRequest.builder()
+                .email("existing@gmail.com")
+                .fullName("Existing")
+                .password("password")
+                .build()));
+    }
+
+    @Test
+    void returnsProfileForMe() {
+        Role adminRole = Role.builder().id(2).code("ADMIN").name("Quản trị viên").build();
+        User user = User.builder()
+            .id(5L)
+            .email("admin@test.com")
+            .fullName("Admin")
+            .status("active")
+            .roles(new HashSet<>(Set.of(adminRole)))
+            .build();
+
+        when(userRepository.findWithRolesById(5L)).thenReturn(Optional.of(user));
+
+        CustomUserDetails userDetails = new CustomUserDetails(
+            5L,
+            "admin@test.com",
+            "Admin",
+            "hash",
+            true,
+            List.of(new SimpleGrantedAuthority("ROLE_ADMIN"))
+        );
+
+        UserResponse profile = authService.me(userDetails);
+        assertEquals(5L, profile.getId());
+        assertEquals("admin@test.com", profile.getEmail());
+        assertEquals(List.of("ADMIN"), profile.getRoles());
     }
 }

@@ -1,5 +1,6 @@
 package fu.se.badmintonshop.modules.auth;
 
+import fu.se.badmintonshop.modules.auth.service.AuthService;
 import java.util.*;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;

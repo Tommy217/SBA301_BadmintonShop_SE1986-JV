@@ -30,11 +30,16 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(PaymentController.class)
-@Import(SecurityConfig.class)
+@Import({
+    SecurityConfig.class,
+    fu.se.badmintonshop.modules.auth.security.JwtProperties.class,
+    fu.se.badmintonshop.modules.auth.security.JwtService.class,
+    fu.se.badmintonshop.modules.auth.security.JwtAuthenticationFilter.class
+})
 @org.springframework.security.test.context.support.WithMockUser(roles = "ADMIN")
 class PaymentControllerTest {
     @MockitoBean
-    private fu.se.badmintonshop.modules.auth.AuthService authService;
+    private org.springframework.security.core.userdetails.UserDetailsService userDetailsService;
 
     @Autowired
     private MockMvc mockMvc;
