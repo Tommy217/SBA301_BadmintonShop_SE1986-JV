@@ -94,3 +94,37 @@
     height: 26px;
   }
 }
+
+/* A clean sports mark with a two-line wordmark. */
+.brand-logo .brand-logo-copy { gap: 6px; }
+.brand-logo .brand-logo-copy strong { font-size: 24px; font-weight: 750; letter-spacing: -1px; line-height: .95; }
+.brand-logo .brand-logo-copy strong span { display: block; margin: 3px 0 0; font-size: 18px; font-weight: 500; letter-spacing: 1px; }
+.brand-logo .brand-logo-copy small { font-size: 8px; letter-spacing: 1.3px; }
+.brand-logo .brand-logo-symbol img { display: block; width: 100%; height: 100%; }
+.brand-logo.brand-logo-compact .brand-logo-copy strong { font-size: 17px; }
+.brand-logo.brand-logo-compact .brand-logo-copy strong span { font-size: 13px; }
+@media (max-width: 767px) {
+  .brand-logo .brand-logo-copy strong { font-size: 20px; }
+  .brand-logo .brand-logo-copy strong span { font-size: 14px; }
+  .brand-logo .brand-logo-copy small { display: none; }
+}
+@media (max-width: 480px) {
+  .brand-logo .brand-logo-copy strong { font-size: 17px; }
+  .brand-logo .brand-logo-copy strong span { font-size: 12px; }
+}
+
+/* The emblem owns its background; leave room for the entire shuttlecock. */
+.brand-logo .brand-logo-symbol {
+  background: transparent;
+  box-shadow: none;
+  border: 0;
+  padding: 0;
+  overflow: visible;
+}
+.brand-logo .brand-logo-symbol::after { content: none; }
+.brand-logo .brand-logo-symbol img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
