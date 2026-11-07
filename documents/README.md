@@ -16,7 +16,7 @@ Hệ thống được thiết kế theo kiến trúc module hóa (Modular Archit
 | **Order Module** | `module/order/` | Đang phát triển | Luồng quản lý giỏ hàng, đặt hàng, hủy đơn, chuyển trạng thái đơn hàng. |
 | **Catalog & Products** | `module/catalog/` | Đang phát triển | Quản lý sản phẩm (vợt, giày, áo quần), biến thể, hình ảnh và voucher. |
 | **Inventory Module** | `module/inventory/` | Đang phát triển | Quản lý kho, nhập hàng, kiểm kê, cảnh báo tồn kho thấp. |
-| **Shipping Module** | [**`module/shipping/flow.md`**](module/shipping/flow.md) | Đang phát triển (GĐ3: FastShip MongoDB + bước duyệt) | Gửi yêu cầu / huỷ / đồng bộ vận đơn FastShip (FastShip duyệt, cấp mã), tự chuyển trạng thái đơn hàng, hoàn kho khi chuyển hoàn. Không thu hộ (COD). |
+| **Shipping Module** | [**`module/shipping/flow.md`**](module/shipping/flow.md) | Hoàn tất (GĐ5) · [kịch bản test](module/shipping/test-scenarios.md) | Gửi yêu cầu / huỷ vận đơn FastShip (FastShip duyệt, cấp mã); nhận trạng thái qua webhook ký HMAC, dự phòng bằng nút đồng bộ + job 5 phút; tự chuyển trạng thái đơn hàng, hoàn kho khi chuyển hoàn. Không thu hộ (COD). |
 | **Invoices Module** | `module/invoices/` | Đang phát triển | Xuất hóa đơn điện tử tự động sau khi thanh toán thành công. |
 
 ---

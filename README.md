@@ -13,7 +13,7 @@ Toàn bộ API cửa hàng dùng Spring Boot + SQL Server, bao gồm giỏ hàng
 
 Database đang có dữ liệu: chạy phần cuối `badmintonshop.sql` từ marker `UPDATE 2026-11-06: JAVA SHOP API (BO MOCK SERVER)` để cập nhật schema. Phần đầu file vẫn xóa và tạo lại database; chỉ chạy toàn bộ khi muốn tạo DB mới.
 
-Thanh toán thật cần `PAYOS_CLIENT_ID`, `PAYOS_API_KEY`, `PAYOS_CHECKSUM_KEY`; không tạo mã QR giả khi thiếu cấu hình. Giao vận FastShip cần backend đối tác tại `http://localhost:8081` (có thể đổi bằng `FASTSHIP_API_URL`). Nút đồng bộ chỉ đọc trạng thái phía đối tác, không tự chuyển trạng thái giao hàng.
+Thanh toán thật cần `PAYOS_CLIENT_ID`, `PAYOS_API_KEY`, `PAYOS_CHECKSUM_KEY`; không tạo mã QR giả khi thiếu cấu hình. Giao vận FastShip cần backend đối tác tại `http://localhost:8081` (có thể đổi bằng `FASTSHIP_API_URL`). FastShip báo trạng thái vận đơn về shop qua webhook ký HMAC (`/api/webhooks/carriers/fastship`, khoá `FASTSHIP_WEBHOOK_SECRET`); nút "Đồng bộ" và job 5 phút đọc lại trạng thái phía đối tác khi webhook bị mất.
 
 ## Bắt đầu
 

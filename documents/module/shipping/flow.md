@@ -1,6 +1,6 @@
 # LUỒNG HOẠT ĐỘNG MODULE SHIPPING & DELIVERY
 
-> Trạng thái code: **giai đoạn 3**. FastShip (`partner-system`) chạy Spring Boot + MongoDB và có bước **duyệt**: shop gửi yêu cầu (`requested`), nhân viên FastShip duyệt (cấp mã, `pending_pickup`) hoặc từ chối (`rejected`) trên màn `/requests`, bưu tá cập nhật hành trình trên `/shipments`. Shop nhận thay đổi bằng nút "Đồng bộ" (pull). Webhook ký HMAC và job đồng bộ định kỳ thuộc giai đoạn 4.
+> Trạng thái code: **giai đoạn 5 (hoàn tất)**. FastShip (`partner-system`) chạy Spring Boot + MongoDB và có bước **duyệt**: shop gửi yêu cầu (`requested`), nhân viên FastShip duyệt (cấp mã, `pending_pickup`) hoặc từ chối (`rejected`) trên màn `/requests`, bưu tá cập nhật hành trình trên `/shipments`. Mỗi lần đổi trạng thái, FastShip **báo shop qua webhook ký HMAC** (outbox, tự gửi lại khi lỗi, mục 2.6). Webhook mất thì nút "Đồng bộ" và **job đồng bộ 5 phút/lần** sửa lệch (mục 2.4). Kịch bản kiểm thử: [`test-scenarios.md`](test-scenarios.md).
 
 ## 1. Tổng quan
 
@@ -17,12 +17,14 @@ Thành phần chính (`backend/.../modules/delivery`):
 | Lớp | Vai trò |
 |---|---|
 | `ManagerShipmentController` | `/api/manager/shipments`: danh sách, chi tiết, tạo, gửi lại, huỷ, đồng bộ |
+| `CarrierWebhookController` / `FastShipWebhookService` | `POST /api/webhooks/carriers/fastship`: kiểm chữ ký `X-FastShip-Signature`, đọc vận đơn trong body rồi gọi `ShipmentService.applyCarrierWebhook` |
+| `ShipmentSyncJob` | Job `@Scheduled` (mặc định 5 phút): pull sync các vận đơn đã gửi đối tác, chưa kết thúc |
 | `CarrierController` | `/api/carriers`: ĐVVC đang hoạt động |
 | `CustomerShipmentController` | `/api/orders/{orderId}/shipment`, `/sync`, `/api/my/shipments`: khách xem / làm mới vận đơn |
 | `ShipmentService` | Nghiệp vụ vận đơn; `ShipmentSpecifications` lọc danh sách |
 | `OrderFulfillmentService` | Chuyển `orders.status`, ghi `order_status_history`, hoàn kho, xuất hoá đơn |
-| `CarrierGateway` / `FastShipCarrierGateway` | Gọi FastShip có `X-Api-Key`: gửi yêu cầu, huỷ, đọc trạng thái (`CarrierTracking`). Đối tác lỗi / tắt → 502; đối tác báo sai trạng thái / không thấy → 409 |
-| `DeliveryExceptionHandler` | Lỗi trả về `ApiResponse` (`code`, `message`), chỉ áp cho 3 controller trên |
+| `CarrierGateway` / `FastShipCarrierGateway` | Gọi FastShip có `X-Api-Key`: gửi yêu cầu, huỷ, đọc trạng thái (`CarrierTracking`, đọc JSON bằng `FastShipPayloads` dùng chung với webhook). Đối tác lỗi / tắt → 502; đối tác báo sai trạng thái / không thấy → 409 |
+| `DeliveryExceptionHandler` | Lỗi trả về `ApiResponse` (`code`, `message`), chỉ áp cho 4 controller delivery |
 
 ## 2. Sơ đồ tuần tự
 
@@ -120,9 +122,11 @@ sequenceDiagram
     end
 ```
 
-Shop chỉ thấy các thay đổi này sau khi bấm "Đồng bộ" (mục 2.4).
+Mỗi bước trên FastShip ghi 1 webhook báo shop (mục 2.6). Nút "Đồng bộ" và job định kỳ (mục 2.4) là đường dự phòng khi webhook mất.
 
 ### 2.4. Đồng bộ trạng thái từ đối tác (pull)
+
+Gọi từ nút "Đồng bộ" / "Làm mới hành trình", và từ `ShipmentSyncJob` mỗi 5 phút (`fastship.sync-job.interval-ms`) cho tối đa 50 vận đơn đã có `partner_ref`, chưa kết thúc, lâu chưa đồng bộ nhất; FastShip lỗi 3 lần liên tiếp thì dừng lượt đó.
 
 ```mermaid
 sequenceDiagram
@@ -178,6 +182,63 @@ sequenceDiagram
     end
 ```
 
+### 2.6. FastShip báo shop qua webhook (push)
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor NV as Nhân viên / bưu tá FastShip
+    participant FS as FastShip :8081
+    participant OB as webhook_outbox (Mongo)
+    participant WH as CarrierWebhookController
+    participant BE as ShipmentService
+    participant DB as SQL Server
+
+    NV->>FS: Duyệt / từ chối / cập nhật hành trình (shop huỷ cũng vậy)
+    FS->>FS: Lưu partner_shipments (version + 1, thêm 1 mốc hành trình)
+    FS->>OB: Ghi 1 bản ghi PENDING (eventId = id mốc, payload = cả vận đơn)
+    Note over FS,OB: WebhookDispatcher quét mỗi 5 giây các bản ghi đến hạn
+    FS->>WH: POST /api/webhooks/carriers/fastship<br/>X-FastShip-Signature: sha256=HMAC(secret, body)
+    alt Sai / thiếu chữ ký
+        WH-->>FS: 401
+    else Chữ ký đúng
+        WH->>BE: applyCarrierWebhook(shopShipmentId, partnerRef, eventKey, vận đơn)
+        BE->>DB: Khoá dòng shipments
+        alt eventId đã có / version cũ / vận đơn đã kết thúc
+            BE-->>WH: DUPLICATE / STALE / FINAL (không đổi gì)
+        else Bản mới
+            BE->>DB: Cập nhật shipments (status, mã, phí, shipper, partner_version)
+            BE->>DB: INSERT shipment_events (source = webhook) + orders.status theo mục 3
+            BE-->>WH: APPLIED
+        end
+        WH-->>FS: 200
+    end
+    alt 2xx
+        FS->>OB: SENT
+    else Lỗi HTTP / shop tắt
+        FS->>OB: attempts + 1, gửi lại sau 1, 2, 4, 8, 16 phút, lần thứ 6 vẫn lỗi → FAILED
+        NV->>FS: Màn Nhật ký webhook: "Bắn lại" (gửi ngay)
+    end
+```
+
+Payload webhook (`Content-Type: application/json`):
+
+```json
+{
+  "eventId": "evt-1a2b3c4d",
+  "type": "shipment.updated",
+  "occurredAt": "2026-11-08T02:15:30Z",
+  "shopCode": "badminton-shop",
+  "shopShipmentId": 12,
+  "partnerRef": "6730f0c2a1b2c3d4e5f60718",
+  "status": "in_transit",
+  "version": 3,
+  "data": { "id": "6730f0c2a1b2c3d4e5f60718", "trackingCode": "FS-123456", "status": "in_transit", "version": 3, "events": [] }
+}
+```
+
+`data` giống hệt kết quả `GET /api/v1/shipments/{id}`, nên webhook và pull sync dùng chung một hàm áp dữ liệu (`ShipmentService.apply`).
+
 ## 3. Bảng chuyển trạng thái (`shipments.status`)
 
 | Từ | Sang | Ai đổi | Có ở giai đoạn 3? |
@@ -208,9 +269,12 @@ Chỉ tạo vận đơn khi đơn ở `confirmed` hoặc `preparing`. Backend de
 - **Lưu trước, gọi đối tác sau**: lỗi 502 khi gọi FastShip không làm mất vận đơn; vận đơn giữ `requested`, `partner_ref = NULL`, FE hiện nút "Gửi lại" (`POST /{id}/resend`).
 - **Chống ghi trùng hành trình**: mỗi mốc từ đối tác có `external_event_id` (`FS-<mã>-<id>`), unique trong DB; đồng bộ nhiều lần không nhân bản event.
 - **Đồng bộ an toàn**: khoá dòng `shipments` khi đồng bộ; kiểm tra mã vận đơn trả về khớp; không đổi trạng thái vận đơn đã kết thúc.
+- **Webhook ký HMAC**: header `X-FastShip-Signature: sha256=<hex HMAC-SHA256(FASTSHIP_WEBHOOK_SECRET, body)>`, kiểm trên đúng byte body nhận được, so sánh thời gian hằng số. Sai / thiếu → 401. Route `/api/webhooks/carriers/**` mở `permitAll` trong `SecurityConfig` (không cần đăng nhập).
+- **Webhook idempotent**: bỏ qua khi `eventId` đã có trong `shipment_events.external_event_id` (`DUPLICATE`), khi `version` ≤ `shipments.partner_version` (`STALE`, webhook cũ đến muộn hoặc pull sync đã lấy bản mới hơn) hoặc vận đơn đã kết thúc (`FINAL`). Mọi trường hợp đều trả 200 để FastShip không gửi lại mãi. So `version` thay vì so giờ để không phụ thuộc đồng hồ của hai server (Render và máy shop).
+- **Outbox phía FastShip**: ghi `webhook_outbox` sau khi lưu vận đơn; `WebhookDispatcher` gửi mỗi 5 giây; lỗi thì gửi lại sau 1, 2, 4, 8, 16 phút, lần thứ 6 vẫn lỗi → `FAILED`, nhân viên bấm "Bắn lại" trên `/webhooks`. Shop tạo vận đơn bị timeout nhưng FastShip đã nhận: webhook đầu tiên gắn luôn `partner_ref`.
 - **Danh sách**: lọc bằng `Specification` (status, mã ĐVVC, `q` tìm trong mã vận đơn / mã đơn / tên / SĐT người nhận), sắp `createdAt` giảm dần, `size` tối đa 100. `@EntityGraph` nạp sẵn order + carrier để tránh N+1; danh sách không trả `events`.
 - **Lỗi**: `DeliveryException(status, message)` → `ApiResponse.error`. Validate body → 400; JSON hỏng / sai kiểu path → 400; vi phạm ràng buộc DB → 409.
-- **Định danh**: `TokenFilter` xác thực token đăng nhập rồi gắn `X-User-Id` của người dùng vào request; controller delivery đọc header này (tạo vận đơn lưu vào `shipments.created_by`).
+- **Định danh**: `JwtAuthenticationFilter` xác thực token đăng nhập rồi gắn `X-User-Id` của người dùng vào request; controller delivery đọc header này (tạo vận đơn lưu vào `shipments.created_by`).
 
 ## 5. API
 
@@ -226,6 +290,7 @@ Chỉ tạo vận đơn khi đơn ở `confirmed` hoặc `preparing`. Backend de
 | GET | `/api/orders/{orderId}/shipment` | Khách (chủ đơn) | Vận đơn mới nhất của đơn |
 | POST | `/api/orders/{orderId}/shipment/sync` | Khách (chủ đơn) | Làm mới hành trình |
 | GET | `/api/my/shipments` | Khách | Vận đơn của mọi đơn của mình |
+| POST | `/api/webhooks/carriers/fastship` | FastShip (chữ ký HMAC, không đăng nhập) | Nhận thay đổi trạng thái vận đơn |
 
 Quyền theo `SecurityConfig`: `/api/manager/shipments/**` mở cho `STAFF` (các route `/api/manager/**` khác vẫn chỉ `MANAGER`, `ADMIN`); API khách cần đăng nhập.
 
@@ -294,11 +359,25 @@ curl http://localhost:8080/api/my/shipments -H "Authorization: Bearer $CUSTOMER_
 
 Đơn chưa có vận đơn → `200`, `{"code":200,"message":"Đơn hàng chưa có vận đơn"}` (không có `data`).
 
+### 5.6. Webhook
+
+```bash
+# sai chu ky -> 401 {"code":401,"message":"Chữ ký webhook không hợp lệ."}
+curl -i -X POST http://localhost:8080/api/webhooks/carriers/fastship \
+  -H "Content-Type: application/json" -H "X-FastShip-Signature: sha256=00" -d '{"shopShipmentId":1,"data":{"id":"x"}}'
+```
+
+Chữ ký đúng → `200`, `data.result` là `APPLIED`, `DUPLICATE`, `STALE` hoặc `FINAL`.
+
 ## 6. Kiểm thử
+
+Kịch bản kiểm thử tay và script đối soát: [`test-scenarios.md`](test-scenarios.md).
 
 | Test | Nội dung |
 |---|---|
 | `ShipmentStatusTest` | Bước chuyển hợp lệ, trạng thái cuối, điều kiện huỷ, `fromValue` |
 | `ShipmentServiceTest` | Tạo + đối tác nhận; FastShip lỗi vẫn giữ `requested`; mặc định `standard`; chặn đơn chưa xác nhận, đơn đã có vận đơn, ĐVVC tạm ngưng / không có, đơn không tồn tại; gửi lại; huỷ (có / chưa gửi đối tác, sau khi lấy hàng); đồng bộ (đổi trạng thái, bỏ event trùng, không đổi vận đơn đã kết thúc, chưa gửi / sai mã); lọc + giới hạn `size`; API khách |
 | `OrderFulfillmentServiceTest` | `shipping` khi lấy hàng; `completed` + hoá đơn đúng 1 lần, không hoá đơn khi chưa thanh toán; `returned` + hoàn kho; huỷ vận đơn trả đơn về `preparing`; không đụng đơn đã kết thúc |
+| `FastShipWebhookServiceTest` | Vector HMAC-SHA256 chuẩn; sai / thiếu chữ ký, body bị sửa → 401; JSON hỏng → 400; controller trả 200 + kết quả |
+| `ShipmentSyncJobTest` | Job chỉ quét vận đơn chưa kết thúc; lỗi 1 vận đơn không dừng lượt; FastShip lỗi liên tiếp thì dừng |
 | `DeliveryControllerTest` | Tham số lọc, 201 khi tạo, validate body, JSON hỏng, 404 / 409 / 502 giữ đúng status, id sai kiểu, đồng bộ / gửi lại, `/api/carriers`, API khách |
