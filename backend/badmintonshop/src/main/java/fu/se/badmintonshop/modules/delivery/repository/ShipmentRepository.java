@@ -7,6 +7,8 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import java.util.Collection;
 import java.util.List;
@@ -34,4 +36,8 @@ public interface ShipmentRepository extends JpaRepository<Shipment, Long>, JpaSp
 
     @EntityGraph(attributePaths = {"order", "carrier", "events"})
     Optional<Shipment> findWithDetailsById(Long id);
+
+    // job dong bo dinh ky: van don da gui doi tac, chua ket thuc; lau chua dong bo nhat truoc
+    @Query("select s.id from Shipment s where s.partnerRef is not null and s.status not in :finalStatuses order by s.lastSyncedAt asc")
+    List<Long> findIdsForCarrierSync(@Param("finalStatuses") Collection<String> finalStatuses, Pageable pageable);
 }
