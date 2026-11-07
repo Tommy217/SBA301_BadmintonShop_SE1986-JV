@@ -1,6 +1,6 @@
 package fu.se.badmintonshop.modules.shop;
 
-import fu.se.badmintonshop.modules.auth.AuthService;
+import fu.se.badmintonshop.modules.auth.service.AuthService;
 import fu.se.badmintonshop.modules.delivery.dto.CreateShipmentRequest;
 import fu.se.badmintonshop.modules.delivery.entity.ShipmentEvent;
 import fu.se.badmintonshop.modules.delivery.enums.ShipmentStatus;

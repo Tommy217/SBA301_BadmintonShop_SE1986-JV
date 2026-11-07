@@ -1,7 +1,7 @@
 package fu.se.badmintonshop.modules.shop;
 
 import com.fasterxml.jackson.databind.*;
-import fu.se.badmintonshop.modules.auth.AuthService;
+import fu.se.badmintonshop.modules.auth.service.AuthService;
 import fu.se.badmintonshop.modules.supportticket.dto.*;
 import fu.se.badmintonshop.modules.supportticket.service.SupportTicketService;
 import jakarta.validation.Validator;

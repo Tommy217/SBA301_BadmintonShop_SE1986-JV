@@ -1,6 +1,7 @@
 package fu.se.badmintonshop.modules.shop;
 
-import fu.se.badmintonshop.modules.auth.AuthService;
+import fu.se.badmintonshop.modules.auth.security.CustomUserDetails;
+import fu.se.badmintonshop.modules.auth.service.AuthService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
@@ -24,6 +25,11 @@ public class ShopController {
     }
 
     private AuthService.User identity(Authentication authentication) {
-        return authentication != null && authentication.getPrincipal() instanceof AuthService.User user ? user : null;
+        if (authentication == null) return null;
+        if (authentication.getPrincipal() instanceof AuthService.User user) return user;
+        if (authentication.getPrincipal() instanceof CustomUserDetails cud) {
+            return new AuthService.User(cud.getId(), cud.getEmail(), cud.getFullName(), cud.roles(), cud.isActive());
+        }
+        return null;
     }
 }

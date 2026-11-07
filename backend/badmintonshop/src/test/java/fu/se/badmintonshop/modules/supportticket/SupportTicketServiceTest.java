@@ -12,6 +12,7 @@ import fu.se.badmintonshop.modules.supportticket.enums.InspectionResult;
 import fu.se.badmintonshop.modules.supportticket.enums.TicketCause;
 import fu.se.badmintonshop.modules.supportticket.enums.TicketStatus;
 import fu.se.badmintonshop.modules.supportticket.repository.*;
+import fu.se.badmintonshop.modules.supportticket.repository.SupportTicketRepository;
 import fu.se.badmintonshop.modules.supportticket.service.impl.SupportTicketServiceImpl;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;

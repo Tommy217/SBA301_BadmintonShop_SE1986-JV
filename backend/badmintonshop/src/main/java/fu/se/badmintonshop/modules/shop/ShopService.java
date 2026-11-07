@@ -1,6 +1,6 @@
 package fu.se.badmintonshop.modules.shop;
 
-import fu.se.badmintonshop.modules.auth.AuthService;
+import fu.se.badmintonshop.modules.auth.service.AuthService;
 import fu.se.badmintonshop.modules.payment.dto.request.CreatePaymentRequest;
 import fu.se.badmintonshop.modules.payment.service.PaymentService;
 import lombok.RequiredArgsConstructor;

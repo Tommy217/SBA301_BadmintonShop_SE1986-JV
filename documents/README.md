@@ -9,7 +9,8 @@
 Hệ thống được thiết kế theo kiến trúc module hóa (Modular Architecture). Tài liệu kỹ thuật chi tiết của từng phân hệ được tổ chức theo thư mục dưới đây:
 
 | Phân hệ / Module | Đường dẫn tài liệu | Trạng thái | Mô tả tóm tắt |
-| :--- | :--- | :---: | :--- |
+| :--- | :--- | :--- :---: | :--- |
+| **Auth & Access Control** | [**`module/auth/plan.md`**](module/auth/plan.md) | **Kế hoạch triển khai** | Kiến trúc Clean Architecture, JJWT 0.12.x, JPA Entities, Phân quyền RBAC, Quản lý Profile & Sổ địa chỉ. |
 | **Payment Module** | [**`module/payment/overview.md`**](module/payment/overview.md) | **Đã hoàn thành** | Luồng thanh toán 100% online payOS (VietQR 24/7), Hoàn tiền, bảo mật Webhook HMAC-SHA256 & phân quyền Staff / Manager. |
 | **Support Ticket (UC15)** | [**`module/support-ticket/flow.md`**](module/support-ticket/flow.md) | **Đã hoàn thành** | Quy trình đổi trả & hoàn tiền thủ công quét QR, thẩm định hàng, phân quyền duyệt < 3M vs >= 3M (UC15). |
 | **Order Module** | `module/order/` | Đang phát triển | Luồng quản lý giỏ hàng, đặt hàng, hủy đơn, chuyển trạng thái đơn hàng. |
@@ -34,4 +35,3 @@ Hệ thống được thiết kế theo kiến trúc module hóa (Modular Archit
 ## 4. QUY CHUẨN ĐỒNG BỘ DATA FLOW (SKILLS)
 Để đảm bảo tài liệu luôn đồng bộ 100% với mã nguồn sau mỗi lần cập nhật, hệ thống áp dụng quy chuẩn tại:
 👉 **[documents/skills/SKILL.md](skills/SKILL.md)** (Skill tự động kiểm tra và cập nhật `flow.md` của các module theo code hiện tại).
-
