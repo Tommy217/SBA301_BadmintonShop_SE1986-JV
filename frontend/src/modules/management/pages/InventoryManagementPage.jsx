@@ -4,10 +4,11 @@ import useInventory from '@/modules/management/hooks/useInventory';
 import { formatDateTime, formatMoney, formatNumber } from '@/shared/utils/format';
 import { buildInventory } from '@/modules/management/utils/inventoryData';
 import InventoryOverview from '@/modules/management/components/InventoryOverview';
-import { ManagerSearch } from '@/shared/components/ManagerControls';
+import { ManagerPagination, ManagerSearch } from '@/shared/components/ManagerControls';
 import { inventoryApi } from '@/modules/management/api/management.api';
 
 const EMPTY_INVENTORY = { products: [], product_variants: [] };
+const STOCK_PAGE_SIZE = 10;
 
 const movementLabels = {
   stock_in: 'Nhập kho',
@@ -31,6 +32,7 @@ export default function InventoryManagementPage() {
   const data = inventoryData || EMPTY_INVENTORY;
   const [tab, setTab] = useState('stock');
   const [search, setSearch] = useState('');
+  const [stockPage, setStockPage] = useState(1);
   const [showReceipt, setShowReceipt] = useState(false);
   const [showAdjust, setShowAdjust] = useState(false);
   const [adjustVariant, setAdjustVariant] = useState('');
@@ -65,6 +67,14 @@ export default function InventoryManagementPage() {
           .includes(search.toLocaleLowerCase('vi'));
       }),
     [variants, data, search],
+  );
+  const currentStockPage = Math.min(
+    stockPage,
+    Math.max(1, Math.ceil(filteredVariants.length / STOCK_PAGE_SIZE)),
+  );
+  const pageVariants = filteredVariants.slice(
+    (currentStockPage - 1) * STOCK_PAGE_SIZE,
+    currentStockPage * STOCK_PAGE_SIZE,
   );
   const auditRows = activeAudit
     ? auditItems.filter((item) => String(item.audit_id) === String(activeAudit.id))
@@ -273,7 +283,10 @@ export default function InventoryManagementPage() {
                 label="Tìm SKU"
                 placeholder="Tìm SKU, sản phẩm, màu, kích cỡ…"
                 value={search}
-                onChange={setSearch}
+                onChange={(value) => {
+                  setSearch(value);
+                  setStockPage(1);
+                }}
               />
             </div>
             <div className="table-responsive">
@@ -288,7 +301,7 @@ export default function InventoryManagementPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredVariants.map((variant) => (
+                  {pageVariants.map((variant) => (
                     <tr key={variant.id}>
                       <td>
                         <strong>{productName(data, variant.id)}</strong>
@@ -324,6 +337,12 @@ export default function InventoryManagementPage() {
                 </tbody>
               </Table>
             </div>
+            <ManagerPagination
+              total={filteredVariants.length}
+              page={currentStockPage}
+              pageSize={STOCK_PAGE_SIZE}
+              onChange={setStockPage}
+            />
           </div>
         </>
       )}
