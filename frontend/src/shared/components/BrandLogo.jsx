@@ -1,10 +1,10 @@
 import { Link } from 'react-router';
 import './BrandLogo.css';
 
-export default function BrandLogo({ compact = false }) {
+export default function BrandLogo({ compact = false, to = '/' }) {
   return (
     <Link
-      to="/"
+      to={to}
       className={'brand-logo' + (compact ? ' brand-logo-compact' : '')}
       aria-label="Badminton Shop — Trang chủ"
     >

@@ -4,6 +4,8 @@ import { Navbar, Button, Dropdown } from 'react-bootstrap';
 import { Link } from 'react-router';
 import { useAuth } from '@/app/providers/auth/AuthContext';
 import { useShop } from '@/app/providers/shop/ShopContext';
+import { getRoles } from '@/shared/auth/session';
+import { getRoleHomePath } from '@/shared/auth/rolePaths';
 import './PublicHeader.css';
 
 function HeaderIcon({ type }) {
@@ -39,6 +41,14 @@ function HeaderIcon({ type }) {
 export default function PublicHeader({ management = false }) {
   const shop = useShop();
   const { user, logout } = useAuth();
+  const homePath = getRoleHomePath(getRoles(user));
+  const accountPath = homePath === '/' ? '/orders' : homePath;
+  const accountLabel =
+    homePath === '/admin'
+      ? 'Quản lý tài khoản'
+      : homePath === '/management'
+        ? 'Dashboard quản lý'
+        : 'Đơn hàng của tôi';
   const count = (shop?.data?.cart_items || []).reduce((sum, item) => sum + item.quantity, 0);
 
   return (
@@ -49,7 +59,7 @@ export default function PublicHeader({ management = false }) {
           : 'Đồng hành cùng đam mê cầu lông · Miễn phí giao hàng từ 2.000.000đ'}
       </div>
       <Navbar className="store-navbar">
-        <BrandLogo />
+        <BrandLogo to={homePath} />
         <div className="header-actions">
           <Button
             as={Link}
@@ -84,8 +94,8 @@ export default function PublicHeader({ management = false }) {
               </Dropdown.Toggle>
               <Dropdown.Menu className="header-account-menu">
                 <Dropdown.Header className="text-truncate">{user.email}</Dropdown.Header>
-                <Dropdown.Item as={Link} to={management ? '/management' : '/orders'}>
-                  {management ? 'Dashboard quản lý' : 'Đơn hàng của tôi'}
+                <Dropdown.Item as={Link} to={accountPath}>
+                  {accountLabel}
                 </Dropdown.Item>
                 <Dropdown.Divider />
                 <Dropdown.Item onClick={logout}>Đăng xuất</Dropdown.Item>

@@ -1,13 +1,19 @@
 import { useAuth } from '@/app/providers/auth/AuthContext';
-import { Outlet } from 'react-router';
+import { Navigate, Outlet, useLocation } from 'react-router';
 import PublicHeader from './PublicHeader';
 import PublicSidebar from './PublicSidebar';
 import PublicFooter from '@/shared/components/PublicFooter';
 import ShopProvider from '@/app/providers/shop/ShopProvider';
 import '@/shared/styles/app.css';
-import { getToken } from '@/shared/auth/session';
+import { getRoles, getToken } from '@/shared/auth/session';
+import { getRoleHomePath } from '@/shared/auth/rolePaths';
 export default function PublicLayout() {
   const { user } = useAuth();
+  const { pathname } = useLocation();
+  const homePath = getRoleHomePath(getRoles(user));
+
+  if (pathname === '/' && homePath !== '/') return <Navigate to={homePath} replace />;
+
   return (
     <ShopProvider key={getToken(user) || 'guest'}>
       <div className="shop-app">

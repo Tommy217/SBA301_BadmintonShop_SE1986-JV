@@ -31,11 +31,13 @@ export default function LoginPage() {
       const result = await authApi.login({ email, password });
       login(result);
       const from = location.state?.from;
+      const homePath = getRoleHomePath(result.roles);
       const returnPath =
+        homePath === '/' &&
         typeof from?.pathname === 'string' &&
         /^\/(cart|order|orders|payment)(\/|$)/.test(from.pathname)
           ? from.pathname + (from.search || '')
-          : getRoleHomePath(result.roles);
+          : homePath;
       navigate(returnPath, { replace: true });
     } catch (err) {
       setError(err.message || 'Đăng nhập không thành công.');
