@@ -142,7 +142,7 @@ Toàn bộ API được triển khai tại package `fu.se.badmintonshop.modules.
 
 ```http
 ### 1. Tạo phiên thanh toán VietQR (Online Checkout)
-POST /api/v1/payments/create
+POST /api/payments/create
 Content-Type: application/json
 
 {
@@ -170,7 +170,7 @@ Response (200 OK):
 
 ```http
 ### 2. Polling tra cứu trạng thái thanh toán (Frontend gọi 3s/lần)
-GET /api/v1/payments/201
+GET /api/payments/201
 
 Response (200 OK):
 {
@@ -187,7 +187,7 @@ Response (200 OK):
 
 ```http
 ### 3. Nhận Webhook tự động từ payOS (Server-to-Server)
-POST /api/v1/payments/payos/webhook
+POST /api/payments/payos/webhook
 Content-Type: application/json
 
 {

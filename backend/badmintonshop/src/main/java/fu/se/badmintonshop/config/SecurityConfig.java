@@ -60,7 +60,7 @@ public class SecurityConfig {
                     HttpMethod.POST,
                     "/api/auth/login",
                     "/api/auth/register",
-                    "/api/v1/payments/payos/webhook"
+                    "/api/payments/payos/webhook"
                 ).permitAll()
                 .requestMatchers(
                     HttpMethod.GET,
@@ -77,7 +77,7 @@ public class SecurityConfig {
                 .requestMatchers("/api/staff/**", "/api/inventory/**", "/api/invoices/**").hasAnyRole("STAFF", "MANAGER", "ADMIN")
                 .requestMatchers(HttpMethod.GET, "/api/vouchers/usages", "/api/vouchers/usages/**").hasAnyRole("STAFF", "MANAGER", "ADMIN")
                 .requestMatchers("/api/products/**", "/api/categories/**", "/api/brands/**", "/api/vouchers/**").hasAnyRole("STAFF", "MANAGER", "ADMIN")
-                .requestMatchers("/api/v1/payments/payos/confirm-webhook").hasRole("ADMIN")
+                .requestMatchers("/api/payments/payos/confirm-webhook").hasRole("ADMIN")
                 .anyRequest().authenticated()
             );
 

@@ -70,7 +70,7 @@ class PaymentControllerTest {
                 .description("Don 10")
                 .build();
 
-        mockMvc.perform(post("/api/v1/payments/create")
+        mockMvc.perform(post("/api/payments/create")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
@@ -92,7 +92,7 @@ class PaymentControllerTest {
 
         when(paymentService.getPaymentById(1L)).thenReturn(mockDetail);
 
-        mockMvc.perform(get("/api/v1/payments/1"))
+        mockMvc.perform(get("/api/payments/1"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200))
                 .andExpect(jsonPath("$.data.id").value(1))
@@ -116,7 +116,7 @@ class PaymentControllerTest {
                 .signature("sample_signature")
                 .build();
 
-        mockMvc.perform(post("/api/v1/payments/payos/webhook")
+        mockMvc.perform(post("/api/payments/payos/webhook")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
@@ -129,10 +129,10 @@ class PaymentControllerTest {
         doNothing().when(paymentService).confirmWebhook(any());
 
         ConfirmWebhookRequest request = ConfirmWebhookRequest.builder()
-                .webhookUrl("https://example.com/api/v1/payments/payos/webhook")
+                .webhookUrl("https://example.com/api/payments/payos/webhook")
                 .build();
 
-        mockMvc.perform(post("/api/v1/payments/payos/confirm-webhook")
+        mockMvc.perform(post("/api/payments/payos/confirm-webhook")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
