@@ -103,7 +103,7 @@ export default function DeliveryManagementDetailPage() {
 
   return (
     <>
-      <div className="eyebrow">CHI TIẾT VẬN ĐƠN & HÀNH TRÌNH BÊN THỨ 3</div>
+      <div className="eyebrow">CHI TIẾT VẬN ĐƠN & HÀNH TRÌNH</div>
       <div className="d-flex flex-wrap align-items-start justify-content-between gap-3 mb-4">
         <div>
           <div className="d-flex align-items-center gap-2 mb-2">

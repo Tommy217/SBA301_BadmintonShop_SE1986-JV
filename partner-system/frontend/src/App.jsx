@@ -26,7 +26,7 @@ export default function App() {
             <div className="brand-logo">⚡</div>
             <div>
               <div className="brand-title">FastShip <span>Express</span></div>
-              <div className="brand-sub">Đối tác vận chuyển chính thức - Port 8082</div>
+              <div className="brand-sub">Đối tác vận chuyển chính thức</div>
             </div>
           </Link>
           <nav className="nav">

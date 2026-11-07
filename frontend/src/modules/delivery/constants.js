@@ -5,7 +5,7 @@ const fastshipPortal =
 export const carriers = {
   fastship: {
     code: 'fastship',
-    name: 'FastShip Express (Đối Tác)',
+    name: 'FastShip Express',
     shortName: 'FastShip',
     badgeColor: '#1d4ed8',
     badgeBg: '#dbeafe',

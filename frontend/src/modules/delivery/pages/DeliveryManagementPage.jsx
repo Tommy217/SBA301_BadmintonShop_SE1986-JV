@@ -86,10 +86,9 @@ export default function DeliveryManagementPage() {
       <div className="eyebrow">QUẢN LÝ VẬN HÀNH & GIAO VẬN</div>
       <div className="d-flex flex-wrap align-items-start justify-content-between gap-3 mb-4">
         <div>
-          <h1 className="h2 fw-bold mb-2">Vận đơn & Giao hàng (3rd-Party)</h1>
+          <h1 className="h2 fw-bold mb-2">Vận đơn & Giao hàng</h1>
           <p className="text-secondary mb-0">
-            Theo dõi hành trình bưu cục và đồng bộ trạng thái trực tiếp từ các đối tác giao hàng bên
-            thứ 3.
+            Theo dõi hành trình bưu cục và đồng bộ trạng thái trực tiếp từ các đối tác giao hàng.
 
           </p>
         </div>
