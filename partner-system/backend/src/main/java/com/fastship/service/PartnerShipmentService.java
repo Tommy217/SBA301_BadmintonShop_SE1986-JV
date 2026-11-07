@@ -24,13 +24,16 @@ public class PartnerShipmentService {
     private static final String DEFAULT_SHIPPER_PHONE = "0987.654.321";
 
     private final PartnerShipmentRepository repository;
+    private final WebhookOutboxService outbox;
     private final String shopCode;
     private final String trackingPortalUrl;
 
     public PartnerShipmentService(PartnerShipmentRepository repository,
+                                  WebhookOutboxService outbox,
                                   @Value("${fastship.shop-code:badminton-shop}") String shopCode,
                                   @Value("${tracking.portal.url:http://localhost:8082/track}") String trackingPortalUrl) {
         this.repository = repository;
+        this.outbox = outbox;
         this.shopCode = shopCode;
         this.trackingPortalUrl = trackingPortalUrl;
     }
@@ -148,12 +151,16 @@ public class PartnerShipmentService {
 
     // ---------- helper ----------
 
+    // moi lan doi trang thai (duyet, tu choi, buu ta cap nhat, shop huy) them 1 moc hanh trinh va 1 webhook bao shop
     private PartnerShipment move(PartnerShipment s, ShipmentStatus next, String title, String location, String note) {
         s.setStatus(next.getValue());
         s.setStatusText(note != null && next != ShipmentStatus.PENDING_PICKUP ? note : next.getDefaultText());
         s.setUpdatedAt(LocalDateTime.now());
-        s.addEvent(new TrackingEvent(next.getValue(), title, location, note != null ? note : next.getDefaultText()));
-        return repository.save(s);
+        TrackingEvent event = new TrackingEvent(next.getValue(), title, location, note != null ? note : next.getDefaultText());
+        s.addEvent(event);
+        PartnerShipment saved = repository.save(s);
+        outbox.enqueue(saved, event);
+        return saved;
     }
 
     private void requireTransition(PartnerShipment s, ShipmentStatus next) {

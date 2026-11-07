@@ -6,7 +6,9 @@ import com.fastship.dto.ShipmentRequestBody;
 import com.fastship.dto.StatusUpdateRequest;
 import com.fastship.exception.PartnerException;
 import com.fastship.repository.PartnerShipmentRepository;
+import com.fastship.document.TrackingEvent;
 import com.fastship.service.PartnerShipmentService;
+import com.fastship.service.WebhookOutboxService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.dao.DuplicateKeyException;
@@ -22,12 +24,14 @@ import static org.mockito.Mockito.*;
 class PartnerShipmentServiceTest {
 
     PartnerShipmentRepository repo;
+    WebhookOutboxService outbox;
     PartnerShipmentService service;
 
     @BeforeEach
     void setUp() {
         repo = mock(PartnerShipmentRepository.class);
-        service = new PartnerShipmentService(repo, "badminton-shop", "http://localhost:8082/track");
+        outbox = mock(WebhookOutboxService.class);
+        service = new PartnerShipmentService(repo, outbox, "badminton-shop", "http://localhost:8082/track");
         when(repo.save(any(PartnerShipment.class))).thenAnswer(inv -> {
             PartnerShipment s = inv.getArgument(0);
             if (s.getId() == null) s.setId("ref-1");
@@ -61,6 +65,7 @@ class PartnerShipmentServiceTest {
         assertNull(s.getTrackingCode(), "chua duyet thi chua co ma");
         assertEquals(new BigDecimal("55000"), s.getShippingFee(), "fast 45.000 + 2 nac 500g vuot 1kg");
         assertEquals(1, s.getEvents().size());
+        verifyNoInteractions(outbox);
     }
 
     @Test
@@ -95,6 +100,8 @@ class PartnerShipmentServiceTest {
         assertEquals("http://localhost:8082/track?code=" + s.getTrackingCode(), s.getTrackingUrl());
         assertNotNull(s.getShipperName());
         assertNotNull(s.getEstimatedDeliveryDate());
+        // webhook bao shop gan voi moc hanh trinh vua them
+        verify(outbox).enqueue(same(s), argThat((TrackingEvent e) -> "pending_pickup".equals(e.getStatus())));
     }
 
     @Test
@@ -102,6 +109,7 @@ class PartnerShipmentServiceTest {
         withStatus("pending_pickup");
         PartnerException e = assertThrows(PartnerException.class, () -> service.approve("ref-1", null));
         assertEquals(HttpStatus.CONFLICT, e.getStatus());
+        verifyNoInteractions(outbox);
     }
 
     @Test
