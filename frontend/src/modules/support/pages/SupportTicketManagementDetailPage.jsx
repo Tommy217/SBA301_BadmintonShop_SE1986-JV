@@ -610,7 +610,7 @@ export default function SupportTicketManagementDetailPage() {
                         onClick={handleReplacementUnavailable}
                         disabled={busy}
                       >
-                        ⚠️ Hết hàng thay thế ({ticket.cause === 'STORE_FAULT' ? 'Chuyển sang hoàn tiền' : 'Hủy & gửi trả hàng cũ'})
+                        ⚠️ Hết hàng thay thế (Tự động hoàn tiền, không cần khách xác nhận)
                       </Button>
                     </div>
                   </div>

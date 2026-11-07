@@ -14,16 +14,21 @@ Phân hệ Đổi trả & Hoàn tiền (UC15) xử lý khiếu nại sau bán h�
    * Khách hàng **bắt buộc tải lên ảnh mã QR tài khoản ngân hàng** nhận tiền khi tạo ticket (áp dụng cho cả `REFUND` và `EXCHANGE`).
    * Không lưu thông tin số tài khoản / tên ngân hàng dạng text (loại bỏ lỗi chính tả của khách).
    * Nhân viên quét ảnh QR của khách bằng ứng dụng Mobile Banking ngoài đời thực, thực hiện chuyển tiền, sau đó **nhập Mã tham chiếu giao dịch ngân hàng (`bank_reference`)** vào hệ thống để đối soát.
-3. **Đổi hàng 1:1 cùng loại, cùng giá tiền:**
-   * Chỉ cho phép đổi sang biến thể khác (kích thước, màu sắc) của **cùng sản phẩm gốc** và có **đơn giá bằng chính xác đơn giá sản phẩm đã mua** (`CR-BR-05`).
+3. **Đổi hàng 1:1 cùng chính xác sản phẩm đã mua (Không đổi sang sản phẩm khác):**
+   * Chỉ áp dụng chính sách **1 đổi 1 cho chính sản phẩm/biến thể đã mua** bị lỗi do cửa hàng (đổi lấy sản phẩm mới nguyên vẹn cùng loại), **không hỗ trợ đổi sang sản phẩm hoặc biến thể khác cùng giá tiền**.
    * Hệ thống không thu thêm phụ phí chênh lệch giá hoặc phí vận chuyển đổi hàng.
-4. **Xác định nguyên nhân (`cause`) khi sơ duyệt:**
-   * `STORE_FAULT`: Lỗi từ phía cửa hàng / nhà sản xuất (hàng lỗi, giao nhầm mã, thiếu phụ kiện). Cửa hàng **hoàn lại cả tiền phí vận chuyển ban đầu**.
-   * `CUSTOMER_PREFERENCE`: Nhu cầu cá nhân của khách hàng (đổi size, đổi màu, đổi ý). Khách hàng tự chịu chi phí vận chuyển.
+   * **Tự động chuyển hoàn tiền khi hết hàng thay thế:** Nếu kiểm tra kho thấy sản phẩm thay thế đã hết hàng, hệ thống sẽ **gửi thông báo hết hàng và tự động chuyển sang luồng hoàn tiền cho khách (dùng mã QR đã upload ban đầu, không cần khách phải xác nhận lại)**.
+4. **Chính sách đổi trả chỉ áp dụng khi lỗi từ phía cửa hàng (`STORE_FAULT`):**
+   * Cửa hàng **chỉ chấp nhận đổi hàng hoặc hoàn tiền khi lỗi phát sinh từ phía shop / nhà sản xuất** (`STORE_FAULT`: giao sai mẫu, sai kích cỡ, sản phẩm lỗi nứt/bong tróc, hư hại khi mở hộp, thiếu phụ kiện...). Cửa hàng **hoàn lại cả tiền phí vận chuyển ban đầu**.
+   * Trường hợp hàng hoàn về kiểm tra đạt chuẩn (hàng không lỗi) nhưng nguyên nhân xuất phát từ **nhu cầu cá nhân / khách hàng đổi ý không muốn nhận (`CUSTOMER_PREFERENCE`)** $\rightarrow$ Hệ thống sẽ **Từ chối phiếu (`REJECTED`)**, gửi trả lại sản phẩm ban đầu cho khách và **không hoàn tiền**.
+   * **Quy tắc không cộng lại kho (`No Restock`):** Do cửa hàng chỉ tiếp nhận hàng lỗi do shop để tiến hành bảo hành/thu hồi/hoàn tiền, các sản phẩm lỗi này không được đưa trở lại bán đại trà, do đó hệ thống **không thực hiện tự động cộng lại tồn kho**.
 5. **Hạn mức phê duyệt 3.000.000 VNĐ:**
    * Số tiền hoàn **dưới 3.000.000 VNĐ**: Nhân viên (Staff) có thẩm quyền phê duyệt trực tiếp sang trạng thái chờ chuyển tiền (`PENDING_TRANSFER`).
    * Số tiền hoàn **từ 3.000.000 VNĐ trở lên**: Bắt buộc chuyển sang trạng thái chờ Quản lý phê duyệt (`PENDING_APPROVAL`). Chỉ tài khoản có vai trò `MANAGER` mới được phép duyệt hoặc từ chối.
 6. **Ràng buộc duy nhất:** Mỗi đơn hàng chỉ được tạo tối đa 1 phiếu hỗ trợ (`UNIQUE order_id`).
+7. **Vận chuyển chiều ngược lại (Reverse Logistics) — [Coming Soon / Chưa phát triển]:**
+   * Việc tích hợp API đơn vị vận chuyển tự động cho chiều ngược lại (khách gửi hàng hoàn về kho hoặc shop gửi trả hàng bị từ chối về lại cho khách) hiện tại được đánh dấu là **`Coming Soon (Chưa phát triển)`**.
+   * Toàn bộ quy trình gửi hàng ngược chiều hiện xử lý thủ công ngoài đời thực (khách tự gửi bưu phẩm theo địa chỉ kho hướng dẫn; nhân viên nhận hàng và thẩm định trực tiếp).
 
 ---
 
@@ -70,16 +75,21 @@ sequenceDiagram
     BE->>DB: INSERT ticket_inspection
 
     alt Thẩm định KHÔNG ĐẠT (FAILED)
-        BE->>DB: UPDATE status='INSPECTION_FAILED' (gửi trả hàng cho khách)
+        BE->>DB: UPDATE status='INSPECTION_FAILED' (gửi trả hàng cho khách [Coming Soon])
     else Thẩm định ĐẠT (PASSED)
-        Note over BE: Tính số tiền hoàn = tiền hàng + ship (nếu STORE_FAULT)
-        alt Số tiền hoàn < 3.000.000 VNĐ
-            BE->>DB: UPDATE status='PENDING_TRANSFER', approved_by=staffId
-        else Số tiền hoàn >= 3.000.000 VNĐ
-            BE->>DB: UPDATE status='PENDING_APPROVAL'
-            Manager->>FE: Quản lý xem xét biên bản & bấm Duyệt
-            FE->>BE: POST /api/manager/support-tickets/{id}/decision (decision='approve')
-            BE->>DB: UPDATE status='PENDING_TRANSFER', approved_by=managerId
+        alt Nguyên nhân là CUSTOMER_PREFERENCE (Khách đổi ý/không muốn)
+            Note over BE: Hàng đạt chuẩn nhưng do khách đổi ý -> Từ chối phiếu
+            BE->>DB: UPDATE status='REJECTED' (Gửi trả hàng, không hoàn tiền [Coming Soon])
+        else Nguyên nhân là STORE_FAULT (Lỗi do cửa hàng)
+            Note over BE: Tính số tiền hoàn = tiền hàng + ship ban đầu
+            alt Số tiền hoàn < 3.000.000 VNĐ
+                BE->>DB: UPDATE status='PENDING_TRANSFER', approved_by=staffId
+            else Số tiền hoàn >= 3.000.000 VNĐ
+                BE->>DB: UPDATE status='PENDING_APPROVAL'
+                Manager->>FE: Quản lý xem xét biên bản & bấm Duyệt
+                FE->>BE: POST /api/manager/support-tickets/{id}/decision (decision='approve')
+                BE->>DB: UPDATE status='PENDING_TRANSFER', approved_by=managerId
+            end
         end
     end
 
@@ -95,7 +105,7 @@ sequenceDiagram
 
 ---
 
-### 2.2. Luồng Đổi sản phẩm (Exchange Flow)
+### 2.2. Luồng Đổi sản phẩm (Exchange Flow - Đổi 1:1 cùng sản phẩm đã mua)
 
 ```mermaid
 sequenceDiagram
@@ -106,32 +116,28 @@ sequenceDiagram
     participant DB as SQL Server
     actor Staff as Nhân viên
 
-    Customer->>FE: Chọn đơn hàng, chọn biến thể đổi cùng giá (CR-BR-05) & tải lên QR
-    FE->>BE: POST /api/support-tickets (type='EXCHANGE', replacementVariantId, qrUrl)
+    Customer->>FE: Chọn đơn hàng, chọn đổi 1:1 cùng sản phẩm đã mua & tải lên QR
+    FE->>BE: POST /api/support-tickets (type='EXCHANGE', replacementVariantId=originalVariantId, qrUrl)
     BE->>DB: INSERT support_tickets (status='PENDING')
 
-    Staff->>FE: Sơ duyệt chọn cause (STORE_FAULT hoặc CUSTOMER_PREFERENCE)
-    FE->>BE: POST /api/staff/support-tickets/{id}/review (action='approve')
+    Staff->>FE: Sơ duyệt xác nhận lỗi từ shop (STORE_FAULT)
+    FE->>BE: POST /api/staff/support-tickets/{id}/review (action='approve', cause='STORE_FAULT')
     BE->>DB: UPDATE status='AWAITING_RETURN'
 
-    Customer->>Staff: Gửi kiện hàng về kho
-    Staff->>FE: Thẩm định hàng ĐẠT (PASSED)
+    Customer->>Staff: Gửi kiện hàng về kho (Coming Soon)
+    Staff->>FE: Thẩm định hàng lỗi ĐẠT (PASSED)
     FE->>BE: POST /api/staff/support-tickets/{id}/inspection (result='PASSED')
     
-    alt Hàng thay thế CÒN TỒN KHO
+    alt Sản phẩm thay thế CÒN TỒN KHO
         Staff->>FE: Bấm "Giao hàng thay thế" & nhập mã vận đơn
         FE->>BE: POST /api/staff/support-tickets/{id}/ship-exchange (trackingCode)
-        BE->>DB: UPDATE status='COMPLETED' (trừ kho sản phẩm thay thế)
-    else Hàng thay thế HẾT HÀNG (Unavailable)
+        BE->>DB: UPDATE status='COMPLETED' (trừ tồn kho sản phẩm mới)
+    else Sản phẩm thay thế HẾT HÀNG (Unavailable)
         Staff->>FE: Bấm "Hết hàng thay thế"
         FE->>BE: POST /api/staff/support-tickets/{id}/replacement-unavailable
-        alt Nguyên nhân là STORE_FAULT
-            Note over BE: Tự động rẽ nhánh sang luồng Hoàn tiền (dùng QR đã có sẵn)
-            BE->>DB: Chuyển sang PENDING_TRANSFER hoặc PENDING_APPROVAL
-        else Nguyên nhân là CUSTOMER_PREFERENCE
-            Note over BE: Hủy yêu cầu, gửi trả hàng cũ, KHÔNG hoàn tiền
-            BE->>DB: UPDATE status='CANCELLED'
-        end
+        Note over BE: Gửi thông báo hết hàng & Tự động hoàn tiền ngay<br/>(Dùng mã QR đã có sẵn, KHÔNG CẦN khách confirm lại)
+        BE->>DB: Chuyển sang PENDING_TRANSFER (< 3M) hoặc PENDING_APPROVAL (>= 3M)
+        Note over Staff: Staff thực hiện chuyển tiền hoàn qua QR -> REFUNDED
     end
 ```
 
@@ -142,7 +148,7 @@ sequenceDiagram
 | Trạng thái | Tên tiếng Việt | Quyền hạn thao tác | Ý nghĩa & Điều kiện chuyển tiếp |
 | :--- | :--- | :--- | :--- |
 | `PENDING` | Chờ tiếp nhận sơ duyệt | Khách hàng, Staff | Phiếu vừa tạo. Khách có thể bấm **Hủy (`CANCELLED`)**. Staff duyệt (chọn `cause` $\rightarrow$ `AWAITING_RETURN`) hoặc từ chối (`REJECTED`). |
-| `REJECTED` | Bị từ chối | - | Trạng thái kết thúc. Bị Staff từ chối ở bước sơ duyệt hoặc Quản lý từ chối duyệt hoàn tiền. |
+| `REJECTED` | Bị từ chối | - | Trạng thái kết thúc. Bị Staff từ chối ở bước sơ duyệt, hoặc bị từ chối sau thẩm định vì hàng đạt chuẩn nhưng nguyên nhân là do khách đổi ý (`CUSTOMER_PREFERENCE`), hoặc Quản lý từ chối duyệt hoàn tiền. |
 | `AWAITING_RETURN` | Chờ gửi lại hàng | Khách hàng, Staff | Khách đóng gói gửi hàng về địa chỉ kho. Staff nhận hàng và ghi nhận biên bản kiểm tra. |
 | `INSPECTION_FAILED`| Kiểm tra không đạt | - | Trạng thái kết thúc. Hàng hoàn về không đủ điều kiện (bị can thiệp, hư hại do người dùng), hàng gửi trả lại khách, chặn hoàn tiền. |
 | `PENDING_APPROVAL` | Chờ Quản lý duyệt | Quản lý (Manager) | Áp dụng khi số tiền hoàn $\ge 3.000.000$ VNĐ sau khi kiểm tra đạt. Chỉ Quản lý mới có quyền duyệt hoặc từ chối. |

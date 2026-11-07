@@ -205,6 +205,33 @@ class SupportTicketServiceTest {
     }
 
     @Test
+    @DisplayName("Thẩm định ĐẠT nhưng lý do là CUSTOMER_PREFERENCE -> Từ chối phiếu (REJECTED)")
+    void testInspectTicket_Passed_CustomerPreference_RejectsTicket() {
+        SupportTicket ticket = SupportTicket.builder()
+                .id(502L)
+                .ticketCode("ST-102")
+                .orderId(1L)
+                .ticketType("REFUND")
+                .status("AWAITING_RETURN")
+                .cause(TicketCause.CUSTOMER_PREFERENCE.getValue())
+                .build();
+
+        when(ticketRepository.findById(502L)).thenReturn(Optional.of(ticket));
+        when(ticketRepository.save(any())).thenReturn(ticket);
+
+        InspectionRequest request = InspectionRequest.builder()
+                .result(InspectionResult.PASSED.getValue())
+                .note("Hàng nguyên vẹn không lỗi")
+                .staffId(2L)
+                .build();
+
+        TicketResponse response = ticketService.inspectTicket(502L, request);
+
+        assertEquals(TicketStatus.REJECTED.getValue(), response.getStatus());
+        assertNotNull(response.getRejectReason());
+    }
+
+    @Test
     @DisplayName("NhÃ¢n viÃªn chuyá»ƒn khoáº£n hoÃ n tiá»n thÃ nh cÃ´ng vÃ  lÆ°u mÃ£ giao dá»‹ch")
     void testRecordRefundTransfer_Success() {
         SupportTicket ticket = SupportTicket.builder()
@@ -231,6 +258,33 @@ class SupportTicketServiceTest {
 
         assertEquals(TicketStatus.REFUNDED.getValue(), response.getStatus());
         verify(refundRecordRepository, times(1)).save(any(RefundRecord.class));
+    }
+
+    @Test
+    @DisplayName("Hết hàng thay thế -> Tự động chuyển hoàn tiền ngay (không cần khách confirm)")
+    void testReplacementUnavailable_AutoRefundWithoutCustomerConfirmation() {
+        SupportTicket ticket = SupportTicket.builder()
+                .id(503L)
+                .ticketCode("ST-103")
+                .orderId(1L)
+                .ticketType("EXCHANGE")
+                .status("AWAITING_RETURN")
+                .cause(TicketCause.STORE_FAULT.getValue())
+                .build();
+
+        when(ticketRepository.findById(503L)).thenReturn(Optional.of(ticket));
+        when(orderRepository.findById(1L)).thenReturn(Optional.of(sampleOrder));
+        when(orderItemRepository.findByOrderId(1L)).thenReturn(List.of(sampleOrderItem));
+        when(itemRepository.findByTicketId(503L)).thenReturn(List.of(
+                SupportTicketItem.builder().ticketId(503L).orderItemId(101L).quantity(1).build()
+        ));
+        when(ticketRepository.save(any())).thenReturn(ticket);
+
+        TicketResponse response = ticketService.replacementUnavailable(503L, 2L, "Kho hết hàng cùng loại");
+
+        // Số tiền 1,500,000 (< 3 triệu) -> Chuyển thẳng sang PENDING_TRANSFER
+        assertEquals(TicketStatus.PENDING_TRANSFER.getValue(), response.getStatus());
+        assertEquals(new BigDecimal("1500000"), response.getRefundAmount());
     }
 }
 

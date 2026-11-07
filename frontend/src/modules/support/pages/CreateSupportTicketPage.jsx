@@ -180,23 +180,18 @@ export default function CreateSupportTicketPage() {
 
     const itemsToSubmit = Object.entries(selectedItems)
       .filter(([, s]) => s.checked)
-      .map(([orderItemId, s]) => ({
-        order_item_id: orderItemId,
-        quantity: s.quantity,
-        replacement_variant_id: ticketType === 'EXCHANGE' ? s.replacementVariantId : null,
-      }));
+      .map(([orderItemId, s]) => {
+        const item = currentOrderItems.find((oi) => String(oi.id) === String(orderItemId));
+        return {
+          order_item_id: orderItemId,
+          quantity: s.quantity,
+          replacement_variant_id: ticketType === 'EXCHANGE' ? (item?.variant_id || null) : null,
+        };
+      });
 
     if (itemsToSubmit.length === 0) {
       setError('Vui lòng tích chọn ít nhất 1 sản phẩm trong đơn hàng cần đổi/trả.');
       return;
-    }
-
-    if (ticketType === 'EXCHANGE') {
-      const missingVariant = itemsToSubmit.some((item) => !item.replacement_variant_id);
-      if (missingVariant) {
-        setError('Vui lòng chọn sản phẩm / biến thể thay thế cho tất cả các món cần đổi.');
-        return;
-      }
     }
 
     if (!qrImage) {
@@ -368,24 +363,9 @@ export default function CreateSupportTicketPage() {
 
                           {ticketType === 'EXCHANGE' && (
                             <td>
-                              <Form.Select
-                                size="sm"
-                                disabled={!itemState.checked}
-                                value={itemState.replacementVariantId}
-                                onChange={(e) => handleReplacementVariantChange(item.id, e.target.value)}
-                              >
-                                <option value="">-- Chọn biến thể đổi (size/màu) --</option>
-                                {replacementVariants.map((v) => (
-                                  <option key={v.id} value={v.id}>
-                                    {v.sku || 'Variant'} · {v.color || ''} {v.size || ''} ({formatMoney(v.price)})
-                                  </option>
-                                ))}
-                              </Form.Select>
-                              {replacementVariants.length === 0 && (
-                                <small className="text-danger d-block mt-1">
-                                  Không có biến thể khác cùng giá với sản phẩm này.
-                                </small>
-                              )}
+                              <Badge bg="primary-subtle" text="primary" className="border border-primary-subtle p-2">
+                                🔄 Đổi mới cùng loại ({item.variant_info || 'Mặc định'})
+                              </Badge>
                             </td>
                           )}
 

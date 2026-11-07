@@ -1,4 +1,4 @@
-package fu.se.badmintonshop.modules.supportticket.service.impl;
+﻿package fu.se.badmintonshop.modules.supportticket.service.impl;
 
 import fu.se.badmintonshop.modules.catalog.entity.ProductVariant;
 import fu.se.badmintonshop.modules.catalog.repository.ProductVariantRepository;
@@ -98,18 +98,8 @@ public class SupportTicketServiceImpl implements SupportTicketService {
 
             // Vá»›i EXCHANGE: Pháº£i cÃ³ replacementVariantId cÃ¹ng sáº£n pháº©m vÃ  cÃ¹ng Ä‘Æ¡n giÃ¡ (CR-BR-05)
             if (TicketType.EXCHANGE.getValue().equals(type)) {
-                if (it.getReplacementVariantId() == null) {
-                    throw new IllegalArgumentException("YÃªu cáº§u Ä‘á»•i hÃ ng báº¯t buá»™c pháº£i chá»n biáº¿n thá»ƒ thay tháº¿.");
-                }
-                ProductVariant replacement = productVariantRepository.findById(it.getReplacementVariantId())
-                        .orElseThrow(() -> new IllegalArgumentException("KhÃ´ng tÃ¬m tháº¥y biáº¿n thá»ƒ thay tháº¿ ID: " + it.getReplacementVariantId()));
-
-                if (!replacement.getProductId().equals(oi.getProductId())) {
-                    throw new IllegalArgumentException("Biáº¿n thá»ƒ thay tháº¿ pháº£i thuá»™c cÃ¹ng má»™t sáº£n pháº©m vá»›i sáº£n pháº©m gá»‘c.");
-                }
-                if (replacement.getPrice().compareTo(oi.getUnitPrice()) != 0) {
-                    throw new IllegalArgumentException("Biáº¿n thá»ƒ thay tháº¿ pháº£i cÃ³ cÃ¹ng má»©c giÃ¡ vá»›i sáº£n pháº©m ban Ä‘áº§u (" + oi.getUnitPrice() + " VND).");
-                }
+                // Chỉ đổi 1:1 cho chính sản phẩm/biến thể đã mua (không đổi sang sản phẩm khác)
+                it.setReplacementVariantId(oi.getVariantId());
             }
         }
 
@@ -287,6 +277,17 @@ public class SupportTicketServiceImpl implements SupportTicketService {
                     request.getStaffId(), "Tháº©m Ä‘á»‹nh KHÃ”NG Äáº T: " + (request.getNote() != null ? request.getNote() : "") + ". HÃ ng sáº½ Ä‘Æ°á»£c gá»­i tráº£ láº¡i khÃ¡ch.");
         } else {
             // PASSED
+            // Nếu lý do là do khách không muốn/đổi ý (CUSTOMER_PREFERENCE) -> Từ chối phiếu (REJECTED), chỉ đổi trả khi lỗi từ phía cửa hàng (STORE_FAULT)
+            if (TicketCause.CUSTOMER_PREFERENCE.getValue().equals(ticket.getCause())) {
+                ticket.setStatus(TicketStatus.REJECTED.getValue());
+                ticket.setRejectReason("Sản phẩm đạt chuẩn nhưng lý do là nhu cầu cá nhân/đổi ý. Cửa hàng chỉ giải quyết đổi trả khi lỗi từ phía cửa hàng.");
+                ticketRepository.save(ticket);
+
+                addStatusHistory(ticket.getId(), TicketStatus.AWAITING_RETURN.getValue(), TicketStatus.REJECTED.getValue(),
+                        request.getStaffId(), "Thẩm định ĐẠT chuẩn nhưng nguyên nhân là CUSTOMER_PREFERENCE (khách đổi ý). Cửa hàng từ chối yêu cầu, gửi trả lại hàng cũ.");
+                return loadFullResponse(ticket);
+            }
+
             if (TicketType.REFUND.getValue().equals(ticket.getTicketType())) {
                 BigDecimal refundAmount = calculateRefundAmount(ticket);
                 ticket.setRefundAmount(refundAmount);
@@ -406,39 +407,36 @@ public class SupportTicketServiceImpl implements SupportTicketService {
     @Transactional
     public TicketResponse replacementUnavailable(Long id, Long staffId, String note) {
         SupportTicket ticket = ticketRepository.findById(id)
-                .orElseThrow(() -> new NoSuchElementException("KhÃ´ng tÃ¬m tháº¥y phiáº¿u há»— trá»£ ID: " + id));
+                .orElseThrow(() -> new NoSuchElementException("Không tìm thấy phiếu hỗ trợ ID: " + id));
 
         if (!TicketType.EXCHANGE.getValue().equals(ticket.getTicketType())) {
-            throw new IllegalStateException("Chá»‰ Ã¡p dá»¥ng cho phiáº¿u Äá»•i sáº£n pháº©m (EXCHANGE).");
+            throw new IllegalStateException("Chỉ áp dụng cho phiếu Đổi sản phẩm (EXCHANGE).");
         }
 
-        if (TicketCause.STORE_FAULT.getValue().equals(ticket.getCause())) {
-            // STORE_FAULT -> Chuyá»ƒn sang luá»“ng hoÃ n tiá»n
-            BigDecimal refundAmount = calculateRefundAmount(ticket);
-            ticket.setRefundAmount(refundAmount);
+        // Tự động gửi thông báo hết hàng và hoàn tiền cho khách (không cần customer confirm)
+        BigDecimal refundAmount = calculateRefundAmount(ticket);
+        ticket.setRefundAmount(refundAmount);
 
-            if (refundAmount.compareTo(APPROVAL_THRESHOLD) < 0) {
-                ticket.setStatus(TicketStatus.PENDING_TRANSFER.getValue());
-                ticket.setApprovedBy(staffId);
-                ticket.setApprovedAt(LocalDateTime.now());
-                ticketRepository.save(ticket);
+        String autoRefundNote = "Sản phẩm thay thế trong kho đã hết hàng. Hệ thống gửi thông báo hết hàng và tự động chuyển sang hoàn tiền " 
+                + refundAmount + " VND cho khách (không cần khách xác nhận).";
+        if (note != null && !note.isBlank()) {
+            autoRefundNote += " Ghi chú: " + note;
+        }
 
-                addStatusHistory(ticket.getId(), TicketStatus.AWAITING_RETURN.getValue(), TicketStatus.PENDING_TRANSFER.getValue(),
-                        staffId, "Háº¿t hÃ ng thay tháº¿ (Lá»—i cá»­a hÃ ng). Tá»± Ä‘á»™ng chuyá»ƒn luá»“ng hoÃ n tiá»n " + refundAmount + " VND, chá» nhÃ¢n viÃªn chuyá»ƒn khoáº£n.");
-            } else {
-                ticket.setStatus(TicketStatus.PENDING_APPROVAL.getValue());
-                ticketRepository.save(ticket);
-
-                addStatusHistory(ticket.getId(), TicketStatus.AWAITING_RETURN.getValue(), TicketStatus.PENDING_APPROVAL.getValue(),
-                        staffId, "Háº¿t hÃ ng thay tháº¿ (Lá»—i cá»­a hÃ ng). Tá»± Ä‘á»™ng chuyá»ƒn luá»“ng hoÃ n tiá»n " + refundAmount + " VND, chá» Quáº£n lÃ½ duyá»‡t.");
-            }
-        } else {
-            // CUSTOMER_PREFERENCE -> CANCELLED, khÃ´ng hoÃ n tiá»n
-            ticket.setStatus(TicketStatus.CANCELLED.getValue());
+        if (refundAmount.compareTo(APPROVAL_THRESHOLD) < 0) {
+            ticket.setStatus(TicketStatus.PENDING_TRANSFER.getValue());
+            ticket.setApprovedBy(staffId);
+            ticket.setApprovedAt(LocalDateTime.now());
             ticketRepository.save(ticket);
 
-            addStatusHistory(ticket.getId(), TicketStatus.AWAITING_RETURN.getValue(), TicketStatus.CANCELLED.getValue(),
-                    staffId, "Háº¿t hÃ ng thay tháº¿ (Nhu cáº§u cÃ¡ nhÃ¢n cá»§a khÃ¡ch). Há»§y yÃªu cáº§u Ä‘á»•i hÃ ng, gá»­i tráº£ láº¡i sáº£n pháº©m ban Ä‘áº§u cho khÃ¡ch, khÃ´ng hoÃ n tiá»n.");
+            addStatusHistory(ticket.getId(), TicketStatus.AWAITING_RETURN.getValue(), TicketStatus.PENDING_TRANSFER.getValue(),
+                    staffId, autoRefundNote + " Nhân viên chuyển tiền qua QR.");
+        } else {
+            ticket.setStatus(TicketStatus.PENDING_APPROVAL.getValue());
+            ticketRepository.save(ticket);
+
+            addStatusHistory(ticket.getId(), TicketStatus.AWAITING_RETURN.getValue(), TicketStatus.PENDING_APPROVAL.getValue(),
+                    staffId, autoRefundNote + " Chờ Quản lý phê duyệt.");
         }
 
         return loadFullResponse(ticket);
