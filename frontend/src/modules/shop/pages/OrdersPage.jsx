@@ -1,196 +1,73 @@
-import useOrderUpdates from '../hooks/useOrderUpdates';
-import { getOrderStatus } from '../utils/orderStatus';
-import { Alert, Badge, Button, Card } from 'react-bootstrap';
+import { useState } from 'react';
+import { Alert } from 'react-bootstrap';
 import { Link, useLocation } from 'react-router';
 import { useShop } from '@/app/providers/shop/ShopContext';
 import { formatDateTime, formatMoney } from '@/shared/utils/format';
+import Icon from '@/shared/components/Icon';
 import { carriers, deliveryStatuses } from '@/modules/delivery/constants';
 import { useMyShipments } from '@/modules/delivery/hooks/useDelivery';
+import { payments } from '@/modules/management/constants';
+import useOrderUpdates from '../hooks/useOrderUpdates';
+import { getOrderStatus } from '../utils/orderStatus';
+import { productImage, productImageFallback } from '../utils/productImages';
+import '../orders.css';
+
+const tabs = [
+  { id: 'all', label: 'Tất cả', match: () => true },
+  { id: 'unpaid', label: 'Chờ thanh toán', match: (o) => o.payment_status === 'unpaid' && !['cancelled', 'returned'].includes(o.status) },
+  { id: 'processing', label: 'Đang xử lý', match: (o) => ['pending', 'confirmed', 'preparing'].includes(o.status) },
+  { id: 'shipping', label: 'Đang giao', match: (o) => o.status === 'shipping' },
+  { id: 'completed', label: 'Hoàn tất', match: (o) => o.status === 'completed' },
+  { id: 'closed', label: 'Đã hủy / Trả hàng', match: (o) => ['cancelled', 'returned'].includes(o.status) },
+];
 
 export default function OrdersPage() {
-  const { data } = useShop(),
-    { state } = useLocation();
+  const { data } = useShop();
+  const { state } = useLocation();
+  const [activeTab, setActiveTab] = useState('all');
   const { data: shipments, reload: reloadShipments } = useMyShipments(data?.orders?.length > 0);
-
   useOrderUpdates(reloadShipments);
-  return (
-    <>
-      <div className="eyebrow">LỊCH SỬ MUA SẮM</div>
-      <h1 className="h2 fw-bold mb-4">Đơn hàng của tôi</h1>
-      {state?.placed && (
-        <Alert variant="success">Đặt hàng thành công! Bạn có thể theo dõi trạng thái mới nhất bên dưới.</Alert>
-      )}
-      {!data.orders.length && (
-        <div className="empty-state">
-          <p>Bạn chưa có đơn hàng nào.</p>
-          <Button as={Link} to="/products">
-            Mua sắm ngay
-          </Button>
-        </div>
-      )}
-      {[...data.orders].reverse().map((o) => {
-        // danh sach van don da sap moi nhat truoc
-        const orderStatus = getOrderStatus(o.status);
-        const delivery = (shipments || []).find((d) => String(d.order_id) === String(o.id));
-        const carrier = delivery ? carriers[delivery.carrier] : null;
-        const statusInfo = delivery ? deliveryStatuses[delivery.status] : null;
-        const ticket = (data.support_tickets || []).find(
-          (t) => String(t.order_id) === String(o.id) && !['CANCELLED'].includes(t.status),
-        );
+  const orders = [...data.orders].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+  const visibleOrders = orders.filter(tabs.find((tab) => tab.id === activeTab).match);
 
-        return (
-          <Card key={o.id} className="border-0 mb-4 shadow-sm">
-            <Card.Body className="p-4">
-              <div className="d-flex justify-content-between align-items-start gap-2">
-                <div>
-                  <h2 className="h6 fw-bold mb-1">{o.order_code}</h2>
-                  <small className="text-secondary">{formatDateTime(o.created_at)}</small>
-                </div>
-                <div className="text-end">
-                  <Badge bg={orderStatus.variant} text={orderStatus.variant === 'warning' ? 'dark' : undefined} className="mb-1">{orderStatus.label}</Badge>
-                  {delivery ? (
-                    <>
-                      <Badge
-                        bg={statusInfo?.variant || 'info'}
-                        text={statusInfo?.variant === 'warning' ? 'dark' : undefined}
-                        className="d-block mb-1"
-                      >
-                        {statusInfo?.label || 'Đang giao'} ({carrier?.shortName || 'ĐVVC'})
-                      </Badge>
-                      <small className="text-secondary font-monospace d-block">
-                        {delivery.tracking_number || 'Đang chờ cấp mã'}
-                      </small>
-                    </>
-                  ) : null}
-                </div>
-              </div>
-              <hr />
-              {data.order_items
-                .filter((i) => i.order_id === o.id)
-                .map((i) => (
-                  <div className="summary-row" key={i.id}>
-                    <span>
-                      {i.product_name}
-                      <small className="d-block text-secondary">
-                        {i.variant_info} × {i.quantity}
-                      </small>
-                    </span>
-                    <strong>{formatMoney(i.line_total)}</strong>
-                  </div>
-                ))}
-              <hr />
-              <p className="mb-1">
-                {o.receiver_name} · {o.receiver_phone}
-              </p>
-              <p className="small text-secondary">{o.shipping_address}</p>
-              {o.note && <p className="small">Ghi chú: {o.note}</p>}
-              <div className="summary-row small">
-                <span>Phí vận chuyển</span>
-                <span>{formatMoney(o.shipping_fee)}</span>
-              </div>
-              <div className="summary-row">
-                <span>
-                  VietQR payOS · {o.payment_status === 'paid' ? 'Đã thanh toán' : 'Chưa thanh toán'}
-                </span>
-                <strong className="text-primary">{formatMoney(o.total_amount)}</strong>
-              </div>
-
-              <div className="d-flex flex-wrap gap-2 mt-3 pt-3 border-top">
-                <Button
-                  as={Link}
-                  to={`/orders/${encodeURIComponent(o.id)}/tracking`}
-                  variant="outline-primary"
-                  size="sm"
-                  className="d-inline-flex align-items-center gap-1"
-                >
-                  <svg
-                    width="15"
-                    height="15"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <path d="M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2" />
-                    <path d="M15 18H9" />
-                    <path d="M19 18h2a1 1 0 0 0 1-1v-3.65a1 1 0 0 0-.22-.624l-3.48-4.35A1 1 0 0 0 17.52 8H14" />
-                    <circle cx="17" cy="18" r="2" />
-                    <circle cx="7" cy="18" r="2" />
-                  </svg>
-                  <span>
-                    {delivery
-                      ? `Theo dõi vận chuyển (${carrier?.shortName || 'ĐVVC'})`
-                      : 'Theo dõi đơn hàng'}
-                  </span>
-                </Button>
-
-                {o.payment_status === 'unpaid' && !['cancelled', 'returned'].includes(o.status) && (
-                  <Button
-                    as={Link}
-                    to={'/payments?order=' + encodeURIComponent(o.id)}
-                    variant="outline-success"
-                    size="sm"
-                  >
-                    Tiếp tục thanh toán
-                  </Button>
-                )}
-
-                {o.payment_status === 'paid' && !ticket && (
-                  <Button
-                    as={Link}
-                    to={'/support-tickets/create?orderId=' + encodeURIComponent(o.id)}
-                    variant="outline-warning"
-                    size="sm"
-                    className="d-inline-flex align-items-center gap-1"
-                  >
-                    <svg
-                      width="15"
-                      height="15"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <path d="M8 10h8M8 14h5" />
-                      <path d="M7 3h10a2 2 0 0 1 2 2v14l-3-2H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z" />
-                    </svg>
-                    <span>Tạo phiếu hỗ trợ / Đổi trả</span>
-                  </Button>
-                )}
-
-                {ticket && (
-                  <Button
-                    as={Link}
-                    to={`/support-tickets/${encodeURIComponent(ticket.id)}`}
-                    variant="outline-info"
-                    size="sm"
-                    className="d-inline-flex align-items-center gap-1"
-                  >
-                    <svg
-                      width="15"
-                      height="15"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <path d="M8 10h8M8 14h5" />
-                      <path d="M7 3h10a2 2 0 0 1 2 2v14l-3-2H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z" />
-                    </svg>
-                    <span>Xem phiếu hỗ trợ (#{ticket.ticket_code || ticket.id})</span>
-                  </Button>
-                )}
-              </div>
-            </Card.Body>
-          </Card>
-        );
+  return <section className="customer-orders">
+    <header className="orders-heading"><div><span className="orders-eyebrow">MUA SẮM CỦA BẠN</span><h1>Đơn hàng của tôi</h1><p>Theo dõi đơn hàng và những món đồ bạn yêu thích.</p></div><Link to="/products" className="orders-shop-link">Tiếp tục mua sắm <span aria-hidden="true">↗</span></Link></header>
+    {state?.placed && <Alert variant="success">Đặt hàng thành công! Trạng thái mới nhất sẽ được cập nhật tại đây.</Alert>}
+    <nav className="orders-tabs" aria-label="Lọc trạng thái đơn hàng">{tabs.map((tab) => <button type="button" key={tab.id} className={activeTab === tab.id ? 'is-active' : ''} aria-pressed={activeTab === tab.id} onClick={() => setActiveTab(tab.id)}>{tab.label}{tab.id === 'all' && <span>{orders.length}</span>}</button>)}</nav>
+    <div className="orders-list" aria-live="polite">
+      {!visibleOrders.length && <div className="orders-empty"><span className="orders-empty-icon"><Icon name="bag" size={32} /></span><h2>{orders.length ? 'Chưa có đơn hàng ở mục này' : 'Bạn chưa có đơn hàng nào'}</h2><p>Khám phá trang bị cho trận cầu tiếp theo của bạn.</p><Link className="order-action order-action-primary" to="/products">Khám phá sản phẩm</Link></div>}
+      {visibleOrders.map((order) => {
+        const status = getOrderStatus(order.status);
+        const delivery = (shipments || []).find((d) => String(d.order_id) === String(order.id));
+        const carrier = carriers[delivery?.carrier];
+        const deliveryStatus = deliveryStatuses[delivery?.status];
+        const ticket = (data.support_tickets || []).find((t) => String(t.order_id) === String(order.id) && t.status !== 'CANCELLED');
+        const payment = (data.payments || []).filter((p) => String(p.order_id) === String(order.id)).at(-1);
+        const items = data.order_items.filter((item) => String(item.order_id) === String(order.id));
+        const closed = ['cancelled', 'returned'].includes(order.status);
+        const trackingUrl = '/orders/' + encodeURIComponent(order.id) + '/tracking';
+        return <article className="order-tile" key={order.id}>
+          <header className="order-tile-header"><div className="order-store"><Icon name="bag" size={18} /><strong>Badminton Shop</strong><span className="order-code">#{order.order_code}</span></div><span className="order-status" data-status={order.status}>{status.label}</span></header>
+          {delivery && <Link to={trackingUrl} className="order-shipment"><Icon name="truck" size={17} /><span>{deliveryStatus?.label || delivery.status}{carrier && ' · ' + carrier.shortName}{delivery.tracking_number && <small>{delivery.tracking_number}</small>}</span><span aria-hidden="true">›</span></Link>}
+          <div className="order-products">{items.map((item) => {
+            const product = (data.products || []).find((p) => String(p.id) === String(item.product_id)) || { id: item.product_id, name: item.product_name };
+            return <div className="order-product" key={item.id}>
+              <Link to={trackingUrl} className="order-product-image" aria-label={'Xem đơn hàng của ' + item.product_name}><img src={productImage(data, product, item.variant_id)} onError={productImageFallback} alt={item.product_name} loading="lazy" /></Link>
+              <div className="order-product-info"><h2>{item.product_name}</h2><span className="order-variant">{item.variant_info || 'Phân loại tiêu chuẩn'}</span><span className="order-product-quantity">Số lượng: {item.quantity}</span></div>
+              <div className="order-product-price"><strong>{formatMoney(item.unit_price ?? item.line_total / item.quantity)}</strong><span>×{item.quantity}</span></div>
+            </div>;
+          })}</div>
+          <div className="order-tile-footer">
+            <div className="order-total-row"><span>{items.reduce((sum, item) => sum + Number(item.quantity), 0)} sản phẩm <span className="order-total-dot">·</span> Phí giao hàng {Number(order.shipping_fee) ? formatMoney(order.shipping_fee) : 'miễn phí'}</span><div>Thành tiền <strong>{formatMoney(order.total_amount)}</strong></div></div>
+            <div className="order-bottom-row"><span className="order-payment-note"><span className={'order-payment-dot' + (order.payment_status === 'paid' ? ' is-paid' : '')} />{payments[order.payment_status] || order.payment_status}{payment?.method === 'cod' ? ' · Khi nhận hàng' : ' · VietQR payOS'}</span><div className="order-actions">
+              {ticket ? <Link className="order-action" to={'/support-tickets/' + encodeURIComponent(ticket.id)}>Xem phiếu hỗ trợ</Link> : order.payment_status === 'paid' && <Link className="order-action" to={'/support-tickets/create?orderId=' + encodeURIComponent(order.id)}>Hỗ trợ / Đổi trả</Link>}
+              <Link className="order-action" to={trackingUrl}>Chi tiết đơn hàng</Link>
+              {order.payment_status === 'unpaid' && !closed && payment?.method !== 'cod' && <Link className="order-action order-action-primary" to={'/payments?order=' + encodeURIComponent(order.id)}>Thanh toán ngay</Link>}
+            </div></div>
+            <details className="order-address"><summary>Thông tin giao hàng <span>· {formatDateTime(order.created_at)}</span></summary><p><strong>{order.receiver_name}</strong> · {order.receiver_phone}<br />{order.shipping_address}</p>{order.note && <p>Ghi chú: {order.note}</p>}</details>
+          </div>
+        </article>;
       })}
-    </>
-  );
+    </div>
+  </section>;
 }
