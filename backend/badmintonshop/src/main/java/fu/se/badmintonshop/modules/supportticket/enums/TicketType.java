@@ -6,10 +6,8 @@ import lombok.RequiredArgsConstructor;
 @Getter
 @RequiredArgsConstructor
 public enum TicketType {
-    REFUND("REFUND", "Tráº£ hÃ ng & HoÃ n tiá»n"),
-    EXCHANGE("EXCHANGE", "Äá»•i sáº£n pháº©m");
+    REFUND("REFUND", "Trả hàng & Hoàn tiền");
 
     private final String value;
     private final String description;
 }
-

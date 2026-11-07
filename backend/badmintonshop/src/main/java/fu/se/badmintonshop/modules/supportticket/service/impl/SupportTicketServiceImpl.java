@@ -1,11 +1,11 @@
-﻿package fu.se.badmintonshop.modules.supportticket.service.impl;
+package fu.se.badmintonshop.modules.supportticket.service.impl;
 
-import fu.se.badmintonshop.modules.catalog.entity.ProductVariant;
-import fu.se.badmintonshop.modules.catalog.repository.ProductVariantRepository;
 import fu.se.badmintonshop.modules.order.entity.Order;
 import fu.se.badmintonshop.modules.order.entity.OrderItem;
 import fu.se.badmintonshop.modules.order.repository.OrderItemRepository;
 import fu.se.badmintonshop.modules.order.repository.OrderRepository;
+import fu.se.badmintonshop.modules.payment.entity.Payment;
+import fu.se.badmintonshop.modules.payment.repository.PaymentRepository;
 import fu.se.badmintonshop.modules.supportticket.dto.*;
 import fu.se.badmintonshop.modules.supportticket.entity.*;
 import fu.se.badmintonshop.modules.supportticket.enums.*;
@@ -40,7 +40,7 @@ public class SupportTicketServiceImpl implements SupportTicketService {
 
     private final OrderRepository orderRepository;
     private final OrderItemRepository orderItemRepository;
-    private final ProductVariantRepository productVariantRepository;
+    private final PaymentRepository paymentRepository;
 
     @Override
     @Transactional
@@ -68,9 +68,9 @@ public class SupportTicketServiceImpl implements SupportTicketService {
         }
 
         // 4. Validate loáº¡i ticket
-        String type = request.getTicketType().toUpperCase();
-        if (!TicketType.REFUND.getValue().equals(type) && !TicketType.EXCHANGE.getValue().equals(type)) {
-            throw new IllegalArgumentException("Loáº¡i yÃªu cáº§u khÃ´ng há»£p lá»‡. Pháº£i lÃ  REFUND hoáº·c EXCHANGE.");
+        String type = request.getTicketType() != null ? request.getTicketType().toUpperCase() : TicketType.REFUND.getValue();
+        if (!TicketType.REFUND.getValue().equals(type)) {
+            throw new IllegalArgumentException("Hệ thống chỉ hỗ trợ yêu cầu Trả hàng & Hoàn tiền (REFUND).");
         }
 
         // 5. Báº¯t buá»™c cÃ³ áº£nh QR nháº­n tiá»n
@@ -94,12 +94,6 @@ public class SupportTicketServiceImpl implements SupportTicketService {
             }
             if (it.getQuantity() > oi.getQuantity()) {
                 throw new IllegalArgumentException("Sá»‘ lÆ°á»£ng yÃªu cáº§u (" + it.getQuantity() + ") vÆ°á»£t quÃ¡ sá»‘ lÆ°á»£ng Ä‘Ã£ mua (" + oi.getQuantity() + ").");
-            }
-
-            // Vá»›i EXCHANGE: Pháº£i cÃ³ replacementVariantId cÃ¹ng sáº£n pháº©m vÃ  cÃ¹ng Ä‘Æ¡n giÃ¡ (CR-BR-05)
-            if (TicketType.EXCHANGE.getValue().equals(type)) {
-                // Chỉ đổi 1:1 cho chính sản phẩm/biến thể đã mua (không đổi sang sản phẩm khác)
-                it.setReplacementVariantId(oi.getVariantId());
             }
         }
 
@@ -127,7 +121,6 @@ public class SupportTicketServiceImpl implements SupportTicketService {
                     .ticketId(savedTicket.getId())
                     .orderItemId(it.getOrderItemId())
                     .quantity(it.getQuantity())
-                    .replacementVariantId(it.getReplacementVariantId())
                     .build();
             savedItems.add(itemRepository.save(item));
         }
@@ -288,30 +281,23 @@ public class SupportTicketServiceImpl implements SupportTicketService {
                 return loadFullResponse(ticket);
             }
 
-            if (TicketType.REFUND.getValue().equals(ticket.getTicketType())) {
-                BigDecimal refundAmount = calculateRefundAmount(ticket);
-                ticket.setRefundAmount(refundAmount);
+            BigDecimal refundAmount = calculateRefundAmount(ticket);
+            ticket.setRefundAmount(refundAmount);
 
-                if (refundAmount.compareTo(APPROVAL_THRESHOLD) < 0) {
-                    ticket.setStatus(TicketStatus.PENDING_TRANSFER.getValue());
-                    ticket.setApprovedBy(request.getStaffId());
-                    ticket.setApprovedAt(LocalDateTime.now());
-                    ticketRepository.save(ticket);
-
-                    addStatusHistory(ticket.getId(), TicketStatus.AWAITING_RETURN.getValue(), TicketStatus.PENDING_TRANSFER.getValue(),
-                            request.getStaffId(), "Tháº©m Ä‘á»‹nh Äáº T. HoÃ n tiá»n " + refundAmount + " VND (< 3 triá»‡u), NhÃ¢n viÃªn duyá»‡t chuyá»ƒn khoáº£n.");
-                } else {
-                    ticket.setStatus(TicketStatus.PENDING_APPROVAL.getValue());
-                    ticketRepository.save(ticket);
-
-                    addStatusHistory(ticket.getId(), TicketStatus.AWAITING_RETURN.getValue(), TicketStatus.PENDING_APPROVAL.getValue(),
-                            request.getStaffId(), "Tháº©m Ä‘á»‹nh Äáº T. HoÃ n tiá»n " + refundAmount + " VND (>= 3 triá»‡u), chuyá»ƒn Quáº£n lÃ½ phÃª duyá»‡t.");
-                }
-            } else {
-                // EXCHANGE
+            if (refundAmount.compareTo(APPROVAL_THRESHOLD) < 0) {
+                ticket.setStatus(TicketStatus.PENDING_TRANSFER.getValue());
+                ticket.setApprovedBy(request.getStaffId());
+                ticket.setApprovedAt(LocalDateTime.now());
                 ticketRepository.save(ticket);
-                addStatusHistory(ticket.getId(), TicketStatus.AWAITING_RETURN.getValue(), TicketStatus.AWAITING_RETURN.getValue(),
-                        request.getStaffId(), "Tháº©m Ä‘á»‹nh Äáº T. Chá» nhÃ¢n viÃªn xuáº¥t gá»­i hÃ ng thay tháº¿ hoáº·c kiá»ƒm tra tá»“n kho.");
+
+                addStatusHistory(ticket.getId(), TicketStatus.AWAITING_RETURN.getValue(), TicketStatus.PENDING_TRANSFER.getValue(),
+                        request.getStaffId(), "Thẩm định ĐẠT. Hoàn tiền " + refundAmount + " VND (< 3 triệu), Nhân viên duyệt chuyển khoản.");
+            } else {
+                ticket.setStatus(TicketStatus.PENDING_APPROVAL.getValue());
+                ticketRepository.save(ticket);
+
+                addStatusHistory(ticket.getId(), TicketStatus.AWAITING_RETURN.getValue(), TicketStatus.PENDING_APPROVAL.getValue(),
+                        request.getStaffId(), "Thẩm định ĐẠT. Hoàn tiền " + refundAmount + " VND (>= 3 triệu), chuyển Quản lý phê duyệt.");
             }
         }
 
@@ -384,66 +370,6 @@ public class SupportTicketServiceImpl implements SupportTicketService {
 
     @Override
     @Transactional
-    public TicketResponse shipExchange(Long id, ShipExchangeRequest request) {
-        SupportTicket ticket = ticketRepository.findById(id)
-                .orElseThrow(() -> new NoSuchElementException("KhÃ´ng tÃ¬m tháº¥y phiáº¿u há»— trá»£ ID: " + id));
-
-        if (!TicketType.EXCHANGE.getValue().equals(ticket.getTicketType())) {
-            throw new IllegalStateException("Chá»‰ Ã¡p dá»¥ng cho phiáº¿u Äá»•i sáº£n pháº©m (EXCHANGE).");
-        }
-
-        ticket.setStatus(TicketStatus.COMPLETED.getValue());
-        ticket.setResolvedAt(LocalDateTime.now());
-        ticketRepository.save(ticket);
-
-        String note = "ÄÃ£ xuáº¥t kho gá»­i hÃ ng thay tháº¿ cho khÃ¡ch. MÃ£ váº­n Ä‘Æ¡n: " + (request.getTrackingCode() != null ? request.getTrackingCode() : "ChÆ°a cÃ³");
-        addStatusHistory(ticket.getId(), TicketStatus.AWAITING_RETURN.getValue(), TicketStatus.COMPLETED.getValue(),
-                request.getStaffId(), note);
-
-        return loadFullResponse(ticket);
-    }
-
-    @Override
-    @Transactional
-    public TicketResponse replacementUnavailable(Long id, Long staffId, String note) {
-        SupportTicket ticket = ticketRepository.findById(id)
-                .orElseThrow(() -> new NoSuchElementException("Không tìm thấy phiếu hỗ trợ ID: " + id));
-
-        if (!TicketType.EXCHANGE.getValue().equals(ticket.getTicketType())) {
-            throw new IllegalStateException("Chỉ áp dụng cho phiếu Đổi sản phẩm (EXCHANGE).");
-        }
-
-        // Tự động gửi thông báo hết hàng và hoàn tiền cho khách (không cần customer confirm)
-        BigDecimal refundAmount = calculateRefundAmount(ticket);
-        ticket.setRefundAmount(refundAmount);
-
-        String autoRefundNote = "Sản phẩm thay thế trong kho đã hết hàng. Hệ thống gửi thông báo hết hàng và tự động chuyển sang hoàn tiền " 
-                + refundAmount + " VND cho khách (không cần khách xác nhận).";
-        if (note != null && !note.isBlank()) {
-            autoRefundNote += " Ghi chú: " + note;
-        }
-
-        if (refundAmount.compareTo(APPROVAL_THRESHOLD) < 0) {
-            ticket.setStatus(TicketStatus.PENDING_TRANSFER.getValue());
-            ticket.setApprovedBy(staffId);
-            ticket.setApprovedAt(LocalDateTime.now());
-            ticketRepository.save(ticket);
-
-            addStatusHistory(ticket.getId(), TicketStatus.AWAITING_RETURN.getValue(), TicketStatus.PENDING_TRANSFER.getValue(),
-                    staffId, autoRefundNote + " Nhân viên chuyển tiền qua QR.");
-        } else {
-            ticket.setStatus(TicketStatus.PENDING_APPROVAL.getValue());
-            ticketRepository.save(ticket);
-
-            addStatusHistory(ticket.getId(), TicketStatus.AWAITING_RETURN.getValue(), TicketStatus.PENDING_APPROVAL.getValue(),
-                    staffId, autoRefundNote + " Chờ Quản lý phê duyệt.");
-        }
-
-        return loadFullResponse(ticket);
-    }
-
-    @Override
-    @Transactional
     public TicketResponse recordRefundTransfer(Long id, RefundTransferRequest request) {
         SupportTicket ticket = ticketRepository.findById(id)
                 .orElseThrow(() -> new NoSuchElementException("KhÃ´ng tÃ¬m tháº¥y phiáº¿u há»— trá»£ ID: " + id));
@@ -465,9 +391,12 @@ public class SupportTicketServiceImpl implements SupportTicketService {
         Order order = orderRepository.findById(ticket.getOrderId())
                 .orElseThrow(() -> new NoSuchElementException("KhÃ´ng tÃ¬m tháº¥y Ä‘Æ¡n hÃ ng ID: " + ticket.getOrderId()));
 
+        Payment payment = paymentRepository.findFirstByOrderIdOrderByCreatedAtDesc(order.getId()).orElse(null);
+        Long paymentId = payment != null ? payment.getId() : null;
+
         RefundRecord record = RefundRecord.builder()
                 .ticketId(ticket.getId())
-                .paymentId(null)
+                .paymentId(paymentId)
                 .orderId(order.getId())
                 .amount(ticket.getRefundAmount())
                 .bankReference(ref)
@@ -475,6 +404,11 @@ public class SupportTicketServiceImpl implements SupportTicketService {
                 .note(request.getNote())
                 .build();
         refundRecordRepository.save(record);
+
+        if (payment != null) {
+            payment.setStatus("refunded");
+            paymentRepository.save(payment);
+        }
 
         if (ticket.getRefundAmount().compareTo(order.getTotalAmount()) >= 0) {
             order.setPaymentStatus("refunded");
@@ -510,6 +444,11 @@ public class SupportTicketServiceImpl implements SupportTicketService {
         // HoÃ n phÃ­ ship náº¿u lá»—i do cá»­a hÃ ng
         if (TicketCause.STORE_FAULT.getValue().equals(ticket.getCause()) && order != null && order.getShippingFee() != null) {
             sum = sum.add(order.getShippingFee());
+        }
+
+        // Chặn trần: Số tiền hoàn không bao giờ vượt quá tổng tiền thực tế khách đã trả cho đơn hàng
+        if (order != null && order.getTotalAmount() != null && sum.compareTo(order.getTotalAmount()) > 0) {
+            sum = order.getTotalAmount();
         }
 
         return sum;
@@ -551,10 +490,6 @@ public class SupportTicketServiceImpl implements SupportTicketService {
 
         List<TicketItemResponse> itemResponses = items.stream().map(it -> {
             OrderItem oi = oiMap.get(it.getOrderItemId());
-            ProductVariant replacement = it.getReplacementVariantId() != null
-                    ? productVariantRepository.findById(it.getReplacementVariantId()).orElse(null)
-                    : null;
-
             return TicketItemResponse.builder()
                     .id(it.getId())
                     .orderItemId(it.getOrderItemId())
@@ -562,9 +497,6 @@ public class SupportTicketServiceImpl implements SupportTicketService {
                     .variantInfo(oi != null ? oi.getVariantInfo() : null)
                     .unitPrice(oi != null ? oi.getUnitPrice() : null)
                     .quantity(it.getQuantity())
-                    .replacementVariantId(it.getReplacementVariantId())
-                    .replacementVariantSku(replacement != null ? replacement.getSku() : null)
-                    .replacementVariantInfo(replacement != null ? (replacement.getColor() + " / " + replacement.getSize()) : null)
                     .build();
         }).collect(Collectors.toList());
 

@@ -33,7 +33,7 @@ public class SupportTicket {
     private Long orderId;
 
     @Column(name = "ticket_type", nullable = false, length = 20)
-    private String ticketType; // REFUND or EXCHANGE
+    private String ticketType; // REFUND
 
     @Column(name = "status", nullable = false, length = 30)
     @Builder.Default

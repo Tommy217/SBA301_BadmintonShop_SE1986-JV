@@ -31,21 +31,6 @@ export const supportApi = {
       note,
     }),
 
-  staffShipExchange: ({ ticketId, trackingCode, shippingNote }) =>
-    sendShopAction({
-      type: 'ship_exchange_support_ticket',
-      ticket_id: ticketId,
-      tracking_code: trackingCode,
-      shipping_note: shippingNote,
-    }),
-
-  staffReplacementUnavailable: ({ ticketId, note }) =>
-    sendShopAction({
-      type: 'replacement_unavailable_support_ticket',
-      ticket_id: ticketId,
-      note,
-    }),
-
   staffRecordRefundTransfer: ({ ticketId, bankReference, note }) =>
     sendShopAction({
       type: 'refund_transfer_support_ticket',

@@ -237,43 +237,19 @@ test('UC15: Manager approves refund for amount >= 3M', () => {
   assert.equal(ticket.approved_by, 'manager-1');
 });
 
-test('UC15: Exchange ticket handles available replacement and unavailable replacement branching', () => {
+test('UC15: Only REFUND ticket type is supported', () => {
   const db = seed();
   const order = db.orders[0];
   const orderItem = db.order_items.find((oi) => oi.order_id === order.id);
 
-  // 1. Available replacement
-  mutate(db, {
-    type: 'create_support_ticket',
-    order_id: order.id,
-    ticket_type: 'EXCHANGE',
-    reason: 'Đổi size vợt',
-    refund_qr_url: 'data:image/png;base64,qr',
-    items: [{ order_item_id: orderItem.id, quantity: 1 }],
+  assert.throws(() => {
+    mutate(db, {
+      type: 'create_support_ticket',
+      order_id: order.id,
+      ticket_type: 'EXCHANGE',
+      reason: 'Đổi vợt',
+      refund_qr_url: 'data:image/png;base64,qr',
+      items: [{ order_item_id: orderItem.id, quantity: 1 }],
+    });
   });
-
-  const ticket = db.support_tickets[0];
-
-  mutate(db, {
-    type: 'review_support_ticket',
-    ticket_id: ticket.id,
-    action: 'approve',
-    cause: 'CUSTOMER_PREFERENCE',
-  });
-
-  mutate(db, {
-    type: 'inspect_support_ticket',
-    ticket_id: ticket.id,
-    result: 'PASSED',
-    note: 'Đạt',
-  });
-
-  mutate(db, {
-    type: 'ship_exchange_support_ticket',
-    ticket_id: ticket.id,
-    tracking_code: 'VNPOST-999888',
-  });
-
-  assert.equal(ticket.status, 'COMPLETED');
-  assert.equal(ticket.shipping_info.tracking_code, 'VNPOST-999888');
 });

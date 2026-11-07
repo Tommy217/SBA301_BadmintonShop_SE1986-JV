@@ -63,7 +63,7 @@ export default function SupportTicketManagementPage() {
       <div className="eyebrow">QUẢN LÝ VẬN HÀNH (UC15)</div>
       <div className="manager-title mb-4">
         <div>
-          <h1 className="h2 fw-bold mb-1">Quản lý Đổi trả & Hoàn tiền</h1>
+          <h1 className="h2 fw-bold mb-1">Quản lý Trả hàng & Hoàn tiền</h1>
           <p className="text-secondary mb-0">
             Hàng đợi tiếp nhận, thẩm định sản phẩm và quy trình hoàn tiền theo chuẩn UC15.
           </p>
@@ -86,7 +86,7 @@ export default function SupportTicketManagementPage() {
           ['Chờ khách gửi hàng', countByStatus('AWAITING_RETURN'), 'info'],
           ['Chờ Quản lý duyệt (>= 3Tr)', countByStatus('PENDING_APPROVAL'), 'primary'],
           ['Chờ chuyển tiền', countByStatus('PENDING_TRANSFER'), 'warning'],
-          ['Đã hoàn tất', countByStatus('REFUNDED') + countByStatus('COMPLETED'), 'success'],
+          ['Đã hoàn tất', countByStatus('REFUNDED'), 'success'],
         ].map(([label, count, variant]) => (
           <Col xs={6} md={4} xl className="col-custom" key={label}>
             <Card className="border-0 shadow-sm h-100">
@@ -132,7 +132,6 @@ export default function SupportTicketManagementPage() {
               >
                 <option value="all">Tất cả loại yêu cầu</option>
                 <option value="REFUND">{ticketTypes.REFUND}</option>
-                <option value="EXCHANGE">{ticketTypes.EXCHANGE}</option>
               </Form.Select>
             </Col>
 

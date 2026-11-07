@@ -5303,10 +5303,10 @@
       "ticket_code": "ST-20261016-0001",
       "user_id": "demo-customer",
       "order_id": "01a01a92-e0a8-43f7-8aaf-fb7f823b9a7b",
-      "ticket_type": "warranty",
+      "ticket_type": "REFUND",
       "status": "under_review",
       "reason": "Vợt có dấu hiệu nứt ở khung",
-      "description": "Sau vài buổi chơi, tôi phát hiện một vết nứt nhỏ gần khớp chữ T. Nhờ cửa hàng kiểm tra và hướng dẫn bảo hành.",
+      "description": "Sau vài buổi chơi, tôi phát hiện một vết nứt nhỏ gần khớp chữ T. Nhờ cửa hàng kiểm tra và hoàn tiền.",
       "resolution_type": null,
       "proposed_resolution": null,
       "proposed_refund_amount": null,
@@ -5321,7 +5321,7 @@
       "ticket_code": "ST-20261016-0002",
       "user_id": "demo-customer",
       "order_id": "a8b5ba45-9018-4fc2-894e-36a4c0922bc4",
-      "ticket_type": "return",
+      "ticket_type": "REFUND",
       "status": "approved",
       "reason": "Muốn đổi trả sản phẩm",
       "description": "Tôi muốn trả sản phẩm do đặt nhầm mẫu. Sản phẩm còn nguyên tem và chưa sử dụng.",
@@ -5339,13 +5339,13 @@
       "ticket_code": "ST-20261016-0003",
       "user_id": "demo-customer",
       "order_id": "3a3b520b-bf78-480b-8f70-1f24de6b7b7a",
-      "ticket_type": "exchange",
-      "status": "resolved",
-      "reason": "Muốn đổi sang phiên bản khác",
-      "description": "Tôi muốn đổi sang phiên bản 3U-G5. Cảm ơn cửa hàng đã hỗ trợ.",
-      "resolution_type": "exchange",
-      "proposed_resolution": "Cửa hàng đã hoàn tất đổi sản phẩm sang phiên bản 3U-G5.",
-      "proposed_refund_amount": null,
+      "ticket_type": "REFUND",
+      "status": "REFUNDED",
+      "reason": "Sản phẩm bị lỗi kỹ thuật",
+      "description": "Tôi yêu cầu trả hàng hoàn tiền do sản phẩm bị lỗi kỹ thuật.",
+      "resolution_type": "refund",
+      "proposed_resolution": "Cửa hàng đã hoàn tất trả hàng và hoàn tiền.",
+      "proposed_refund_amount": 2500000,
       "handled_by": null,
       "reviewed_at": "2026-10-16T14:00:00.000Z",
       "resolved_at": "2026-10-16T15:20:00.000Z",
@@ -5357,7 +5357,7 @@
       "ticket_code": "ST-20261016-0004",
       "user_id": "demo-customer",
       "order_id": "2e09a9f1-9c21-47a7-9955-0d51d9c0a431",
-      "ticket_type": "complaint",
+      "ticket_type": "REFUND",
       "status": "AWAITING_RETURN",
       "reason": "Đơn hàng chưa được cập nhật trạng thái",
       "description": "Tôi chưa nhận được thông tin mới về quá trình giao hàng. Nhờ cửa hàng kiểm tra giúp.",
@@ -5378,29 +5378,25 @@
       "id": "7df4ba2b-ded1-41bd-b7f2-62fd86f31211",
       "ticket_id": "7df4ba2b-ded1-41bd-b7f2-62fd86f31201",
       "order_item_id": "22c74b0a-9936-4888-b202-f6859bd04a34",
-      "quantity": 1,
-      "exchange_variant_id": null
+      "quantity": 1
     },
     {
       "id": "7df4ba2b-ded1-41bd-b7f2-62fd86f31212",
       "ticket_id": "7df4ba2b-ded1-41bd-b7f2-62fd86f31202",
       "order_item_id": "af240c20-2c23-4a27-919b-a0f41504f17d",
-      "quantity": 1,
-      "exchange_variant_id": null
+      "quantity": 1
     },
     {
       "id": "7df4ba2b-ded1-41bd-b7f2-62fd86f31213",
       "ticket_id": "7df4ba2b-ded1-41bd-b7f2-62fd86f31203",
       "order_item_id": "e7ee9d36-199b-42ee-9b66-f5b9e09b003d",
-      "quantity": 1,
-      "exchange_variant_id": null
+      "quantity": 1
     },
     {
       "id": "7df4ba2b-ded1-41bd-b7f2-62fd86f31214",
       "ticket_id": "7df4ba2b-ded1-41bd-b7f2-62fd86f31204",
       "order_item_id": "c1ab06c1-158b-4328-988c-197d9c2fd6d6",
-      "quantity": 1,
-      "exchange_variant_id": null
+      "quantity": 1
     }
   ],
   "deliveries": [

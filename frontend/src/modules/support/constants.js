@@ -1,6 +1,5 @@
 export const ticketTypes = {
   REFUND: 'Trả hàng & Hoàn tiền',
-  EXCHANGE: 'Đổi sản phẩm',
 };
 
 export const ticketStatuses = {
@@ -11,26 +10,25 @@ export const ticketStatuses = {
   PENDING_APPROVAL: { label: 'Chờ Quản lý duyệt', variant: 'primary' },
   PENDING_TRANSFER: { label: 'Chờ chuyển tiền', variant: 'warning' },
   REFUNDED: { label: 'Đã hoàn tiền', variant: 'success' },
-  COMPLETED: { label: 'Đã hoàn tất đổi hàng', variant: 'success' },
   CANCELLED: { label: 'Đã hủy', variant: 'secondary' },
 };
 
 export const ticketCauses = {
   STORE_FAULT: {
     label: 'Lỗi do cửa hàng / Nhà sản xuất',
-    desc: 'Lỗi sản phẩm, giao nhầm mã, thiếu phụ kiện... Cửa hàng chịu hoàn phí giao hàng.',
+    desc: 'Lỗi sản phẩm, giao nhầm mã, thiếu phụ kiện... Cửa hàng tiếp nhận và hoàn tiền bao gồm cả phí vận chuyển.',
   },
   CUSTOMER_PREFERENCE: {
     label: 'Nhu cầu cá nhân của khách hàng',
-    desc: 'Đổi ý, không vừa kích thước, muốn đổi màu... Khách tự chịu phí vận chuyển hoàn hàng.',
+    desc: 'Đổi ý, không thích... Cửa hàng từ chối hỗ trợ và không hoàn tiền nếu sản phẩm không có lỗi từ shop.',
   },
 };
 
 export const inspectionResults = {
-  PASSED: 'Đạt yêu cầu (Sản phẩm còn nguyên trạng/đúng điều kiện)',
-  FAILED: 'Không đạt (Sản phẩm bị can thiệp, hư hại do sử dụng, sai quy cách)',
+  PASSED: 'Đạt yêu cầu (Sản phẩm đúng hiện trạng lỗi khai báo/đủ điều kiện tiếp nhận)',
+  FAILED: 'Không đạt (Sản phẩm bị can thiệp, hư hại do người dùng, sai quy cách)',
 };
 
 export const APPROVAL_THRESHOLD = 3000000; // 3,000,000 VND
 
-export const RETURN_WINDOW_DAYS = 7; // 7 days from confirmed delivery
+export const RETURN_WINDOW_DAYS = 7; // 7 ngày kể từ khi đơn hàng giao thành công

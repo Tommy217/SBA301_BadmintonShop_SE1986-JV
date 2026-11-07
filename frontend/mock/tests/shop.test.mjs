@@ -75,7 +75,7 @@ test('create support ticket for an existing order', () => {
   mutate(db, {
     type: 'create_support_ticket',
     order_id: order.id,
-    ticket_type: 'warranty',
+    ticket_type: 'REFUND',
     reason: 'Sản phẩm bị lỗi',
     description: 'Vợt bị nứt sau khi nhận hàng.',
   });
@@ -83,8 +83,8 @@ test('create support ticket for an existing order', () => {
   assert.equal(db.support_tickets.length, 1);
   assert.equal(db.support_tickets[0].order_id, order.id);
   assert.equal(db.support_tickets[0].user_id, order.user_id);
-  assert.equal(db.support_tickets[0].ticket_type, 'warranty');
-  assert.equal(db.support_tickets[0].status, 'open');
+  assert.equal(db.support_tickets[0].ticket_type, 'REFUND');
+  assert.equal(db.support_tickets[0].status, 'PENDING');
   assert.equal(db.support_tickets[0].reason, 'Sản phẩm bị lỗi');
 });
 
@@ -94,7 +94,7 @@ test('create support ticket rejects invalid order, type and reason', () => {
   const action = {
     type: 'create_support_ticket',
     order_id: 'order-1',
-    ticket_type: 'return',
+    ticket_type: 'REFUND',
     reason: 'Lý do hợp lệ',
   };
 

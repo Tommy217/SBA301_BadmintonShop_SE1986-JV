@@ -24,8 +24,5 @@ public class SupportTicketItem {
 
     @Column(name = "quantity", nullable = false)
     private Integer quantity;
-
-    @Column(name = "replacement_variant_id")
-    private Long replacementVariantId; // EXCHANGE only: same product, same price
 }
 

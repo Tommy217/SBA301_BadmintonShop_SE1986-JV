@@ -36,9 +36,9 @@ export default function MySupportTicketsPage() {
       <div className="eyebrow">HỖ TRỢ KHÁCH HÀNG (UC15)</div>
       <div className="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
         <div>
-          <h1 className="h2 fw-bold mb-1">Phiếu Đổi hàng & Hoàn tiền</h1>
+          <h1 className="h2 fw-bold mb-1">Phiếu Trả hàng & Hoàn tiền</h1>
           <p className="text-secondary mb-0">
-            Theo dõi tiến độ xử lý và kết quả các yêu cầu đổi hàng, trả hàng của bạn.
+            Theo dõi tiến độ xử lý và kết quả các yêu cầu trả hàng, hoàn tiền của bạn.
           </p>
         </div>
         <Button as={Link} to="/support-tickets/create" variant="primary">
@@ -90,7 +90,7 @@ export default function MySupportTicketsPage() {
             <h2 className="h5 fw-bold mb-2">Chưa có phiếu hỗ trợ nào</h2>
             <p className="text-secondary mb-3">
               {tabFilter === 'all'
-                ? 'Bạn chưa tạo phiếu yêu cầu đổi hàng hoặc hoàn tiền nào.'
+                ? 'Bạn chưa tạo phiếu yêu cầu trả hàng hoặc hoàn tiền nào.'
                 : 'Không có phiếu nào trong mục này.'}
             </p>
             <Button as={Link} to="/support-tickets/create" variant="outline-primary">

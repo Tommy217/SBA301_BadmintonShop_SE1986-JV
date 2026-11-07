@@ -26,7 +26,7 @@ public class ShopService {
     private final PaymentService payments;
     private final ShopShipping shipping;
     @Value("${shop.frontend-url:http://localhost:5173}") private String frontendUrl;
-    private static final Set<String> CATALOG_IDS = Set.of("variant_id", "replacement_variant_id", "product_id", "voucher_id");
+    private static final Set<String> CATALOG_IDS = Set.of("variant_id", "product_id", "voucher_id");
     private static final Map<String, Set<String>> TRANSITIONS = Map.of(
             "pending", Set.of("confirmed", "cancelled"), "confirmed", Set.of("preparing", "cancelled"),
             "preparing", Set.of("cancelled"), "shipping", Set.of(), "completed", Set.of("returned"),

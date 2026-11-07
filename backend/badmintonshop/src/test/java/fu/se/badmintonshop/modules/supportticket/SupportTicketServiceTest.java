@@ -1,11 +1,10 @@
 package fu.se.badmintonshop.modules.supportticket;
 
-import fu.se.badmintonshop.modules.catalog.entity.ProductVariant;
-import fu.se.badmintonshop.modules.catalog.repository.ProductVariantRepository;
 import fu.se.badmintonshop.modules.order.entity.Order;
 import fu.se.badmintonshop.modules.order.entity.OrderItem;
 import fu.se.badmintonshop.modules.order.repository.OrderItemRepository;
 import fu.se.badmintonshop.modules.order.repository.OrderRepository;
+import fu.se.badmintonshop.modules.payment.repository.PaymentRepository;
 import fu.se.badmintonshop.modules.supportticket.dto.*;
 import fu.se.badmintonshop.modules.supportticket.entity.*;
 import fu.se.badmintonshop.modules.supportticket.enums.InspectionResult;
@@ -51,7 +50,7 @@ class SupportTicketServiceTest {
     @Mock
     private OrderItemRepository orderItemRepository;
     @Mock
-    private ProductVariantRepository productVariantRepository;
+    private PaymentRepository paymentRepository;
 
     @InjectMocks
     private SupportTicketServiceImpl ticketService;
@@ -94,7 +93,7 @@ class SupportTicketServiceTest {
                 .description("Vá»«a nháº­n hÃ ng má»Ÿ há»™p Ä‘Ã£ tháº¥y ná»©t")
                 .refundQrUrl("https://example.com/qr.png")
                 .evidenceUrls(List.of("https://example.com/evidence1.jpg"))
-                .items(List.of(new TicketItemRequest(101L, 1, null)))
+                .items(List.of(new TicketItemRequest(101L, 1)))
                 .build();
 
         when(orderRepository.findById(1L)).thenReturn(Optional.of(sampleOrder));
@@ -135,7 +134,7 @@ class SupportTicketServiceTest {
                 .reason("Lá»—i")
                 .refundQrUrl("url")
                 .evidenceUrls(List.of("url"))
-                .items(List.of(new TicketItemRequest(101L, 1, null)))
+                .items(List.of(new TicketItemRequest(101L, 1)))
                 .build();
 
         when(orderRepository.findById(1L)).thenReturn(Optional.of(sampleOrder));
@@ -247,6 +246,7 @@ class SupportTicketServiceTest {
         when(refundRecordRepository.existsByBankReference("FT2610319999")).thenReturn(false);
         when(refundRecordRepository.findByTicketId(501L)).thenReturn(Optional.empty());
         when(orderRepository.findById(1L)).thenReturn(Optional.of(sampleOrder));
+        when(paymentRepository.findFirstByOrderIdOrderByCreatedAtDesc(1L)).thenReturn(Optional.empty());
 
         RefundTransferRequest request = RefundTransferRequest.builder()
                 .bankReference("FT2610319999")
@@ -261,30 +261,23 @@ class SupportTicketServiceTest {
     }
 
     @Test
-    @DisplayName("Hết hàng thay thế -> Tự động chuyển hoàn tiền ngay (không cần khách confirm)")
-    void testReplacementUnavailable_AutoRefundWithoutCustomerConfirmation() {
-        SupportTicket ticket = SupportTicket.builder()
-                .id(503L)
-                .ticketCode("ST-103")
+    @DisplayName("Hệ thống chỉ chấp nhận yêu cầu REFUND -> Ném ngoại lệ khi gửi loại yêu cầu khác")
+    void testCreateTicket_NonRefundType_ThrowsException() {
+        when(orderRepository.findById(1L)).thenReturn(Optional.of(sampleOrder));
+        when(ticketRepository.existsByOrderIdAndStatusNot(1L, TicketStatus.CANCELLED.getValue())).thenReturn(false);
+
+        CreateTicketRequest request = CreateTicketRequest.builder()
                 .orderId(1L)
-                .ticketType("EXCHANGE")
-                .status("AWAITING_RETURN")
-                .cause(TicketCause.STORE_FAULT.getValue())
+                .ticketType("OTHER")
+                .reason("Không muốn nhận nữa")
+                .refundQrUrl("https://example.com/qr.png")
+                .evidenceUrls(List.of("https://example.com/evidence1.jpg"))
+                .items(List.of(new TicketItemRequest(101L, 1)))
                 .build();
 
-        when(ticketRepository.findById(503L)).thenReturn(Optional.of(ticket));
-        when(orderRepository.findById(1L)).thenReturn(Optional.of(sampleOrder));
-        when(orderItemRepository.findByOrderId(1L)).thenReturn(List.of(sampleOrderItem));
-        when(itemRepository.findByTicketId(503L)).thenReturn(List.of(
-                SupportTicketItem.builder().ticketId(503L).orderItemId(101L).quantity(1).build()
-        ));
-        when(ticketRepository.save(any())).thenReturn(ticket);
-
-        TicketResponse response = ticketService.replacementUnavailable(503L, 2L, "Kho hết hàng cùng loại");
-
-        // Số tiền 1,500,000 (< 3 triệu) -> Chuyển thẳng sang PENDING_TRANSFER
-        assertEquals(TicketStatus.PENDING_TRANSFER.getValue(), response.getStatus());
-        assertEquals(new BigDecimal("1500000"), response.getRefundAmount());
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () ->
+                ticketService.createTicket(request, 10L));
+        assertTrue(ex.getMessage().contains("REFUND"));
     }
 }
 

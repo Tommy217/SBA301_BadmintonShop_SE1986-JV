@@ -33,10 +33,6 @@ export default function SupportTicketManagementDetailPage() {
   const [inspectionResult, setInspectionResult] = useState('PASSED');
   const [inspectionNote, setInspectionNote] = useState('');
 
-  // 3. Exchange shipment
-  const [trackingCode, setTrackingCode] = useState('');
-  const [shippingNote, setShippingNote] = useState('');
-
   // 4. Refund transfer
   const [bankReference, setBankReference] = useState('');
   const [transferNote, setTransferNote] = useState('');
@@ -72,10 +68,7 @@ export default function SupportTicketManagementDetailPage() {
     .filter((item) => item.ticket_id === ticket.id)
     .map((item) => {
       const orderItem = allOrderItems.find((oi) => oi.id === item.order_item_id);
-      const replacementVariant = item.replacement_variant_id
-        ? allVariants.find((v) => v.id === item.replacement_variant_id)
-        : null;
-      return { ...item, orderItem, replacementVariant };
+      return { ...item, orderItem };
     })
     .filter((item) => item.orderItem);
 
@@ -166,42 +159,6 @@ export default function SupportTicketManagementDetailPage() {
     }
   }
 
-  // ACTION 3: ĐỔI HÀNG - GIAO HÀNG THAY THẾ
-  async function handleShipExchange(e) {
-    e.preventDefault();
-    setError('');
-    setSuccessMsg('');
-    try {
-      await act(() =>
-        supportApi.staffShipExchange({
-          ticketId: ticket.id,
-          trackingCode: trackingCode.trim(),
-          shippingNote: shippingNote.trim(),
-        }),
-      );
-      setSuccessMsg('Đã xác nhận gửi hàng thay thế. Quy trình đổi hàng hoàn tất.');
-    } catch (e) {
-      setError(e.message || 'Lỗi khi xác nhận giao hàng đổi.');
-    }
-  }
-
-  // ACTION 3: ĐỔI HÀNG - HẾT HÀNG THAY THẾ
-  async function handleReplacementUnavailable() {
-    setError('');
-    setSuccessMsg('');
-    try {
-      await act(() =>
-        supportApi.staffReplacementUnavailable({
-          ticketId: ticket.id,
-          note: 'Hết hàng tồn kho thay thế.',
-        }),
-      );
-      setSuccessMsg('Đã xử lý trường hợp hết hàng thay thế theo quy định.');
-    } catch (e) {
-      setError(e.message || 'Lỗi khi báo hết hàng thay thế.');
-    }
-  }
-
   // ACTION 4: DUYỆT HOÀN TIỀN DƯỚI 3 TRIỆU (STAFF)
   async function handleStaffApproveRefund() {
     setError('');
@@ -270,7 +227,7 @@ export default function SupportTicketManagementDetailPage() {
         <div>
           <h1 className="h2 fw-bold mb-1">Xử lý phiếu {ticket.ticket_code}</h1>
           <p className="text-secondary mb-0">
-            Quy trình tiếp nhận sơ duyệt, kiểm định và giải quyết đổi trả / hoàn tiền.
+            Quy trình tiếp nhận sơ duyệt, kiểm định và giải quyết trả hàng & hoàn tiền.
           </p>
         </div>
         <Button as={Link} to="/management/support-tickets" variant="outline-secondary">
@@ -352,12 +309,11 @@ export default function SupportTicketManagementDetailPage() {
                     <th>Sản phẩm</th>
                     <th className="text-end" style={{ width: '110px' }}>Đơn giá</th>
                     <th className="text-center" style={{ width: '80px' }}>SL</th>
-                    {ticket.ticket_type === 'EXCHANGE' && <th>Đổi sang biến thể</th>}
                     <th className="text-end" style={{ width: '120px' }}>Thành tiền</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {ticketItems.map(({ id, quantity, orderItem, replacementVariant }) => (
+                  {ticketItems.map(({ id, quantity, orderItem }) => (
                     <tr key={id}>
                       <td>
                         <div className="fw-semibold">{orderItem?.product_name}</div>
@@ -367,17 +323,6 @@ export default function SupportTicketManagementDetailPage() {
                       </td>
                       <td className="text-end">{formatMoney(orderItem?.unit_price || 0)}</td>
                       <td className="text-center">{quantity}</td>
-                      {ticket.ticket_type === 'EXCHANGE' && (
-                        <td>
-                          {replacementVariant ? (
-                            <Badge bg="success-subtle" text="success" className="border border-success-subtle">
-                              {replacementVariant.color || ''} {replacementVariant.size || ''} ({replacementVariant.sku})
-                            </Badge>
-                          ) : (
-                            <span className="text-muted">-</span>
-                          )}
-                        </td>
-                      )}
                       <td className="text-end fw-semibold">
                         {formatMoney((orderItem?.unit_price || 0) * quantity)}
                       </td>
@@ -579,42 +524,6 @@ export default function SupportTicketManagementDetailPage() {
                     Lưu kết quả thẩm định
                   </Button>
                 </Form>
-
-                {/* Nếu là EXCHANGE và đã PASSED trước đó */}
-                {ticket.ticket_type === 'EXCHANGE' && ticket.inspection?.result === 'PASSED' && (
-                  <div className="mt-4 pt-3 border-top">
-                    <h3 className="h6 fw-bold mb-3 text-dark">Xử lý đổi hàng thay thế:</h3>
-                    <div className="d-flex flex-column gap-2">
-                      <Button
-                        variant="success"
-                        onClick={() => {
-                          const code = prompt('Nhập mã vận đơn gửi hàng thay thế cho khách:') || '';
-                          if (code.trim()) {
-                            act(() =>
-                              supportApi.staffShipExchange({
-                                ticketId: ticket.id,
-                                trackingCode: code.trim(),
-                                shippingNote: 'Đã xuất hàng thay thế',
-                              }),
-                            );
-                          }
-                        }}
-                        disabled={busy}
-                      >
-                        📦 Còn hàng: Xác nhận gửi hàng thay thế
-                      </Button>
-
-                      <Button
-                        variant="outline-warning"
-                        className="text-dark"
-                        onClick={handleReplacementUnavailable}
-                        disabled={busy}
-                      >
-                        ⚠️ Hết hàng thay thế (Tự động hoàn tiền, không cần khách xác nhận)
-                      </Button>
-                    </div>
-                  </div>
-                )}
               </Card.Body>
             </Card>
           )}
@@ -740,12 +649,6 @@ export default function SupportTicketManagementDetailPage() {
                     <div className="small">Mã GD: <strong>{ticket.refund_record?.bank_reference || '-'}</strong></div>
                   </div>
                 )}
-                {ticket.status === 'COMPLETED' && (
-                  <div className="text-success">
-                    <div className="fw-bold fs-6 mb-1">✓ ĐÃ HOÀN TẤT ĐỔI HÀNG</div>
-                    <div className="small">Mã vận đơn: <strong>{ticket.shipping_info?.tracking_code || 'Chưa cập nhật'}</strong></div>
-                  </div>
-                )}
                 {ticket.status === 'REJECTED' && (
                   <div className="text-danger">
                     <div className="fw-bold fs-6 mb-1">✕ YÊU CẦU ĐÃ BỊ TỪ CHỐI</div>
@@ -755,7 +658,7 @@ export default function SupportTicketManagementDetailPage() {
                 {ticket.status === 'INSPECTION_FAILED' && (
                   <div className="text-danger">
                     <div className="fw-bold fs-6 mb-1">✕ THẨM ĐỊNH HÀNG KHÔNG ĐẠT</div>
-                    <div className="small">Sản phẩm hoàn về không đủ điều kiện đổi trả. Đã gửi trả lại khách.</div>
+                    <div className="small">Sản phẩm hoàn về không đủ điều kiện hoàn tiền. Đã gửi trả lại khách.</div>
                   </div>
                 )}
                 {ticket.status === 'CANCELLED' && (

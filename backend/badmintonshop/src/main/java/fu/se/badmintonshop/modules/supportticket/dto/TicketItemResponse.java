@@ -15,8 +15,5 @@ public class TicketItemResponse {
     private String variantInfo;
     private BigDecimal unitPrice;
     private Integer quantity;
-    private Long replacementVariantId;
-    private String replacementVariantSku;
-    private String replacementVariantInfo;
 }
 
