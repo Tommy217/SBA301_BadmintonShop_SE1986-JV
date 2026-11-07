@@ -35,6 +35,7 @@ class AuthSecurityTest {
         @GetMapping({"/api/users", "/api/inventory", "/api/manager/shipments", "/api/brands"})
         String resource() { return "ok"; }
         @PostMapping("/api/brands") String write() { return "ok"; }
+        @PostMapping("/api/webhooks/carriers/fastship") String carrierWebhook() { return "ok"; }
         @GetMapping("/api/support-tickets") String identity(@RequestHeader("X-User-Id") String id) { return id; }
     }
 
@@ -42,6 +43,8 @@ class AuthSecurityTest {
         mvc.perform(get("/api/auth/me")).andExpect(status().isUnauthorized());
         mvc.perform(get("/api/users").header("Authorization", "Bearer mock-fake")).andExpect(status().isUnauthorized());
         mvc.perform(get("/api/brands")).andExpect(status().isOk());
+        // webhook doi tac khong dang nhap, xac thuc bang chu ky HMAC trong controller
+        mvc.perform(post("/api/webhooks/carriers/fastship")).andExpect(status().isOk());
     }
 
     @Test void enforcesDatabaseRolesAndOverridesSpoofedUserHeader() throws Exception {

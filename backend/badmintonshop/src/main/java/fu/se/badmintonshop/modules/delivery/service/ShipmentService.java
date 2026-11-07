@@ -41,6 +41,14 @@ public class ShipmentService {
 
     static final int MAX_PAGE_SIZE = 100;
 
+    // ket qua xu ly 1 webhook. Truong hop nao cung tra 200 cho doi tac de doi tac khong gui lai mai
+    public enum WebhookResult {
+        APPLIED,    // da cap nhat van don
+        DUPLICATE,  // moc hanh trinh nay da ghi (webhook gui lai, hoac pull sync da lay truoc)
+        STALE,      // webhook cu den muon: shop da co phien ban moi hon
+        FINAL       // van don da ket thuc o shop, khong doi nua
+    }
+
     private final ShipmentRepository shipmentRepository;
     private final CarrierRepository carrierRepository;
     private final OrderRepository orderRepository;
@@ -148,7 +156,7 @@ public class ShipmentService {
         return ShipmentMapper.toResponse(shipmentRepository.save(shipment), true);
     }
 
-    // ---------- dong bo tu doi tac (pull sync) ----------
+    // ---------- dong bo tu doi tac (pull sync: nut "Dong bo" + job dinh ky) ----------
 
     @Transactional
     public ShipmentResponse sync(Long id, Long actorId) {
@@ -162,6 +170,44 @@ public class ShipmentService {
         Shipment shipment = latestOfOwnOrder(orderId, userId)
                 .orElseThrow(() -> DeliveryException.notFound("Đơn hàng chưa có vận đơn."));
         return ShipmentMapper.toCustomerResponse(pull(shipment, userId));
+    }
+
+    // ---------- webhook tu doi tac (day) ----------
+
+    /**
+     * Ap ban chup van don doi tac gui qua webhook (chu ky da duoc kiem o FastShipWebhookService).
+     * Thu tu: tim van don -> khop partnerRef -> bo qua moc trung -> bo qua phien ban cu -> bo qua van don da ket thuc
+     * -> cap nhat van don + moc hanh trinh (source = webhook) + trang thai don hang, trong 1 transaction.
+     *
+     * @param eventKey id moc hanh trinh vua phat sinh (dang FS-partnerRef-eventId), null neu doi tac khong gui
+     */
+    @Transactional
+    public WebhookResult applyCarrierWebhook(Long shipmentId, String partnerRef, String eventKey, CarrierTracking remote) {
+        if (partnerRef == null) {
+            throw DeliveryException.badRequest("Webhook thiếu mã vận đơn đối tác.");
+        }
+        Shipment shipment = findDetail(shipmentId);
+        entityManager.lock(shipment, LockModeType.PESSIMISTIC_WRITE);
+
+        if (shipment.getPartnerRef() == null) {
+            // shop goi tao don bi timeout nhung doi tac da nhan: lay partnerRef tu webhook
+            shipment.setPartnerRef(partnerRef);
+        } else if (!shipment.getPartnerRef().equals(partnerRef)) {
+            throw DeliveryException.conflict("Webhook không khớp vận đơn #" + shipmentId + ".");
+        }
+        if (eventKey != null && shipment.getEvents().stream().anyMatch(e -> eventKey.equals(e.getExternalEventId()))) {
+            return WebhookResult.DUPLICATE;
+        }
+        if (remote.version() != null && shipment.getPartnerVersion() != null
+                && remote.version() <= shipment.getPartnerVersion()) {
+            return WebhookResult.STALE;
+        }
+        if (currentStatus(shipment).isFinal()) {
+            return WebhookResult.FINAL;
+        }
+        apply(shipment, remote, "webhook", null);
+        shipmentRepository.save(shipment);
+        return WebhookResult.APPLIED;
     }
 
     // ---------- khach hang ----------
@@ -220,22 +266,27 @@ public class ShipmentService {
             throw DeliveryException.conflict("Vận đơn chưa được gửi sang đối tác, hãy bấm \"Gửi lại\".");
         }
         entityManager.lock(shipment, LockModeType.PESSIMISTIC_WRITE);
-        CarrierTracking remote = carrierGateway.track(shipment);
+        apply(shipment, carrierGateway.track(shipment), "sync", actorId);
+        return shipmentRepository.save(shipment);
+    }
 
+    // chep trang thai doi tac vao van don shop; dung chung cho pull sync va webhook
+    private void apply(Shipment shipment, CarrierTracking remote, String source, Long actorId) {
         if (remote.trackingCode() != null && shipment.getTrackingCode() != null
                 && !remote.trackingCode().equals(shipment.getTrackingCode())) {
             throw new DeliveryException(HttpStatus.BAD_GATEWAY, "Mã vận đơn từ đối tác không khớp.");
         }
+        ShipmentStatus next = ShipmentStatus.fromValue(remote.status())
+                .orElseThrow(() -> new DeliveryException(HttpStatus.BAD_GATEWAY, "Đối tác trả trạng thái lạ: " + remote.status()));
+
         // doi tac vua duyet: nhan ma van don, link tra cuu, phi, ngay du kien
         if (remote.trackingCode() != null) shipment.setTrackingCode(remote.trackingCode());
         if (remote.trackingUrl() != null) shipment.setTrackingUrl(remote.trackingUrl());
         if (remote.shippingFee() != null) shipment.setShippingFee(remote.shippingFee());
         if (remote.estimatedDeliveryDate() != null) shipment.setEstimatedDeliveryDate(remote.estimatedDeliveryDate());
-        ShipmentStatus next = ShipmentStatus.fromValue(remote.status())
-                .orElseThrow(() -> new DeliveryException(HttpStatus.BAD_GATEWAY, "Đối tác trả trạng thái lạ: " + remote.status()));
         ShipmentStatus current = currentStatus(shipment);
 
-        // pull sync co the bo qua cac buoc trung gian, nen chi chan khi van don da ket thuc
+        // doi tac la nguon su that sau khi duyet: chap nhan nhay buoc (webhook truoc do bi mat), chi chan khi van don da ket thuc
         if (!current.isFinal() && next != current) {
             shipment.setStatus(next.getValue());
             if (next == ShipmentStatus.CANCELLED && shipment.getCancelledAt() == null) {
@@ -248,6 +299,10 @@ public class ShipmentService {
         shipment.setShipperPhone(remote.shipperPhone());
         if (remote.shippedAt() != null) shipment.setShippedAt(remote.shippedAt());
         if (remote.deliveredAt() != null) shipment.setDeliveredAt(remote.deliveredAt());
+        if (remote.version() != null) {
+            shipment.setPartnerVersion(Math.max(remote.version(),
+                    shipment.getPartnerVersion() == null ? Long.MIN_VALUE : shipment.getPartnerVersion()));
+        }
         shipment.setLastSyncedAt(LocalDateTime.now());
 
         Set<String> known = new HashSet<>();
@@ -262,11 +317,10 @@ public class ShipmentService {
                     .title(cut(e.title(), 150))
                     .description(cut(e.description(), 300))
                     .location(cut(e.location(), 200))
-                    .source("sync")
+                    .source(source)
                     .occurredAt(e.occurredAt() != null ? e.occurredAt() : LocalDateTime.now())
                     .build());
         }
-        return shipmentRepository.save(shipment);
     }
 
     private Optional<Shipment> latestOfOwnOrder(Long orderId, Long userId) {

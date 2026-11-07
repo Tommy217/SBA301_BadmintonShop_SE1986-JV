@@ -60,7 +60,8 @@ public class SecurityConfig {
                     HttpMethod.POST,
                     "/api/auth/login",
                     "/api/auth/register",
-                    "/api/payments/payos/webhook"
+                    "/api/payments/payos/webhook",
+                    "/api/webhooks/carriers/**"
                 ).permitAll()
                 .requestMatchers(
                     HttpMethod.GET,

@@ -4,8 +4,9 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 
-// trang thai van don doc tu doi tac (dung cho pull sync)
+// trang thai van don doc tu doi tac (pull sync hoac webhook)
 // trackingCode / trackingUrl / phi / ngay du kien chi co sau khi doi tac duyet
+// version: so phien ban document phia doi tac, tang moi lan cap nhat; dung de bo qua webhook cu den muon
 public record CarrierTracking(
         String trackingCode,
         String trackingUrl,
@@ -17,6 +18,7 @@ public record CarrierTracking(
         String shipperPhone,
         LocalDateTime shippedAt,
         LocalDateTime deliveredAt,
+        Long version,
         List<Event> events) {
 
     // externalId: id duy nhat cua moc hanh trinh phia doi tac, dung de chong ghi trung

@@ -262,7 +262,7 @@ class ShipmentServiceTest {
     private CarrierTracking tracking(String status, CarrierTracking.Event... events) {
         return new CarrierTracking("FS-1", "http://localhost:8082/track?code=FS-1", status, "Đang giao",
                 new BigDecimal("45000"), null, "Tuấn", "0987", null,
-                "delivered".equals(status) ? LocalDateTime.of(2026, 11, 7, 10, 0) : null, List.of(events));
+                "delivered".equals(status) ? LocalDateTime.of(2026, 11, 7, 10, 0) : null, null, List.of(events));
     }
 
     @Test
@@ -396,5 +396,94 @@ class ShipmentServiceTest {
         assertNull(r.getNote());
         assertEquals(HttpStatus.UNAUTHORIZED,
                 assertThrows(DeliveryException.class, () -> service.listForCustomer(null)).getStatus());
+    }
+
+    // ---------- webhook ----------
+
+    private CarrierTracking snapshot(String status, Long version, CarrierTracking.Event... events) {
+        return new CarrierTracking("FS-1", "http://localhost:8082/track?code=FS-1", status, "Đang giao",
+                new BigDecimal("45000"), null, "Tuấn", "0987", null, null, version, List.of(events));
+    }
+
+    private Shipment sentShipment(ShipmentStatus status, Long partnerVersion) {
+        Shipment s = shipmentWithStatus(status);
+        s.setPartnerRef("ref-1");
+        s.setPartnerVersion(partnerVersion);
+        when(shipmentRepository.findWithDetailsById(5L)).thenReturn(Optional.of(s));
+        return s;
+    }
+
+    @Test
+    void webhookAppliesNewerSnapshotWithWebhookSource() {
+        Shipment s = sentShipment(ShipmentStatus.REQUESTED, 1L);
+        saveReturnsArgument();
+
+        ShipmentService.WebhookResult result = service.applyCarrierWebhook(5L, "ref-1", "FS-ref-1-evt-2",
+                snapshot("pending_pickup", 2L,
+                        new CarrierTracking.Event("FS-ref-1-evt-2", "pending_pickup", "FastShip duyệt", null, null, LocalDateTime.now())));
+
+        assertEquals(ShipmentService.WebhookResult.APPLIED, result);
+        assertEquals("pending_pickup", s.getStatus());
+        assertEquals("FS-1", s.getTrackingCode());
+        assertEquals(new BigDecimal("45000"), s.getShippingFee());
+        assertEquals(2L, s.getPartnerVersion());
+        assertNotNull(s.getLastSyncedAt());
+        assertEquals("webhook", s.getEvents().get(0).getSource());
+        verify(entityManager).lock(s, LockModeType.PESSIMISTIC_WRITE);
+        verify(fulfillment).onShipmentStatus(order, ShipmentStatus.PENDING_PICKUP, null);
+        verifyNoInteractions(carrierGateway);
+    }
+
+    @Test
+    void webhookIgnoresDuplicateEventAndOlderVersion() {
+        Shipment s = sentShipment(ShipmentStatus.IN_TRANSIT, 4L);
+        s.addEvent(ShipmentEvent.builder().externalEventId("FS-ref-1-evt-3").status("in_transit").source("sync")
+                .occurredAt(LocalDateTime.now()).build());
+
+        // cung moc hanh trinh gui lai lan 2
+        assertEquals(ShipmentService.WebhookResult.DUPLICATE,
+                service.applyCarrierWebhook(5L, "ref-1", "FS-ref-1-evt-3", snapshot("in_transit", 4L)));
+        // webhook cu (version 3) den sau khi shop da o version 4
+        assertEquals(ShipmentService.WebhookResult.STALE,
+                service.applyCarrierWebhook(5L, "ref-1", "FS-ref-1-evt-2", snapshot("pending_pickup", 3L)));
+
+        assertEquals("in_transit", s.getStatus());
+        assertEquals(1, s.getEvents().size());
+        verify(shipmentRepository, never()).save(any());
+        verifyNoInteractions(fulfillment);
+    }
+
+    @Test
+    void webhookDoesNotChangeFinalShipment() {
+        Shipment s = sentShipment(ShipmentStatus.CANCELLED, 2L);
+
+        assertEquals(ShipmentService.WebhookResult.FINAL,
+                service.applyCarrierWebhook(5L, "ref-1", "FS-ref-1-evt-5", snapshot("in_transit", 5L)));
+        assertEquals("cancelled", s.getStatus());
+        verifyNoInteractions(fulfillment);
+    }
+
+    @Test
+    void webhookAdoptsPartnerRefWhenCreateResponseWasLostButRejectsMismatch() {
+        // shop goi tao bi timeout nen chua co partnerRef, doi tac van nhan va gui webhook
+        Shipment unsent = shipmentWithStatus(ShipmentStatus.REQUESTED);
+        when(shipmentRepository.findWithDetailsById(5L)).thenReturn(Optional.of(unsent));
+        saveReturnsArgument();
+
+        assertEquals(ShipmentService.WebhookResult.APPLIED,
+                service.applyCarrierWebhook(5L, "ref-1", "FS-ref-1-evt-1", snapshot("pending_pickup", 2L)));
+        assertEquals("ref-1", unsent.getPartnerRef());
+
+        assertEquals(HttpStatus.CONFLICT, assertThrows(DeliveryException.class,
+                () -> service.applyCarrierWebhook(5L, "ref-OTHER", "FS-ref-OTHER-evt-1", snapshot("in_transit", 3L))).getStatus());
+        assertEquals(HttpStatus.BAD_REQUEST, assertThrows(DeliveryException.class,
+                () -> service.applyCarrierWebhook(5L, null, null, snapshot("in_transit", 3L))).getStatus());
+    }
+
+    @Test
+    void webhookForUnknownShipmentIsNotFound() {
+        when(shipmentRepository.findWithDetailsById(99L)).thenReturn(Optional.empty());
+        assertEquals(HttpStatus.NOT_FOUND, assertThrows(DeliveryException.class,
+                () -> service.applyCarrierWebhook(99L, "ref-1", null, snapshot("in_transit", 1L))).getStatus());
     }
 }

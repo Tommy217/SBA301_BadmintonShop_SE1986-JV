@@ -2,6 +2,7 @@ package fu.se.badmintonshop.modules.delivery.exception;
 
 import fu.se.badmintonshop.modules.common.dto.ApiResponse;
 import fu.se.badmintonshop.modules.delivery.controller.CarrierController;
+import fu.se.badmintonshop.modules.delivery.controller.CarrierWebhookController;
 import fu.se.badmintonshop.modules.delivery.controller.CustomerShipmentController;
 import fu.se.badmintonshop.modules.delivery.controller.ManagerShipmentController;
 import org.springframework.dao.ConcurrencyFailureException;
@@ -19,7 +20,8 @@ import org.springframework.web.method.annotation.MethodArgumentTypeMismatchExcep
 @RestControllerAdvice(assignableTypes = {
         ManagerShipmentController.class,
         CarrierController.class,
-        CustomerShipmentController.class
+        CustomerShipmentController.class,
+        CarrierWebhookController.class
 })
 public class DeliveryExceptionHandler {
 
