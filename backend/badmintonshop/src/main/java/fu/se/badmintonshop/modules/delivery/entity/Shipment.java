@@ -43,6 +43,10 @@ public class Shipment {
     @Column(name = "partner_ref", length = 64)
     private String partnerRef;
 
+    // version document phia doi tac (tang moi lan cap nhat): bo qua webhook cu den muon
+    @Column(name = "partner_version")
+    private Long partnerVersion;
+
     @Column(name = "tracking_code", length = 80)
     private String trackingCode;
 

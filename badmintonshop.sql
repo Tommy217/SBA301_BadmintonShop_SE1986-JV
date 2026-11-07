@@ -477,6 +477,7 @@ CREATE TABLE shipments (                            -- Vận đơn gửi sang Đ
   order_id                BIGINT NOT NULL,
   carrier_id              INT NULL,
   partner_ref             VARCHAR(64) NULL,                    -- id vận đơn phía đối tác (FastShip trả về khi nhận yêu cầu)
+  partner_version         BIGINT NULL,                         -- phiên bản vận đơn phía đối tác, bỏ qua webhook cũ đến muộn
   tracking_code           VARCHAR(80),                         -- mã vận đơn đối tác cấp
   tracking_url            VARCHAR(500),                        -- link tra cứu trên website đối tác
   service_type            VARCHAR(20) NOT NULL DEFAULT 'standard' CHECK (service_type IN ('standard','fast','express')),
