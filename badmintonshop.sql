@@ -1016,6 +1016,30 @@ BEGIN TRY
     IF NOT EXISTS (SELECT 1 FROM dbo.products WITH (UPDLOCK, HOLDLOCK) WHERE slug = N'demo-product-apparel')
         INSERT INTO dbo.products (category_id, brand_id, product_type, name, slug, description, base_price, is_active, created_by, created_at, updated_at)
         VALUES ((SELECT id FROM dbo.categories WHERE slug = N'apparel'), (SELECT id FROM dbo.brands WHERE slug = N'yonex'), N'apparel', N'Áo thể thao Air Fit (Mẫu)', N'demo-product-apparel', N'Sản phẩm mẫu để minh họa tồn kho và báo cáo doanh thu.', 350000, 1, NULL, CONVERT(datetime2(0), '2026-05-01T08:00:00', 126), CONVERT(datetime2(0), '2026-05-01T08:00:00', 126));
+    IF NOT EXISTS (SELECT 1 FROM dbo.products WITH (UPDLOCK, HOLDLOCK) WHERE slug = N'test-quan-can-yonex-ac102ex-10k')
+        INSERT INTO dbo.products (category_id, brand_id, product_type, name, slug, description, base_price, is_active, created_by, created_at, updated_at)
+        VALUES ((SELECT id FROM dbo.categories WHERE slug = N'apparel'), (SELECT id FROM dbo.brands WHERE slug = N'yonex'), N'apparel', N'[TEST] Quấn cán vợt Yonex AC102EX', N'test-quan-can-yonex-ac102ex-10k', N'Quấn cán chống trơn trượt Yonex AC102EX - Sản phẩm test luồng Order, Payment và Return (10.000 VNĐ).', 10000, 1, NULL, SYSDATETIME(), SYSDATETIME());
+    IF NOT EXISTS (SELECT 1 FROM dbo.products WITH (UPDLOCK, HOLDLOCK) WHERE slug = N'test-bang-co-tay-victor-sp128-12k')
+        INSERT INTO dbo.products (category_id, brand_id, product_type, name, slug, description, base_price, is_active, created_by, created_at, updated_at)
+        VALUES ((SELECT id FROM dbo.categories WHERE slug = N'apparel'), (SELECT id FROM dbo.brands WHERE slug = N'victor'), N'apparel', N'[TEST] Băng cổ tay Victor SP128', N'test-bang-co-tay-victor-sp128-12k', N'Băng cổ tay thấm hút mồ hôi Victor SP128 - Sản phẩm test luồng Order, Payment và Return (12.000 VNĐ).', 12000, 1, NULL, SYSDATETIME(), SYSDATETIME());
+    IF NOT EXISTS (SELECT 1 FROM dbo.products WITH (UPDLOCK, HOLDLOCK) WHERE slug = N'test-day-cuoc-lining-no1-15k')
+        INSERT INTO dbo.products (category_id, brand_id, product_type, name, slug, description, base_price, is_active, created_by, created_at, updated_at)
+        VALUES ((SELECT id FROM dbo.categories WHERE slug = N'racket'), (SELECT id FROM dbo.brands WHERE slug = N'li-ning'), N'racket', N'[TEST] Dây cước căng vợt Li-Ning No.1', N'test-day-cuoc-lining-no1-15k', N'Dây cước trợ lực nảy cầu Li-Ning No.1 0.65mm - Sản phẩm test luồng Order, Payment và Return (15.000 VNĐ).', 15000, 1, NULL, SYSDATETIME(), SYSDATETIME());
+    IF NOT EXISTS (SELECT 1 FROM dbo.products WITH (UPDLOCK, HOLDLOCK) WHERE slug = N'test-tat-the-thao-yonex-pro-20k')
+        INSERT INTO dbo.products (category_id, brand_id, product_type, name, slug, description, base_price, is_active, created_by, created_at, updated_at)
+        VALUES ((SELECT id FROM dbo.categories WHERE slug = N'apparel'), (SELECT id FROM dbo.brands WHERE slug = N'yonex'), N'apparel', N'[TEST] Tất thể thao Yonex Pro Cushion', N'test-tat-the-thao-yonex-pro-20k', N'Vớ cổ ngắn thể thao đệm gót êm ái Yonex Pro - Sản phẩm test luồng Order, Payment và Return (20.000 VNĐ).', 20000, 1, NULL, SYSDATETIME(), SYSDATETIME());
+    IF NOT EXISTS (SELECT 1 FROM dbo.products WITH (UPDLOCK, HOLDLOCK) WHERE slug = N'test-moc-khoa-yonex-11k')
+        INSERT INTO dbo.products (category_id, brand_id, product_type, name, slug, description, base_price, is_active, created_by, created_at, updated_at)
+        VALUES ((SELECT id FROM dbo.categories WHERE slug = N'apparel'), (SELECT id FROM dbo.brands WHERE slug = N'yonex'), N'apparel', N'[TEST] Móc khóa cầu lông Yonex Mini', N'test-moc-khoa-yonex-11k', N'Móc khóa hình vợt cầu lông mini Yonex - Sản phẩm test luồng Order, Payment và Return (11.000 VNĐ).', 11000, 1, NULL, SYSDATETIME(), SYSDATETIME());
+    IF NOT EXISTS (SELECT 1 FROM dbo.products WITH (UPDLOCK, HOLDLOCK) WHERE slug = N'test-bang-dan-dau-vot-victor-14k')
+        INSERT INTO dbo.products (category_id, brand_id, product_type, name, slug, description, base_price, is_active, created_by, created_at, updated_at)
+        VALUES ((SELECT id FROM dbo.categories WHERE slug = N'racket'), (SELECT id FROM dbo.brands WHERE slug = N'victor'), N'racket', N'[TEST] Băng dán bảo vệ đầu vợt Victor Guard', N'test-bang-dan-dau-vot-victor-14k', N'Băng dán chống trầy xước khung vợt Victor - Sản phẩm test luồng Order, Payment và Return (14.000 VNĐ).', 14000, 1, NULL, SYSDATETIME(), SYSDATETIME());
+    IF NOT EXISTS (SELECT 1 FROM dbo.products WITH (UPDLOCK, HOLDLOCK) WHERE slug = N'test-lot-giay-lining-cushion-16k')
+        INSERT INTO dbo.products (category_id, brand_id, product_type, name, slug, description, base_price, is_active, created_by, created_at, updated_at)
+        VALUES ((SELECT id FROM dbo.categories WHERE slug = N'shoes'), (SELECT id FROM dbo.brands WHERE slug = N'li-ning'), N'shoes', N'[TEST] Lót giày giảm chấn Li-Ning Cushion', N'test-lot-giay-lining-cushion-16k', N'Miếng lót giày thể thao trợ lực êm chân Li-Ning - Sản phẩm test luồng Order, Payment và Return (16.000 VNĐ).', 16000, 1, NULL, SYSDATETIME(), SYSDATETIME());
+    IF NOT EXISTS (SELECT 1 FROM dbo.products WITH (UPDLOCK, HOLDLOCK) WHERE slug = N'test-qua-cau-long-yonex-mavis-18k')
+        INSERT INTO dbo.products (category_id, brand_id, product_type, name, slug, description, base_price, is_active, created_by, created_at, updated_at)
+        VALUES ((SELECT id FROM dbo.categories WHERE slug = N'apparel'), (SELECT id FROM dbo.brands WHERE slug = N'yonex'), N'apparel', N'[TEST] Quả cầu lông nhựa Yonex Mavis 350', N'test-qua-cau-long-yonex-mavis-18k', N'Quả cầu lông nhựa siêu bền Yonex Mavis 350 - Sản phẩm test luồng Order, Payment và Return (18.000 VNĐ).', 18000, 1, NULL, SYSDATETIME(), SYSDATETIME());
 
     -- racket_specs: 4 rows
     IF NOT EXISTS (SELECT 1 FROM dbo.racket_specs WITH (UPDLOCK, HOLDLOCK) WHERE product_id = (SELECT id FROM dbo.products WHERE slug = N'yonex-astrox-88d-play-1'))
@@ -1030,6 +1054,12 @@ BEGIN TRY
     IF NOT EXISTS (SELECT 1 FROM dbo.racket_specs WITH (UPDLOCK, HOLDLOCK) WHERE product_id = (SELECT id FROM dbo.products WHERE slug = N'demo-product-racket'))
         INSERT INTO dbo.racket_specs (product_id, balance_type, flex, play_style, max_tension_lbs, material, shaft_diameter)
         VALUES ((SELECT id FROM dbo.products WHERE slug = N'demo-product-racket'), N'even', N'medium', N'all_round', 28, N'Thông số mẫu — cập nhật theo nhà sản xuất', 7);
+    IF NOT EXISTS (SELECT 1 FROM dbo.racket_specs WITH (UPDLOCK, HOLDLOCK) WHERE product_id = (SELECT id FROM dbo.products WHERE slug = N'test-day-cuoc-lining-no1-15k'))
+        INSERT INTO dbo.racket_specs (product_id, balance_type, flex, play_style, max_tension_lbs, material, shaft_diameter)
+        VALUES ((SELECT id FROM dbo.products WHERE slug = N'test-day-cuoc-lining-no1-15k'), N'even', N'medium', N'all_round', 30.0, N'Nylon đàn hồi cao cấp', 0.7);
+    IF NOT EXISTS (SELECT 1 FROM dbo.racket_specs WITH (UPDLOCK, HOLDLOCK) WHERE product_id = (SELECT id FROM dbo.products WHERE slug = N'test-bang-dan-dau-vot-victor-14k'))
+        INSERT INTO dbo.racket_specs (product_id, balance_type, flex, play_style, max_tension_lbs, material, shaft_diameter)
+        VALUES ((SELECT id FROM dbo.products WHERE slug = N'test-bang-dan-dau-vot-victor-14k'), N'even', N'medium', N'all_round', 30.0, N'Polyurethane dẻo chống mài mòn', 0.7);
 
     -- shoe_specs: 3 rows
     IF NOT EXISTS (SELECT 1 FROM dbo.shoe_specs WITH (UPDLOCK, HOLDLOCK) WHERE product_id = (SELECT id FROM dbo.products WHERE slug = N'yonex-power-cushion-39-4'))
@@ -1041,6 +1071,9 @@ BEGIN TRY
     IF NOT EXISTS (SELECT 1 FROM dbo.shoe_specs WITH (UPDLOCK, HOLDLOCK) WHERE product_id = (SELECT id FROM dbo.products WHERE slug = N'demo-product-shoes'))
         INSERT INTO dbo.shoe_specs (product_id, gender, sole_type, technology, foot_width)
         VALUES ((SELECT id FROM dbo.products WHERE slug = N'demo-product-shoes'), N'unisex', N'Đế cao su (mẫu)', N'Thông tin mẫu — cập nhật theo nhà sản xuất', N'regular');
+    IF NOT EXISTS (SELECT 1 FROM dbo.shoe_specs WITH (UPDLOCK, HOLDLOCK) WHERE product_id = (SELECT id FROM dbo.products WHERE slug = N'test-lot-giay-lining-cushion-16k'))
+        INSERT INTO dbo.shoe_specs (product_id, gender, sole_type, technology, foot_width)
+        VALUES ((SELECT id FROM dbo.products WHERE slug = N'test-lot-giay-lining-cushion-16k'), N'unisex', N'Đệm EVA trợ lực', N'Li-Ning Cloud Cushion', N'regular');
 
     -- apparel_specs: 2 rows
     IF NOT EXISTS (SELECT 1 FROM dbo.apparel_specs WITH (UPDLOCK, HOLDLOCK) WHERE product_id = (SELECT id FROM dbo.products WHERE slug = N'ao-cau-long-training-essential-6'))
@@ -1049,6 +1082,21 @@ BEGIN TRY
     IF NOT EXISTS (SELECT 1 FROM dbo.apparel_specs WITH (UPDLOCK, HOLDLOCK) WHERE product_id = (SELECT id FROM dbo.products WHERE slug = N'demo-product-apparel'))
         INSERT INTO dbo.apparel_specs (product_id, gender, apparel_kind, material)
         VALUES ((SELECT id FROM dbo.products WHERE slug = N'demo-product-apparel'), N'unisex', N'shirt', N'Chất liệu mẫu — cập nhật theo nhà sản xuất');
+    IF NOT EXISTS (SELECT 1 FROM dbo.apparel_specs WITH (UPDLOCK, HOLDLOCK) WHERE product_id = (SELECT id FROM dbo.products WHERE slug = N'test-quan-can-yonex-ac102ex-10k'))
+        INSERT INTO dbo.apparel_specs (product_id, gender, apparel_kind, material)
+        VALUES ((SELECT id FROM dbo.products WHERE slug = N'test-quan-can-yonex-ac102ex-10k'), N'unisex', N'other', N'Polyurethane cao cấp');
+    IF NOT EXISTS (SELECT 1 FROM dbo.apparel_specs WITH (UPDLOCK, HOLDLOCK) WHERE product_id = (SELECT id FROM dbo.products WHERE slug = N'test-bang-co-tay-victor-sp128-12k'))
+        INSERT INTO dbo.apparel_specs (product_id, gender, apparel_kind, material)
+        VALUES ((SELECT id FROM dbo.products WHERE slug = N'test-bang-co-tay-victor-sp128-12k'), N'unisex', N'other', N'Cotton dệt kim đàn hồi');
+    IF NOT EXISTS (SELECT 1 FROM dbo.apparel_specs WITH (UPDLOCK, HOLDLOCK) WHERE product_id = (SELECT id FROM dbo.products WHERE slug = N'test-tat-the-thao-yonex-pro-20k'))
+        INSERT INTO dbo.apparel_specs (product_id, gender, apparel_kind, material)
+        VALUES ((SELECT id FROM dbo.products WHERE slug = N'test-tat-the-thao-yonex-pro-20k'), N'unisex', N'socks', N'Cotton dệt kim thoáng khí');
+    IF NOT EXISTS (SELECT 1 FROM dbo.apparel_specs WITH (UPDLOCK, HOLDLOCK) WHERE product_id = (SELECT id FROM dbo.products WHERE slug = N'test-moc-khoa-yonex-11k'))
+        INSERT INTO dbo.apparel_specs (product_id, gender, apparel_kind, material)
+        VALUES ((SELECT id FROM dbo.products WHERE slug = N'test-moc-khoa-yonex-11k'), N'unisex', N'other', N'Nhựa dẻo & hợp kim');
+    IF NOT EXISTS (SELECT 1 FROM dbo.apparel_specs WITH (UPDLOCK, HOLDLOCK) WHERE product_id = (SELECT id FROM dbo.products WHERE slug = N'test-qua-cau-long-yonex-mavis-18k'))
+        INSERT INTO dbo.apparel_specs (product_id, gender, apparel_kind, material)
+        VALUES ((SELECT id FROM dbo.products WHERE slug = N'test-qua-cau-long-yonex-mavis-18k'), N'unisex', N'other', N'Nylon siêu bền & đế bần tự nhiên');
 
     -- product_variants: 27 rows
     IF NOT EXISTS (SELECT 1 FROM dbo.product_variants WITH (UPDLOCK, HOLDLOCK) WHERE sku = N'BS-1-4U-G5')
@@ -1132,6 +1180,30 @@ BEGIN TRY
     IF NOT EXISTS (SELECT 1 FROM dbo.product_variants WITH (UPDLOCK, HOLDLOCK) WHERE sku = N'DEMO-APPAREL-L')
         INSERT INTO dbo.product_variants (product_id, sku, barcode, color, size, price, cost_price, stock_quantity, low_stock_threshold, is_active, weight_grams, created_at, updated_at)
         VALUES ((SELECT id FROM dbo.products WHERE slug = N'demo-product-apparel'), N'DEMO-APPAREL-L', NULL, N'Đen', N'L', 350000, 180000, 65, 5, 1, 0, SYSDATETIME(), SYSDATETIME());
+    IF NOT EXISTS (SELECT 1 FROM dbo.product_variants WITH (UPDLOCK, HOLDLOCK) WHERE sku = N'TEST-QC-10K')
+        INSERT INTO dbo.product_variants (product_id, sku, barcode, color, size, price, cost_price, stock_quantity, low_stock_threshold, is_active, weight_grams, created_at, updated_at)
+        VALUES ((SELECT id FROM dbo.products WHERE slug = N'test-quan-can-yonex-ac102ex-10k'), N'TEST-QC-10K', N'TESTQC10K01', N'Trắng', N'Tiêu chuẩn', 10000, 5000, 1000, 5, 1, 20, SYSDATETIME(), SYSDATETIME());
+    IF NOT EXISTS (SELECT 1 FROM dbo.product_variants WITH (UPDLOCK, HOLDLOCK) WHERE sku = N'TEST-BCT-12K')
+        INSERT INTO dbo.product_variants (product_id, sku, barcode, color, size, price, cost_price, stock_quantity, low_stock_threshold, is_active, weight_grams, created_at, updated_at)
+        VALUES ((SELECT id FROM dbo.products WHERE slug = N'test-bang-co-tay-victor-sp128-12k'), N'TEST-BCT-12K', N'TESTBCT12K01', N'Đen', N'FreeSize', 12000, 6000, 1000, 5, 1, 30, SYSDATETIME(), SYSDATETIME());
+    IF NOT EXISTS (SELECT 1 FROM dbo.product_variants WITH (UPDLOCK, HOLDLOCK) WHERE sku = N'TEST-DC-15K')
+        INSERT INTO dbo.product_variants (product_id, sku, barcode, color, size, price, cost_price, stock_quantity, low_stock_threshold, is_active, weight_grams, created_at, updated_at)
+        VALUES ((SELECT id FROM dbo.products WHERE slug = N'test-day-cuoc-lining-no1-15k'), N'TEST-DC-15K', N'TESTDC15K01', N'Vàng chanh', N'0.65mm', 15000, 8000, 1000, 5, 1, 15, SYSDATETIME(), SYSDATETIME());
+    IF NOT EXISTS (SELECT 1 FROM dbo.product_variants WITH (UPDLOCK, HOLDLOCK) WHERE sku = N'TEST-TAT-20K')
+        INSERT INTO dbo.product_variants (product_id, sku, barcode, color, size, price, cost_price, stock_quantity, low_stock_threshold, is_active, weight_grams, created_at, updated_at)
+        VALUES ((SELECT id FROM dbo.products WHERE slug = N'test-tat-the-thao-yonex-pro-20k'), N'TEST-TAT-20K', N'TESTTAT20K01', N'Trắng xám', N'L (25-28cm)', 20000, 10000, 1000, 5, 1, 50, SYSDATETIME(), SYSDATETIME());
+    IF NOT EXISTS (SELECT 1 FROM dbo.product_variants WITH (UPDLOCK, HOLDLOCK) WHERE sku = N'TEST-MK-11K')
+        INSERT INTO dbo.product_variants (product_id, sku, barcode, color, size, price, cost_price, stock_quantity, low_stock_threshold, is_active, weight_grams, created_at, updated_at)
+        VALUES ((SELECT id FROM dbo.products WHERE slug = N'test-moc-khoa-yonex-11k'), N'TEST-MK-11K', N'TESTMK11K01', N'Xanh dương', N'Mini', 11000, 5000, 1000, 5, 1, 15, SYSDATETIME(), SYSDATETIME());
+    IF NOT EXISTS (SELECT 1 FROM dbo.product_variants WITH (UPDLOCK, HOLDLOCK) WHERE sku = N'TEST-BDV-14K')
+        INSERT INTO dbo.product_variants (product_id, sku, barcode, color, size, price, cost_price, stock_quantity, low_stock_threshold, is_active, weight_grams, created_at, updated_at)
+        VALUES ((SELECT id FROM dbo.products WHERE slug = N'test-bang-dan-dau-vot-victor-14k'), N'TEST-BDV-14K', N'TESTBDV14K01', N'Đen mờ', N'Tiêu chuẩn', 14000, 7000, 1000, 5, 1, 10, SYSDATETIME(), SYSDATETIME());
+    IF NOT EXISTS (SELECT 1 FROM dbo.product_variants WITH (UPDLOCK, HOLDLOCK) WHERE sku = N'TEST-LG-16K')
+        INSERT INTO dbo.product_variants (product_id, sku, barcode, color, size, price, cost_price, stock_quantity, low_stock_threshold, is_active, weight_grams, created_at, updated_at)
+        VALUES ((SELECT id FROM dbo.products WHERE slug = N'test-lot-giay-lining-cushion-16k'), N'TEST-LG-16K', N'TESTLG16K01', N'Vàng đen', N'40-44 (FreeSize)', 16000, 8000, 1000, 5, 1, 40, SYSDATETIME(), SYSDATETIME());
+    IF NOT EXISTS (SELECT 1 FROM dbo.product_variants WITH (UPDLOCK, HOLDLOCK) WHERE sku = N'TEST-CL-18K')
+        INSERT INTO dbo.product_variants (product_id, sku, barcode, color, size, price, cost_price, stock_quantity, low_stock_threshold, is_active, weight_grams, created_at, updated_at)
+        VALUES ((SELECT id FROM dbo.products WHERE slug = N'test-qua-cau-long-yonex-mavis-18k'), N'TEST-CL-18K', N'TESTCL18K01', N'Vàng neon', N'Ống 1 quả', 18000, 9000, 1000, 5, 1, 25, SYSDATETIME(), SYSDATETIME());
 
     -- product_images: 9 rows
     IF NOT EXISTS (SELECT 1 FROM dbo.product_images WITH (UPDLOCK, HOLDLOCK) WHERE product_id = (SELECT id FROM dbo.products WHERE slug = N'yonex-astrox-88d-play-1') AND variant_id IS NULL AND url = N'/products/racket.svg' AND sort_order = 0)
@@ -1161,6 +1233,30 @@ BEGIN TRY
     IF NOT EXISTS (SELECT 1 FROM dbo.product_images WITH (UPDLOCK, HOLDLOCK) WHERE product_id = (SELECT id FROM dbo.products WHERE slug = N'demo-product-apparel') AND variant_id IS NULL AND url = N'/products/apparel.svg' AND sort_order = 0)
         INSERT INTO dbo.product_images (product_id, variant_id, url, sort_order)
         VALUES ((SELECT id FROM dbo.products WHERE slug = N'demo-product-apparel'), NULL, N'/products/apparel.svg', 0);
+    IF NOT EXISTS (SELECT 1 FROM dbo.product_images WITH (UPDLOCK, HOLDLOCK) WHERE product_id = (SELECT id FROM dbo.products WHERE slug = N'test-quan-can-yonex-ac102ex-10k'))
+        INSERT INTO dbo.product_images (product_id, variant_id, url, sort_order)
+        VALUES ((SELECT id FROM dbo.products WHERE slug = N'test-quan-can-yonex-ac102ex-10k'), (SELECT id FROM dbo.product_variants WHERE sku = N'TEST-QC-10K'), N'/products/apparel.svg', 0);
+    IF NOT EXISTS (SELECT 1 FROM dbo.product_images WITH (UPDLOCK, HOLDLOCK) WHERE product_id = (SELECT id FROM dbo.products WHERE slug = N'test-bang-co-tay-victor-sp128-12k'))
+        INSERT INTO dbo.product_images (product_id, variant_id, url, sort_order)
+        VALUES ((SELECT id FROM dbo.products WHERE slug = N'test-bang-co-tay-victor-sp128-12k'), (SELECT id FROM dbo.product_variants WHERE sku = N'TEST-BCT-12K'), N'/products/apparel.svg', 0);
+    IF NOT EXISTS (SELECT 1 FROM dbo.product_images WITH (UPDLOCK, HOLDLOCK) WHERE product_id = (SELECT id FROM dbo.products WHERE slug = N'test-day-cuoc-lining-no1-15k'))
+        INSERT INTO dbo.product_images (product_id, variant_id, url, sort_order)
+        VALUES ((SELECT id FROM dbo.products WHERE slug = N'test-day-cuoc-lining-no1-15k'), (SELECT id FROM dbo.product_variants WHERE sku = N'TEST-DC-15K'), N'/products/racket.svg', 0);
+    IF NOT EXISTS (SELECT 1 FROM dbo.product_images WITH (UPDLOCK, HOLDLOCK) WHERE product_id = (SELECT id FROM dbo.products WHERE slug = N'test-tat-the-thao-yonex-pro-20k'))
+        INSERT INTO dbo.product_images (product_id, variant_id, url, sort_order)
+        VALUES ((SELECT id FROM dbo.products WHERE slug = N'test-tat-the-thao-yonex-pro-20k'), (SELECT id FROM dbo.product_variants WHERE sku = N'TEST-TAT-20K'), N'/products/apparel.svg', 0);
+    IF NOT EXISTS (SELECT 1 FROM dbo.product_images WITH (UPDLOCK, HOLDLOCK) WHERE product_id = (SELECT id FROM dbo.products WHERE slug = N'test-moc-khoa-yonex-11k'))
+        INSERT INTO dbo.product_images (product_id, variant_id, url, sort_order)
+        VALUES ((SELECT id FROM dbo.products WHERE slug = N'test-moc-khoa-yonex-11k'), (SELECT id FROM dbo.product_variants WHERE sku = N'TEST-MK-11K'), N'/products/apparel.svg', 0);
+    IF NOT EXISTS (SELECT 1 FROM dbo.product_images WITH (UPDLOCK, HOLDLOCK) WHERE product_id = (SELECT id FROM dbo.products WHERE slug = N'test-bang-dan-dau-vot-victor-14k'))
+        INSERT INTO dbo.product_images (product_id, variant_id, url, sort_order)
+        VALUES ((SELECT id FROM dbo.products WHERE slug = N'test-bang-dan-dau-vot-victor-14k'), (SELECT id FROM dbo.product_variants WHERE sku = N'TEST-BDV-14K'), N'/products/racket.svg', 0);
+    IF NOT EXISTS (SELECT 1 FROM dbo.product_images WITH (UPDLOCK, HOLDLOCK) WHERE product_id = (SELECT id FROM dbo.products WHERE slug = N'test-lot-giay-lining-cushion-16k'))
+        INSERT INTO dbo.product_images (product_id, variant_id, url, sort_order)
+        VALUES ((SELECT id FROM dbo.products WHERE slug = N'test-lot-giay-lining-cushion-16k'), (SELECT id FROM dbo.product_variants WHERE sku = N'TEST-LG-16K'), N'/products/shoes.svg', 0);
+    IF NOT EXISTS (SELECT 1 FROM dbo.product_images WITH (UPDLOCK, HOLDLOCK) WHERE product_id = (SELECT id FROM dbo.products WHERE slug = N'test-qua-cau-long-yonex-mavis-18k'))
+        INSERT INTO dbo.product_images (product_id, variant_id, url, sort_order)
+        VALUES ((SELECT id FROM dbo.products WHERE slug = N'test-qua-cau-long-yonex-mavis-18k'), (SELECT id FROM dbo.product_variants WHERE sku = N'TEST-CL-18K'), N'/products/apparel.svg', 0);
 
     -- vouchers: 2 rows
     IF NOT EXISTS (SELECT 1 FROM dbo.vouchers WITH (UPDLOCK, HOLDLOCK) WHERE code = N'DEMO10')
