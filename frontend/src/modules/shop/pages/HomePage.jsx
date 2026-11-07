@@ -1,3 +1,4 @@
+import ProductCard from '../components/ProductCard';
 import ProductOptionsModal from '../components/ProductOptionsModal';
 import { productApi } from '@/modules/management/api/catalog.api';
 import { productImage, productImageFallback } from '../utils/productImages';
@@ -7,10 +8,9 @@ import { getToken } from '@/shared/auth/session';
 import Icon from '@/shared/components/Icon';
 import '@/modules/shop/shop.css';
 import { useEffect, useState } from 'react';
-import { Alert, Badge, Button, Card, Col, Form, Modal, Pagination, Row } from 'react-bootstrap';
+import { Alert, Button, Col, Form, Modal, Pagination, Row } from 'react-bootstrap';
 import { Link, useNavigate } from 'react-router';
 import { useShop } from '@/app/providers/shop/ShopContext';
-import { formatMoney } from '@/shared/utils/format';
 export default function HomePage({ catalog = false }) {
   const { user } = useAuth();
   const { data, busy, act } = useShop(),
@@ -137,37 +137,10 @@ export default function HomePage({ catalog = false }) {
       {loadError && <Alert variant="danger">{loadError} <Button onClick={() => { setLoading(true); setRetry((n) => n + 1); }}>Thử lại</Button></Alert>}
       {loading && <p role="status">Đang tải sản phẩm…</p>}
       {!loading && !loadError && !products.length && <div className="empty-state">Không tìm thấy sản phẩm phù hợp.</div>}
-      <Row className="g-4">
-        {!loading && !loadError && products.map((p) => {
-          const options = data.product_variants.filter((v) => v.product_id === p.id && v.is_active),
-            v = options.find((v) => v.stock_quantity > 0) || options[0];
-          return (
-            <Col xs={12} sm={6} xl={3} key={p.id}>
-              <Card className="product-card h-100">
-                <div className={'product-art art-' + p.product_type}>
-                  <Badge bg="light" text="primary">
-                    {p.brand}
-                  </Badge>
-                  <button type="button" className="product-image-button" onClick={() => setPreview({ product: p, variantId: v?.id })} aria-label={'Phóng to ảnh ' + p.name}>
-                    <img src={productImage(data, p, v?.id)} onError={productImageFallback} alt={p.name} loading="lazy" />
-                    <span className="product-image-hint"><Icon name="search" size={16} /> Xem ảnh lớn</span>
-                  </button>
-                </div>
-                <Card.Body className="d-flex flex-column">
-                  <Card.Title as="h3" className="h6 fw-bold mt-2"><Link className="product-name-link" to={'/products/' + p.id}>{p.name}</Link></Card.Title>
-                  <div className="product-price-row">
-                    <strong className="text-primary">{formatMoney(v?.price ?? p.base_price)}</strong>
-                    <Badge bg={v?.stock_quantity ? 'success' : 'secondary'}>{v?.stock_quantity ? 'Còn ' + v.stock_quantity + ' sản phẩm' : 'Hết hàng'}</Badge>
-                  </div>
-                  <div className="product-actions mt-auto">
-                    <Button variant="outline-primary" className="icon-button" disabled={busy || !v?.stock_quantity} aria-label={'Thêm ' + p.name + ' vào giỏ'} title="Thêm vào giỏ" onClick={() => setPurchase({ product: p, buy: false })}><Icon name="cart" size={18} /></Button>
-                    <Button className="icon-button" disabled={busy || !v?.stock_quantity} onClick={() => setPurchase({ product: p, buy: true })}><Icon name="bag" size={18} />Đặt hàng</Button>
-                  </div>
-                </Card.Body>
-              </Card>
-            </Col>
-          );
-        })}
+      <Row className="g-3">
+        {!loading && !loadError && products.map((product) => <Col xs={6} md={6} lg={4} xl={3} key={product.id}>
+          <ProductCard product={product} data={data} busy={busy} onPreview={setPreview} onPurchase={setPurchase} />
+        </Col>)}
       </Row>
       {result?.totalPages > 1 && !loadError && <div className="d-flex justify-content-between align-items-center flex-wrap gap-2 mt-4">
         <small className="text-secondary">Trang {page + 1} / {result.totalPages} · {result.totalElements} sản phẩm</small>

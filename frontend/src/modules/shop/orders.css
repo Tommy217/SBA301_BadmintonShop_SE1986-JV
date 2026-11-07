@@ -1,6 +1,6 @@
-.customer-orders { max-width: 1120px; margin: 0 auto; color: #262329; }
+.customer-orders { width: 100%; min-width: 0; margin: 0; color: #262329; }
 .orders-heading { display: flex; justify-content: space-between; align-items: center; gap: 20px; margin-bottom: 26px; }
-.orders-eyebrow { color: #81747e; font-size: 10px; font-weight: 650; letter-spacing: 1.8px; }
+.orders-eyebrow { display: block; line-height: 1.5; color: #81747e; font-size: 10px; font-weight: 650; letter-spacing: 1.8px; }
 .orders-heading h1 { margin: 7px 0 8px; font-size: 30px; letter-spacing: -.9px; font-weight: 700; }
 .orders-heading p { margin: 0; color: #898189; font-size: 13px; }
 .shop-app .orders-shop-link { color: #675d65; text-decoration: none; font-size: 13px; white-space: nowrap; }
