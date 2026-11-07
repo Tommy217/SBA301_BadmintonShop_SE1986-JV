@@ -260,7 +260,8 @@ class ShipmentServiceTest {
     // ---------- dong bo ----------
 
     private CarrierTracking tracking(String status, CarrierTracking.Event... events) {
-        return new CarrierTracking("FS-1", status, "Đang giao", "Tuấn", "0987", null,
+        return new CarrierTracking("FS-1", "http://localhost:8082/track?code=FS-1", status, "Đang giao",
+                new BigDecimal("45000"), null, "Tuấn", "0987", null,
                 "delivered".equals(status) ? LocalDateTime.of(2026, 11, 7, 10, 0) : null, List.of(events));
     }
 
@@ -289,6 +290,23 @@ class ShipmentServiceTest {
     }
 
     @Test
+    void syncAfterApprovalTakesTrackingCodeAndFee() {
+        Shipment s = shipmentWithStatus(ShipmentStatus.REQUESTED);
+        s.setPartnerRef("ref-1");
+        when(shipmentRepository.findById(5L)).thenReturn(Optional.of(s));
+        saveReturnsArgument();
+        when(carrierGateway.track(s)).thenReturn(tracking("pending_pickup"));
+
+        ShipmentResponse res = service.sync(5L, 3L);
+
+        assertEquals("pending_pickup", res.getStatus());
+        assertEquals("FS-1", res.getTrackingCode());
+        assertEquals("http://localhost:8082/track?code=FS-1", res.getTrackingUrl());
+        assertEquals(new BigDecimal("45000"), res.getShippingFee());
+        verify(fulfillment).onShipmentStatus(order, ShipmentStatus.PENDING_PICKUP, 3L);
+    }
+
+    @Test
     void syncDoesNotChangeFinalShipment() {
         Shipment s = shipmentWithStatus(ShipmentStatus.CANCELLED);
         s.setPartnerRef("FS-1");
@@ -308,7 +326,7 @@ class ShipmentServiceTest {
                 assertThrows(DeliveryException.class, () -> service.sync(5L, 3L)).getStatus());
 
         Shipment other = shipmentWithStatus(ShipmentStatus.PENDING_PICKUP);
-        other.setPartnerRef("FS-9");
+        other.setPartnerRef("ref-9");
         other.setTrackingCode("FS-9");
         when(shipmentRepository.findById(6L)).thenReturn(Optional.of(other));
         when(carrierGateway.track(other)).thenReturn(tracking("in_transit"));

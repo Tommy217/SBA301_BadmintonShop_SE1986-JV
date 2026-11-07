@@ -41,9 +41,11 @@ public class ManagerShipmentController {
             @Valid @RequestBody CreateShipmentRequest request,
             @RequestHeader(value = "X-User-Id", required = false) Long staffId) {
         ShipmentResponse created = shipmentService.create(request, staffId);
-        String message = created.getPartnerRef() != null
+        String message = created.getPartnerRef() == null
+                ? "Đã lưu vận đơn nhưng chưa gửi được sang đối tác. Hãy bấm \"Gửi lại\"."
+                : created.getTrackingCode() != null
                 ? "Đã tạo vận đơn " + created.getTrackingCode()
-                : "Đã lưu vận đơn nhưng chưa gửi được sang đối tác. Hãy bấm \"Gửi lại\".";
+                : "Đã gửi yêu cầu sang " + created.getCarrierName() + ", chờ đối tác duyệt.";
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.<ShipmentResponse>builder()
                         .code(HttpStatus.CREATED.value())

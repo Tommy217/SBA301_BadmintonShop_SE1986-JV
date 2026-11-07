@@ -1,13 +1,18 @@
 package fu.se.badmintonshop.modules.delivery.gateway;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 
 // trang thai van don doc tu doi tac (dung cho pull sync)
+// trackingCode / trackingUrl / phi / ngay du kien chi co sau khi doi tac duyet
 public record CarrierTracking(
         String trackingCode,
+        String trackingUrl,
         String status,
         String statusText,
+        BigDecimal shippingFee,
+        LocalDateTime estimatedDeliveryDate,
         String shipperName,
         String shipperPhone,
         LocalDateTime shippedAt,

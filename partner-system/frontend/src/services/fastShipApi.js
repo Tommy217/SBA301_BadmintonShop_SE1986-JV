@@ -1,28 +1,33 @@
-const API_BASE = "http://localhost:8081/api/v1/shipments";
+const API_BASE = import.meta.env.VITE_FASTSHIP_API || "http://localhost:8081/api/v1";
 
-export async function trackShipment(code) {
-  const res = await fetch(`${API_BASE}/track/${encodeURIComponent(code)}`);
-  const json = await res.json();
-  if (!res.ok || !json.data) {
-    throw new Error(json.message || "Không tìm thấy vận đơn trên hệ thống FastShip.");
+async function request(path, options = {}) {
+  const res = await fetch(`${API_BASE}${path}`, {
+    ...options,
+    headers: { "Content-Type": "application/json", ...(options.headers || {}) },
+  });
+  let json = null;
+  try {
+    json = await res.json();
+  } catch {
+    // bo qua body rong
   }
-  return json.data;
+  if (!res.ok) {
+    throw new Error(json?.message || `FastShip API lỗi (HTTP ${res.status}).`);
+  }
+  return json?.data;
 }
 
-export async function advanceShipmentStatus(code, status, note = "") {
-  const res = await fetch(`${API_BASE}/${encodeURIComponent(code)}/advance-status`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ status, note })
-  });
-  const json = await res.json();
-  if (!res.ok) throw new Error(json.message || "Lỗi mô phỏng trạng thái.");
-  return json.data;
-}
+const post = (path, body) => request(path, { method: "POST", body: JSON.stringify(body ?? {}) });
 
-export async function dispatchWebhook(code) {
-  const res = await fetch(`${API_BASE}/${encodeURIComponent(code)}/dispatch-webhook`, {
-    method: "POST"
-  });
-  return res.json();
-}
+// Tra cuu cong khai
+export const trackShipment = (code) => request(`/track/${encodeURIComponent(code)}`);
+
+// Man hinh nhan vien FastShip
+export const consoleApi = {
+  list: (status) => request(`/console/shipments${status ? `?status=${encodeURIComponent(status)}` : ""}`),
+  get: (id) => request(`/console/shipments/${encodeURIComponent(id)}`),
+  approve: (id, body) => post(`/console/shipments/${encodeURIComponent(id)}/approve`, body),
+  reject: (id, reason) => post(`/console/shipments/${encodeURIComponent(id)}/reject`, { reason }),
+  updateStatus: (id, status, note, location) =>
+    post(`/console/shipments/${encodeURIComponent(id)}/status`, { status, note, location }),
+};

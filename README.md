@@ -7,7 +7,7 @@ Web bán đồ cầu lông của nhóm SE1986-JV (môn SBA301).
 | Frontend | React 19, Vite, React Router, React Bootstrap | `frontend/` |
 | Backend | Spring Boot REST API, chạy ở `http://localhost:8080` | `backend/` |
 | Cơ sở dữ liệu | MS SQL Server | |
-| Hệ thống giao hàng đối tác (giả lập) | FastShip | `partner-system/` (chạy bằng `npm run partner` trong `frontend/`) |
+| Hệ thống giao hàng đối tác (giả lập) | FastShip: Spring Boot + MongoDB (8081), React (8082) | `partner-system/` (xem `partner-system/README.md`) |
 
 Toàn bộ API cửa hàng dùng Spring Boot + SQL Server, bao gồm giỏ hàng, đặt hàng, dashboard, hỗ trợ, kho, hóa đơn và thanh toán. Cần chạy backend cổng 8080. Vite không chạy mock server và không đọc `frontend/mock/db.json`. Thư mục `frontend/mock/` chỉ lưu mã mẫu/test cũ để tham khảo, không tham gia luồng chạy ứng dụng.
 

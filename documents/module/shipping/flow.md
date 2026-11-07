@@ -1,6 +1,6 @@
 # LUỒNG HOẠT ĐỘNG MODULE SHIPPING & DELIVERY
 
-> Trạng thái code: **giai đoạn 2** (FE nối BE, toàn bộ logic giao hàng nằm trong module delivery). Shop gọi FastShip qua API hiện tại của `partner-system` (`FastShipCarrierGateway`): đối tác cấp mã ngay khi nhận yêu cầu, trạng thái được đồng bộ bằng nút "Đồng bộ" (pull). Bước duyệt bên đối tác, webhook ký HMAC và job đồng bộ định kỳ thuộc giai đoạn 3–4.
+> Trạng thái code: **giai đoạn 3**. FastShip (`partner-system`) chạy Spring Boot + MongoDB và có bước **duyệt**: shop gửi yêu cầu (`requested`), nhân viên FastShip duyệt (cấp mã, `pending_pickup`) hoặc từ chối (`rejected`) trên màn `/requests`, bưu tá cập nhật hành trình trên `/shipments`. Shop nhận thay đổi bằng nút "Đồng bộ" (pull). Webhook ký HMAC và job đồng bộ định kỳ thuộc giai đoạn 4.
 
 ## 1. Tổng quan
 
@@ -21,7 +21,7 @@ Thành phần chính (`backend/.../modules/delivery`):
 | `CustomerShipmentController` | `/api/orders/{orderId}/shipment`, `/sync`, `/api/my/shipments`: khách xem / làm mới vận đơn |
 | `ShipmentService` | Nghiệp vụ vận đơn; `ShipmentSpecifications` lọc danh sách |
 | `OrderFulfillmentService` | Chuyển `orders.status`, ghi `order_status_history`, hoàn kho, xuất hoá đơn |
-| `CarrierGateway` / `FastShipCarrierGateway` | Gọi FastShip: tạo, huỷ, tra cứu (`CarrierTracking`). Lỗi gọi đối tác → 502 |
+| `CarrierGateway` / `FastShipCarrierGateway` | Gọi FastShip có `X-Api-Key`: gửi yêu cầu, huỷ, đọc trạng thái (`CarrierTracking`). Đối tác lỗi / tắt → 502; đối tác báo sai trạng thái / không thấy → 409 |
 | `DeliveryExceptionHandler` | Lỗi trả về `ApiResponse` (`code`, `message`), chỉ áp cho 3 controller trên |
 
 ## 2. Sơ đồ tuần tự
@@ -52,11 +52,11 @@ sequenceDiagram
     else Hợp lệ
         BE->>DB: INSERT shipments (status = requested) + shipment_events (source = manual)
         BE->>GW: requestShipment(shipment)
-        GW->>FS: POST /api/v1/shipments/create (codAmount = 0)
+        GW->>FS: POST /api/v1/shipment-requests (X-Api-Key, shopShipmentId = shipments.id)
         alt FastShip nhận
-            FS-->>GW: tracking_code, status = pending_pickup, phí
-            BE->>DB: UPDATE shipments (partner_ref, tracking_code, status) + event + orders.status = shipping
-            BE-->>FE: 201 "Đã tạo vận đơn ..."
+            FS-->>GW: id (partnerRef), status = requested
+            BE->>DB: UPDATE shipments.partner_ref + event "Đối tác đã nhận yêu cầu"
+            BE-->>FE: 201 "Đã gửi yêu cầu ..., chờ đối tác duyệt"
         else FastShip lỗi / tắt (502)
             BE->>DB: Giữ requested, thêm event "Chưa gửi được sang đối tác"
             BE-->>FE: 201 "... hãy bấm Gửi lại" (POST /{id}/resend)
@@ -92,7 +92,37 @@ sequenceDiagram
     end
 ```
 
-### 2.3. Đồng bộ trạng thái từ đối tác (pull)
+### 2.3. FastShip duyệt / từ chối và bưu tá cập nhật (phía đối tác)
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Staff as Nhân viên FastShip
+    actor Courier as Bưu tá
+    participant PFE as FastShip FE :8082
+    participant PBE as FastShip BE :8081
+    participant M as MongoDB fastship_db
+
+    Staff->>PFE: Mở /requests, chọn yêu cầu
+    alt Duyệt
+        PFE->>PBE: POST /api/v1/console/shipments/{id}/approve {phí?, số ngày?, bưu tá?}
+        PBE->>M: status requested → pending_pickup, cấp trackingCode FS-xxxxxx, thêm event
+    else Từ chối
+        PFE->>PBE: POST /api/v1/console/shipments/{id}/reject {reason}
+        PBE->>M: status requested → rejected, rejectReason
+    end
+    Courier->>PFE: /shipments, bấm bước tiếp theo
+    PFE->>PBE: POST /api/v1/console/shipments/{id}/status {status, note}
+    alt Đúng thứ tự (bảng mục 3)
+        PBE->>M: Cập nhật status, mốc thời gian, thêm event
+    else Sai thứ tự
+        PBE-->>PFE: 409
+    end
+```
+
+Shop chỉ thấy các thay đổi này sau khi bấm "Đồng bộ" (mục 2.4).
+
+### 2.4. Đồng bộ trạng thái từ đối tác (pull)
 
 ```mermaid
 sequenceDiagram
@@ -111,12 +141,12 @@ sequenceDiagram
     else Đã có partner_ref
         BE->>DB: Khoá dòng shipments
         BE->>GW: track(shipment)
-        GW->>FS: GET /api/v1/shipments/track/{code}
-        FS-->>GW: status, statusText, shipper, events[]
+        GW->>FS: GET /api/v1/shipments/{partnerRef} (X-Api-Key)
+        FS-->>GW: status, trackingCode, phí, ngày dự kiến, shipper, events[]
         alt Mã vận đơn không khớp / trạng thái lạ
             BE-->>FE: 502
         else Hợp lệ
-            BE->>DB: Cập nhật status (nếu vận đơn chưa kết thúc), shipper, mốc thời gian, last_synced_at
+            BE->>DB: Cập nhật status (nếu vận đơn chưa kết thúc), mã vận đơn + link khi vừa duyệt, phí, shipper, mốc thời gian, last_synced_at
             BE->>DB: INSERT shipment_events mới (bỏ qua external_event_id đã có, source = sync)
             BE->>DB: orders.status theo bảng mục 3 (+ hoàn kho / xuất hoá đơn)
             BE-->>FE: 200 + vận đơn
@@ -124,7 +154,7 @@ sequenceDiagram
     end
 ```
 
-### 2.4. Khách xem vận đơn
+### 2.5. Khách xem vận đơn
 
 ```mermaid
 sequenceDiagram
@@ -150,10 +180,10 @@ sequenceDiagram
 
 ## 3. Bảng chuyển trạng thái (`shipments.status`)
 
-| Từ | Sang | Ai đổi | Có ở giai đoạn 2? |
+| Từ | Sang | Ai đổi | Có ở giai đoạn 3? |
 |---|---|---|---|
 | (mới) | `requested` | Shop tạo | Có |
-| `requested` | `pending_pickup`, `rejected`, `cancelled` | đối tác nhận / từ chối; shop huỷ | Có (`rejected` từ giai đoạn 3) |
+| `requested` | `pending_pickup`, `rejected`, `cancelled` | FastShip duyệt / từ chối; shop huỷ | Có |
 | `pending_pickup` | `in_transit`, `cancelled` | đối tác; shop huỷ | Có (qua đồng bộ) |
 | `in_transit` | `out_for_delivery`, `delivery_failed` | đối tác | Có (qua đồng bộ) |
 | `out_for_delivery` | `delivered`, `delivery_failed` | đối tác | Có (qua đồng bộ) |
@@ -199,7 +229,7 @@ Chỉ tạo vận đơn khi đơn ở `confirmed` hoặc `preparing`. Backend de
 
 Quyền theo `SecurityConfig`: `/api/manager/shipments/**` mở cho `STAFF` (các route `/api/manager/**` khác vẫn chỉ `MANAGER`, `ADMIN`); API khách cần đăng nhập.
 
-Các lệnh curl dưới đây cần token đăng nhập (`TOKEN` lấy từ `POST /api/auth/login` bằng tài khoản staff/manager), một đơn hàng `confirmed` và `partner-system` đang chạy ở cổng 8081.
+Các lệnh curl dưới đây cần token đăng nhập (`TOKEN` lấy từ `POST /api/auth/login` bằng tài khoản staff/manager), một đơn hàng `confirmed` và `partner-system` đang chạy ở cổng 8081 (MongoDB local). API phía FastShip xem `partner-system/README.md`.
 
 ### 5.1. Tạo vận đơn
 
@@ -212,16 +242,16 @@ curl -X POST http://localhost:8080/api/manager/shipments \
 ```json
 {
   "code": 201,
-  "message": "Đã tạo vận đơn FS-123456",
+  "message": "Đã gửi yêu cầu sang FastShip Express (Đối Tác), chờ đối tác duyệt.",
   "data": {
     "id": 1, "orderId": 1, "orderCode": "BS-0001",
     "carrierCode": "fastship", "carrierName": "FastShip Express (Đối Tác)", "carrierHotline": "19006868",
-    "partnerRef": "FS-123456", "trackingCode": "FS-123456", "trackingUrl": "http://localhost:8082/track?code=FS-123456",
-    "serviceType": "fast", "status": "pending_pickup", "statusLabel": "Chờ lấy hàng", "cancellable": true,
-    "shippingFee": 35000, "weightGrams": 800, "note": "Hàng dễ vỡ", "createdBy": 2,
+    "partnerRef": "6730a1f2c9e77b1d2f4a9b10",
+    "serviceType": "fast", "status": "requested", "statusLabel": "Chờ đối tác duyệt", "cancellable": true,
+    "shippingFee": 0, "weightGrams": 800, "note": "Hàng dễ vỡ", "createdBy": 2,
     "events": [
       { "id": 1, "status": "requested", "title": "Shop gửi yêu cầu tạo vận đơn", "source": "manual" },
-      { "id": 2, "status": "pending_pickup", "title": "Đối tác tiếp nhận vận đơn", "source": "carrier" }
+      { "id": 2, "status": "requested", "title": "Đối tác đã nhận yêu cầu", "source": "carrier" }
     ]
   },
   "timestamp": "2026-11-04T01:20:00"
@@ -253,7 +283,7 @@ curl -X POST http://localhost:8080/api/manager/shipments/1/sync -H "Authorizatio
 curl -X POST http://localhost:8080/api/manager/shipments/1/resend -H "Authorization: Bearer $TOKEN"
 ```
 
-Tắt `partner-system` rồi đồng bộ → `502`, `"Không kết nối được FastShip. Hãy bật partner-system."`.
+Tắt `partner-system` rồi đồng bộ → `502`, `"Không kết nối được FastShip. Hãy bật partner-system."`. Sai `fastship.api-key` → `502` `"FastShip: Thiếu hoặc sai X-Api-Key."`.
 
 ### 5.5. Khách xem vận đơn
 

@@ -209,6 +209,8 @@ public class ShipmentService {
         if (status != ShipmentStatus.REQUESTED) {
             shipment.addEvent(event(status, "Đối tác tiếp nhận vận đơn",
                     shipment.getTrackingCode() != null ? "Mã vận đơn " + shipment.getTrackingCode() : null, "carrier"));
+        } else if (shipment.getPartnerRef() != null) {
+            shipment.addEvent(event(status, "Đối tác đã nhận yêu cầu", "Chờ đối tác duyệt và cấp mã vận đơn", "carrier"));
         }
         fulfillment.onShipmentStatus(shipment.getOrder(), status, actorId);
     }
@@ -224,6 +226,11 @@ public class ShipmentService {
                 && !remote.trackingCode().equals(shipment.getTrackingCode())) {
             throw new DeliveryException(HttpStatus.BAD_GATEWAY, "Mã vận đơn từ đối tác không khớp.");
         }
+        // doi tac vua duyet: nhan ma van don, link tra cuu, phi, ngay du kien
+        if (remote.trackingCode() != null) shipment.setTrackingCode(remote.trackingCode());
+        if (remote.trackingUrl() != null) shipment.setTrackingUrl(remote.trackingUrl());
+        if (remote.shippingFee() != null) shipment.setShippingFee(remote.shippingFee());
+        if (remote.estimatedDeliveryDate() != null) shipment.setEstimatedDeliveryDate(remote.estimatedDeliveryDate());
         ShipmentStatus next = ShipmentStatus.fromValue(remote.status())
                 .orElseThrow(() -> new DeliveryException(HttpStatus.BAD_GATEWAY, "Đối tác trả trạng thái lạ: " + remote.status()));
         ShipmentStatus current = currentStatus(shipment);
