@@ -1,5 +1,6 @@
 package fu.se.badmintonshop.modules.payment.service;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import fu.se.badmintonshop.modules.payment.dto.request.PayOSWebhookRequest;
 
 import java.math.BigDecimal;
@@ -23,5 +24,7 @@ public interface PayOSService {
     void cancelPaymentLink(Long orderCode, String cancellationReason);
 
     void confirmWebhook(String webhookUrl);
+
+    JsonNode getPaymentLinkInformation(Long orderCode);
 }
 

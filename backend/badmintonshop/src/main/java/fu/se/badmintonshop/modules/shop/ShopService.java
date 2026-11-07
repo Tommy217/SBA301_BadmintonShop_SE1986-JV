@@ -31,8 +31,14 @@ public class ShopService {
             "preparing", Set.of("cancelled"), "shipping", Set.of(), "completed", Set.of("returned"),
             "cancelled", Set.of(), "returned", Set.of());
 
-    @Transactional(readOnly = true)
+    @Transactional
     public Map<String, Object> snapshot(AuthService.User user) {
+        if (user != null) {
+            try {
+                payments.syncPendingPayments();
+            } catch (Exception ignored) {
+            }
+        }
         var result = new LinkedHashMap<String, Object>();
         for (String name : List.of("carts", "cart_items", "orders", "order_items", "payments", "order_status_history",
                 "support_tickets", "ticket_items", "ticket_status_history", "ticket_inspections", "refund_records")) {
@@ -157,7 +163,7 @@ public class ShopService {
         }
         var voucher = applyVoucher(text(a, "voucher_code"), userId, lines, subtotal);
         BigDecimal discount = money(voucher.getOrDefault("discount", BigDecimal.ZERO));
-        BigDecimal fee = subtotal.compareTo(new BigDecimal("2000000")) >= 0 ? BigDecimal.ZERO : new BigDecimal("30000");
+        BigDecimal fee = BigDecimal.ZERO;
         BigDecimal total = subtotal.subtract(discount).add(fee);
         require(total.compareTo(new BigDecimal("999999999999")) <= 0, HttpStatus.BAD_REQUEST, "Giá trị đơn hàng vượt giới hạn.");
         long orderId = insert("INSERT INTO orders(order_code,user_id,channel,status,payment_status,receiver_name,receiver_phone,shipping_address,voucher_id,voucher_code,subtotal,discount_amount,shipping_fee,total_amount,note,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",

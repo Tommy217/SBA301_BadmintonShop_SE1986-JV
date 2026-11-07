@@ -16,7 +16,7 @@ export default function CartPage() {
     (sum, i) => sum + data.product_variants.find((v) => v.id === i.variant_id).price * i.quantity,
     0,
   );
-  const shipping = !subtotal || subtotal >= 2000000 ? 0 : 30000;
+  const shipping = 0;
   return (
     <div className="commerce-page cart-page">
       <div className="commerce-heading">

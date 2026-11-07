@@ -1,6 +1,6 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Alert, Badge, Button, Card, Col, Form, Image, Row, Table } from 'react-bootstrap';
-import { Link, useNavigate } from 'react-router';
+import { Link, useNavigate, useSearchParams } from 'react-router';
 import { useShop } from '@/app/providers/shop/ShopContext';
 import { supportApi } from '@/modules/support/api/support.api';
 import { RETURN_WINDOW_DAYS } from '@/modules/support/constants';
@@ -9,8 +9,10 @@ import { formatDateTime, formatMoney } from '@/shared/utils/format';
 export default function CreateSupportTicketPage() {
   const { data, busy, act } = useShop();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const initialOrderId = searchParams.get('orderId') || '';
 
-  const [orderId, setOrderId] = useState('');
+  const [orderId, setOrderId] = useState(initialOrderId);
   const [selectedItems, setSelectedItems] = useState({}); // { [orderItemId]: { checked: boolean, quantity: number } }
   const [reason, setReason] = useState('');
   const [description, setDescription] = useState('');
@@ -29,12 +31,27 @@ export default function CreateSupportTicketPage() {
     return [...allOrders]
       .filter((order) => {
         const hasTicket = existingTickets.some(
-          (t) => t.order_id === order.id && !['CANCELLED'].includes(t.status),
+          (t) => String(t.order_id) === String(order.id) && !['CANCELLED'].includes(t.status),
         );
-        return !hasTicket;
+        return !hasTicket && order.payment_status === 'paid' && !['cancelled', 'returned'].includes(order.status);
       })
       .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
   }, [allOrders, existingTickets]);
+
+  useEffect(() => {
+    if (initialOrderId && allOrderItems.length > 0) {
+      setOrderId(initialOrderId);
+      const initialItems = {};
+      const items = allOrderItems.filter((item) => String(item.order_id) === String(initialOrderId));
+      for (const item of items) {
+        initialItems[item.id] = {
+          checked: false,
+          quantity: 1,
+        };
+      }
+      setSelectedItems(initialItems);
+    }
+  }, [initialOrderId, allOrderItems]);
 
   const selectedOrder = useMemo(() => {
     return allOrders.find((o) => o.id === orderId);
@@ -214,7 +231,7 @@ export default function CreateSupportTicketPage() {
         <Alert variant="warning" className="border-warning">
           <h4 className="alert-heading fw-bold fs-6">Không có đơn hàng đủ điều kiện</h4>
           <p className="mb-0">
-            Bạn hiện không có đơn hàng nào đã giao trong vòng {RETURN_WINDOW_DAYS} ngày hoặc tất cả đơn hàng đã có yêu cầu hỗ trợ đang được xử lý.
+            Bạn hiện không có đơn hàng đã thanh toán nào hoặc tất cả đơn hàng đã có yêu cầu hỗ trợ đang được xử lý.
           </p>
         </Alert>
       ) : (
@@ -239,7 +256,7 @@ export default function CreateSupportTicketPage() {
                         </option>
                       ))}
                     </Form.Select>
-                    <Form.Text muted>Chỉ áp dụng cho đơn hàng đã giao thành công trong vòng {RETURN_WINDOW_DAYS} ngày.</Form.Text>
+                    <Form.Text muted>Áp dụng cho các đơn hàng đã thanh toán của bạn.</Form.Text>
                   </Form.Group>
                 </Col>
 

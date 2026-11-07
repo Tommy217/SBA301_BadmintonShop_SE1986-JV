@@ -1,5 +1,6 @@
 package fu.se.badmintonshop.modules.payment.service.impl;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import fu.se.badmintonshop.modules.order.entity.Order;
 import fu.se.badmintonshop.modules.order.repository.OrderRepository;
@@ -192,21 +193,24 @@ public class PaymentServiceImpl implements PaymentService {
             log.warn("Không thể lưu log callback giao dịch: {}", e.getMessage());
         }
 
-        // 4. Cơ chế Idempotency: Kiểm tra chống xử lý trùng lặp giao dịch
+        // 4. Cơ chế Idempotency & Cập nhật thanh toán
+        markPaymentAsPaid(payment, data.getReference());
+    }
+
+    @Transactional
+    public void markPaymentAsPaid(Payment payment, String reference) {
         if ("paid".equalsIgnoreCase(payment.getStatus())) {
             log.info("Payment #{} đã ở trạng thái 'paid'. Bỏ qua cập nhật trùng lặp (Idempotency).", payment.getId());
             return;
         }
 
-        // 5. Cập nhật Payment sang paid
         payment.setStatus("paid");
         payment.setPaidAt(LocalDateTime.now());
-        if (data.getReference() != null && !data.getReference().isBlank()) {
-            payment.setGatewayTxnRef(data.getReference());
+        if (reference != null && !reference.isBlank()) {
+            payment.setGatewayTxnRef(reference);
         }
         paymentRepository.save(payment);
 
-        // 6. Cập nhật Order sang paid & confirmed
         Order order = orderRepository.findById(payment.getOrderId()).orElse(null);
         if (order != null) {
             order.setPaymentStatus("paid");
@@ -301,6 +305,59 @@ public class PaymentServiceImpl implements PaymentService {
             count++;
         }
         return count;
+    }
+
+    @Override
+    @Transactional
+    public PaymentDetailResponse syncPaymentStatus(Long paymentId) {
+        Payment payment = paymentRepository.findById(paymentId)
+                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy giao dịch ID: " + paymentId));
+        if ("paid".equalsIgnoreCase(payment.getStatus())) {
+            return toDetailResponse(payment);
+        }
+
+        long payosOrderCode = 100000L + payment.getId();
+        JsonNode data = payOSService.getPaymentLinkInformation(payosOrderCode);
+        if (data != null) {
+            String status = data.path("status").asText();
+            if ("PAID".equalsIgnoreCase(status)) {
+                String ref = null;
+                JsonNode txns = data.path("transactions");
+                if (txns.isArray() && !txns.isEmpty()) {
+                    ref = txns.get(0).path("reference").asText(null);
+                }
+                markPaymentAsPaid(payment, ref);
+            } else if ("CANCELLED".equalsIgnoreCase(status)) {
+                payment.setStatus("cancelled");
+                payment.setCancelledAt(LocalDateTime.now());
+                paymentRepository.save(payment);
+            }
+        }
+        return toDetailResponse(payment);
+    }
+
+    @Override
+    @Transactional
+    public PaymentDetailResponse syncPaymentStatusByOrderId(Long orderId) {
+        List<Payment> list = paymentRepository.findByOrderIdOrderByCreatedAtDesc(orderId);
+        if (list.isEmpty()) {
+            return null;
+        }
+        return syncPaymentStatus(list.get(0).getId());
+    }
+
+    @Override
+    @Transactional
+    public void syncPendingPayments() {
+        LocalDateTime cutoff = LocalDateTime.now().minusMinutes(30);
+        List<Payment> pendingList = paymentRepository.findByStatusAndCreatedAtAfter("pending", cutoff);
+        for (Payment p : pendingList) {
+            try {
+                syncPaymentStatus(p.getId());
+            } catch (Exception e) {
+                log.warn("Lỗi khi đồng bộ trạng thái payment #{}: {}", p.getId(), e.getMessage());
+            }
+        }
     }
 
     private Payment findPaymentByOrderCodeOrReference(Long orderCode, String reference) {

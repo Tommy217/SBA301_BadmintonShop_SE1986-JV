@@ -41,7 +41,7 @@ export default function OrderPage() {
       sum + data.product_variants.find((v) => v.id === item.variant_id).price * item.quantity,
     0,
   );
-  const shipping = subtotal >= 2000000 ? 0 : 30000;
+  const shipping = 0;
 
   let discount = 0,
     calculationError = '';

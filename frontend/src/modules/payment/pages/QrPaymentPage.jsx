@@ -2,11 +2,23 @@ import { Alert, Button, Container, Spinner } from 'react-bootstrap';
 import { Link, useNavigate } from 'react-router';
 import PaymentQR from '@/modules/payment/components/PaymentQR';
 import usePayment from '@/modules/payment/hooks/usePayment';
+import { paymentApi } from '../api/payment.api';
 import '@/modules/payment/QrPaymentPage.css';
 
 export default function QrPaymentPage() {
   const model = usePayment({ enablePolling: true });
   const navigate = useNavigate();
+
+  const handleCheckResult = async () => {
+    if (model.orderId) {
+      try {
+        await paymentApi.syncPaymentByOrder(model.orderId);
+      } catch {
+        // ignore
+      }
+    }
+    navigate('/payments/result?order=' + encodeURIComponent(model.orderId));
+  };
   if (model.loading)
     return (
       <Container className="py-5 text-center">
@@ -30,7 +42,7 @@ export default function QrPaymentPage() {
   return (
     <PaymentQR
       payment={model.payment}
-      onCheckResult={() => navigate('/payments/result?order=' + encodeURIComponent(model.orderId))}
+      onCheckResult={handleCheckResult}
       onChooseAnotherMethod={() => navigate('/payments?order=' + encodeURIComponent(model.orderId))}
     />
   );

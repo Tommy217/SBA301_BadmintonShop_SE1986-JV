@@ -35,8 +35,8 @@ class SupportActions {
         if ("create_support_ticket".equals(type)) {
             var request = request(action, CreateTicketRequest.class);
             request.setUserId(user.id());
-            require(jdbc.update("UPDATE orders SET updated_at=updated_at WHERE id=? AND user_id=? AND status='completed' AND payment_status='paid'", request.getOrderId(), user.id()) == 1,
-                    HttpStatus.CONFLICT, "Chỉ tạo yêu cầu đổi/trả cho đơn đã giao và đã thanh toán của bạn.");
+            require(jdbc.update("UPDATE orders SET updated_at=updated_at WHERE id=? AND user_id=? AND payment_status='paid' AND status NOT IN ('cancelled', 'returned')", request.getOrderId(), user.id()) == 1,
+                    HttpStatus.CONFLICT, "Chỉ tạo yêu cầu hỗ trợ cho đơn đã thanh toán hợp lệ của bạn.");
             var seen = new HashSet<Long>();
             require(request.getItems().stream().allMatch(i -> seen.add(i.getOrderItemId())), HttpStatus.BAD_REQUEST, "Không chọn trùng sản phẩm trong phiếu.");
             tickets.createTicket(request, user.id());

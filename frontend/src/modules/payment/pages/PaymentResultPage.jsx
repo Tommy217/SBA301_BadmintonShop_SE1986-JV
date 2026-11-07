@@ -1,13 +1,20 @@
+import { useEffect } from 'react';
 import { Alert, Button, Container, Spinner } from 'react-bootstrap';
 import { Link, useNavigate } from 'react-router';
 import PaymentStatus from '@/modules/payment/components/PaymentStatus';
 import { getTransactionStatus } from '@/modules/payment/utils/paymentMapper';
 import usePayment from '@/modules/payment/hooks/usePayment';
+import { useShop } from '@/app/providers/shop/ShopContext';
 import '@/modules/payment/PaymentResultPage.css';
 
 export default function PaymentResultPage() {
   const model = usePayment({ enablePolling: true });
+  const { refresh } = useShop();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    refresh?.();
+  }, [refresh]);
   if (model.loading)
     return (
       <Container className="py-5 text-center">

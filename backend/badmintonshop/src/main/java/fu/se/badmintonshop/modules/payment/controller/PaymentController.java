@@ -88,6 +88,21 @@ public class PaymentController {
     }
 
     /**
+     * Đồng bộ trạng thái trực tiếp từ cổng thanh toán payOS (Active Sync fallback)
+     */
+    @GetMapping("/{id}/sync")
+    public ResponseEntity<ApiResponse<PaymentDetailResponse>> syncPayment(@PathVariable Long id) {
+        PaymentDetailResponse response = paymentService.syncPaymentStatus(id);
+        return ResponseEntity.ok(ApiResponse.success(response));
+    }
+
+    @GetMapping("/order/{orderId}/sync")
+    public ResponseEntity<ApiResponse<PaymentDetailResponse>> syncPaymentByOrderId(@PathVariable Long orderId) {
+        PaymentDetailResponse response = paymentService.syncPaymentStatusByOrderId(orderId);
+        return ResponseEntity.ok(ApiResponse.success(response));
+    }
+
+    /**
      * 7. Nhận Webhook tự động từ payOS (Server-to-Server Callback)
      */
     @PostMapping("/payos/webhook")

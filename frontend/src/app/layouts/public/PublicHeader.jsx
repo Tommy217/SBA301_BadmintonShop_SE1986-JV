@@ -56,7 +56,7 @@ export default function PublicHeader({ management = false }) {
       <div className="shop-topbar">
         {management
           ? 'Badminton Shop · Không gian quản lý cửa hàng'
-          : 'Đồng hành cùng đam mê cầu lông · Miễn phí giao hàng từ 2.000.000đ'}
+          : 'Đồng hành cùng đam mê cầu lông · Miễn phí giao hàng toàn quốc'}
       </div>
       <Navbar className="store-navbar">
         <BrandLogo to={homePath} />

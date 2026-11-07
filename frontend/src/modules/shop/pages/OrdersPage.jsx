@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { Alert, Badge, Button, Card } from 'react-bootstrap';
 import { Link, useLocation } from 'react-router';
 import { useShop } from '@/app/providers/shop/ShopContext';
@@ -6,9 +7,13 @@ import { carriers, deliveryStatuses } from '@/modules/delivery/constants';
 import { useMyShipments } from '@/modules/delivery/hooks/useDelivery';
 
 export default function OrdersPage() {
-  const { data } = useShop(),
+  const { data, refresh } = useShop(),
     { state } = useLocation();
-  const { data: shipments } = useMyShipments(data.orders.length > 0);
+  const { data: shipments } = useMyShipments(data?.orders?.length > 0);
+
+  useEffect(() => {
+    refresh?.();
+  }, [refresh]);
   return (
     <>
       <div className="eyebrow">LỊCH SỬ MUA SẮM</div>
@@ -29,6 +34,9 @@ export default function OrdersPage() {
         const delivery = (shipments || []).find((d) => d.order_id === o.id);
         const carrier = delivery ? carriers[delivery.carrier] : null;
         const statusInfo = delivery ? deliveryStatuses[delivery.status] : null;
+        const ticket = (data.support_tickets || []).find(
+          (t) => String(t.order_id) === String(o.id) && !['CANCELLED'].includes(t.status),
+        );
 
         return (
           <Card key={o.id} className="border-0 mb-4 shadow-sm">
@@ -122,15 +130,65 @@ export default function OrdersPage() {
                 </Button>
 
                 {o.payment_status === 'unpaid' && (
-                    <Button
-                      as={Link}
-                      to={'/payments?order=' + encodeURIComponent(o.id)}
-                      variant="outline-success"
-                      size="sm"
+                  <Button
+                    as={Link}
+                    to={'/payments?order=' + encodeURIComponent(o.id)}
+                    variant="outline-success"
+                    size="sm"
+                  >
+                    Tiếp tục thanh toán
+                  </Button>
+                )}
+
+                {o.payment_status === 'paid' && !ticket && (
+                  <Button
+                    as={Link}
+                    to={'/support-tickets/create?orderId=' + encodeURIComponent(o.id)}
+                    variant="outline-warning"
+                    size="sm"
+                    className="d-inline-flex align-items-center gap-1"
+                  >
+                    <svg
+                      width="15"
+                      height="15"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
                     >
-                      Tiếp tục thanh toán
-                    </Button>
-                  )}
+                      <path d="M8 10h8M8 14h5" />
+                      <path d="M7 3h10a2 2 0 0 1 2 2v14l-3-2H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z" />
+                    </svg>
+                    <span>Tạo phiếu hỗ trợ / Đổi trả</span>
+                  </Button>
+                )}
+
+                {ticket && (
+                  <Button
+                    as={Link}
+                    to={`/support-tickets/${encodeURIComponent(ticket.id)}`}
+                    variant="outline-info"
+                    size="sm"
+                    className="d-inline-flex align-items-center gap-1"
+                  >
+                    <svg
+                      width="15"
+                      height="15"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <path d="M8 10h8M8 14h5" />
+                      <path d="M7 3h10a2 2 0 0 1 2 2v14l-3-2H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z" />
+                    </svg>
+                    <span>Xem phiếu hỗ trợ (#{ticket.ticket_code || ticket.id})</span>
+                  </Button>
+                )}
               </div>
             </Card.Body>
           </Card>

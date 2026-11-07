@@ -175,7 +175,7 @@ export function mutate(db, action, liveCatalog = null) {
       );
     const subtotal = items.reduce((s, i) => s + variant(i.variant_id).price * i.quantity, 0);
     const { voucher, discount } = calculateVoucher(db, action.voucher_code, items, cart.user_id);
-    const shipping_fee = subtotal >= 2000000 ? 0 : 30000;
+    const shipping_fee = 0;
     const id = randomUUID();
     const order = {
       id,
@@ -569,7 +569,7 @@ export function mutate(db, action, liveCatalog = null) {
       tracking_number: trackingNumber,
       carrier,
       service_type: serviceType,
-      shipping_fee: order.shipping_fee || 30000,
+      shipping_fee: order.shipping_fee || 0,
       cod_amount: order.payment_status === 'paid' ? 0 : order.total_amount,
       status: 'pending_pickup',
       carrier_status_text: `Đã tạo vận đơn trên hệ thống ${carrier.toUpperCase()} - Chờ bưu tá lấy hàng`,

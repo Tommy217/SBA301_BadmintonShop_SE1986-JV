@@ -229,6 +229,36 @@ public class PayOSServiceImpl implements PayOSService {
         }
     }
 
+    @Override
+    public JsonNode getPaymentLinkInformation(Long orderCode) {
+        if (!isConfigured() || orderCode == null) {
+            return null;
+        }
+        try {
+            String url = PAYOS_API_URL + "/" + orderCode;
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(url))
+                    .header("x-client-id", clientId.trim())
+                    .header("x-api-key", apiKey.trim())
+                    .GET()
+                    .timeout(Duration.ofSeconds(10))
+                    .build();
+
+            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+            if (response.statusCode() == 200) {
+                JsonNode root = objectMapper.readTree(response.body());
+                if ("00".equals(root.path("code").asText())) {
+                    return root.path("data");
+                }
+            } else {
+                log.warn("Lỗi khi tra cứu payment link payOS cho orderCode {}: HTTP {} - {}", orderCode, response.statusCode(), response.body());
+            }
+        } catch (Exception e) {
+            log.warn("Không thể tra cứu thông tin payment link từ payOS cho orderCode {}: {}", orderCode, e.getMessage());
+        }
+        return null;
+    }
+
     private boolean isConfigured() {
         return clientId != null && !clientId.isBlank() && !clientId.contains("here") &&
                 apiKey != null && !apiKey.isBlank() && !apiKey.contains("here") &&

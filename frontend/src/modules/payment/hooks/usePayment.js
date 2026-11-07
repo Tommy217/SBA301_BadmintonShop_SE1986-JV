@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
 import { paymentMethods } from '@/modules/payment/constants';
+import { useShop } from '@/app/providers/shop/ShopContext';
 import { paymentApi } from '../api/payment.api';
 
 export default function usePayment(options = {}) {
+  const shop = useShop();
   const [params] = useSearchParams();
   const orderId = params.get('order');
   const [snapshot, setSnapshot] = useState(null);
@@ -51,6 +53,7 @@ export default function usePayment(options = {}) {
 
         if (currentOrder?.payment_status === 'paid' || currentPayment?.status === 'paid') {
           clearInterval(intervalId);
+          shop?.refresh?.();
           navigate('/payments/result?order=' + encodeURIComponent(orderId), { replace: true });
         } else if (
           currentOrder?.status === 'cancelled' ||

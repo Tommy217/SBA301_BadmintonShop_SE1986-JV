@@ -26,5 +26,11 @@ public interface PaymentService {
     void confirmWebhook(String webhookUrl);
 
     int processExpiredPayments();
+
+    PaymentDetailResponse syncPaymentStatus(Long paymentId);
+
+    PaymentDetailResponse syncPaymentStatusByOrderId(Long orderId);
+
+    void syncPendingPayments();
 }
 

@@ -20,5 +20,7 @@ public interface PaymentRepository extends JpaRepository<Payment, Long> {
     Optional<Payment> findByGatewayTxnRef(String gatewayTxnRef);
 
     List<Payment> findByStatusAndCreatedAtBefore(String status, LocalDateTime cutoff);
+
+    List<Payment> findByStatusAndCreatedAtAfter(String status, LocalDateTime cutoff);
 }
 
