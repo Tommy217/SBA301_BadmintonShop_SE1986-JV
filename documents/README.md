@@ -28,7 +28,9 @@ Hệ thống được thiết kế theo kiến trúc module hóa (Modular Archit
 
 ## 3. HƯỚNG DẪN TRUY CẬP TÀI LIỆU PAYMENT
 Để xem toàn bộ sơ đồ tuần tự (Sequence Diagram), quy trình kiểm thử và tích hợp chi tiết của Module Payment, vui lòng mở:
-👉 **[documents/module/payment/flow.md](module/payment/flow.md)**
+* 👉 **[documents/module/payment/flow.md](module/payment/flow.md)**: Sơ đồ tuần tự và luồng hoạt động chi tiết.
+* 👉 **[documents/module/payment/overview.md](module/payment/overview.md)**: Tổng quan giải pháp kỹ thuật và danh mục API.
+* 👉 **[documents/module/payment/webhook-and-ngrok.md](module/payment/webhook-and-ngrok.md)**: Phân tích chuyên sâu về ngrok, Webhook và cơ chế đối soát kép (Dual Verification).
 
 ---
 

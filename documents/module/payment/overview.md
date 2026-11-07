@@ -3,8 +3,10 @@
 > **Công nghệ:** Java 21, Spring Boot 3, React (Vite), SQL Server, payOS (VietQR Napas 24/7)  
 > **Quyết định phạm vi (Scope Decision):**  
 > 1. **BỎ HOÀN TOÀN COD (Cash On Delivery):** 100% đơn hàng online bắt buộc thanh toán trả trước qua cổng thanh toán payOS (VietQR) trước khi xuất kho.  
-> 2. **BỎ PHƯƠNG ÁN 3 (Tự động hoàn tiền Payout API):** Không sử dụng Payout API do rào cản pháp nhân doanh nghiệp và rủi ro ví tiền thực tế.  
-> 3. **PHƯƠNG ÁN CHÍNH THỨC:** Thanh toán 100% Online (payOS VietQR) kết hợp Hoàn tiền thủ công quét mã QR ngân hàng (Manual QR Transfer) theo phân quyền duyệt < 3M (Staff) và $\ge$ 3M (Manager).
+> 2. **PHÍ VẬN CHUYỂN MẶC ĐỊNH 0Đ (FREESHIP):** Áp dụng miễn phí vận chuyển toàn quốc cho mọi đơn hàng.  
+> 3. **CƠ CHẾ ĐỐI SOÁT KÉP (DUAL VERIFICATION):** Kết hợp Webhook thụ động từ payOS và Active Polling Sync (Chủ động tra cứu payOS API), đảm bảo không bao giờ bị miss giao dịch (hoạt động hoàn hảo cả trên Localhost không cần ngrok và Production). *(Xem tài liệu chuyên đề: [**`webhook-and-ngrok.md`**](webhook-and-ngrok.md))*.  
+> 4. **BỎ TỰ ĐỘNG HOÀN TIỀN PAYOUT API:** Áp dụng phương án Hoàn tiền thủ công quét mã QR ngân hàng (Manual QR Transfer) theo phân quyền duyệt < 3M (Staff) và $\ge$ 3M (Manager).  
+> 5. **LIÊN KẾT ĐỔI TRẢ TRỰC TIẾP TỪ ĐƠN HÀNG:** Đơn hàng đã thanh toán (`payment_status = 'paid'`) có nút tạo Support Ticket trực tiếp từ trang Lịch sử mua sắm.
 
 ---
 
@@ -14,131 +16,103 @@ Hệ thống SBA301 Badminton Shop là nền tảng thương mại điện tử 
 
 ### 1.1. Hiện trạng triển khai mã nguồn
 1. **Frontend (React Vite):**
-   - Đã xây dựng các trang thanh toán:
-     - [`CheckoutPage.jsx`](file:///d:/_Ky7-FPTU/SBA301/gr_project/SBA301_BadmintonShop_SE1986-JV/frontend/src/modules/payment/pages/CheckoutPage.jsx): Chọn thanh toán (đã lược bỏ COD, chỉ giữ Chuyển khoản VietQR payOS).
-     - [`QrPaymentPage.jsx`](file:///d:/_Ky7-FPTU/SBA301/gr_project/SBA301_BadmintonShop_SE1986-JV/frontend/src/modules/payment/pages/QrPaymentPage.jsx): Hiển thị mã VietQR động từ payOS, số tiền và nội dung chuyển khoản tự động.
-     - [`PaymentResultPage.jsx`](file:///d:/_Ky7-FPTU/SBA301/gr_project/SBA301_BadmintonShop_SE1986-JV/frontend/src/modules/payment/pages/PaymentResultPage.jsx): Hiển thị kết quả thanh toán thành công/thất bại.
-   - Có cơ chế **Polling kiểm tra trạng thái thanh toán** định kỳ mỗi 3 giây khi khách mở màn hình QR.
+   - Đã xây dựng các trang thanh toán & đơn hàng:
+     - [`CheckoutPage.jsx`](file:///d:/_Ky7-FPTU/SBA301/gr_project/SBA301_BadmintonShop_SE1986-JV/frontend/src/modules/payment/pages/CheckoutPage.jsx): Mặc định chọn Chuyển khoản VietQR payOS. Phí ship mặc định 0đ.
+     - [`QrPaymentPage.jsx`](file:///d:/_Ky7-FPTU/SBA301/gr_project/SBA301_BadmintonShop_SE1986-JV/frontend/src/modules/payment/pages/QrPaymentPage.jsx): Hiển thị mã VietQR động từ payOS, số tiền và nội dung chuyển khoản tự động. Nút *"Kiểm tra kết quả giao dịch"* chủ động kích hoạt API đồng bộ trạng thái với payOS.
+     - [`PaymentResultPage.jsx`](file:///d:/_Ky7-FPTU/SBA301/gr_project/SBA301_BadmintonShop_SE1986-JV/frontend/src/modules/payment/pages/PaymentResultPage.jsx): Hiển thị kết quả thanh toán, tự động kích hoạt làm mới dữ liệu cửa hàng (`refresh()`).
+     - [`OrdersPage.jsx`](file:///d:/_Ky7-FPTU/SBA301/gr_project/SBA301_BadmintonShop_SE1986-JV/frontend/src/modules/shop/pages/OrdersPage.jsx): Tự động làm mới dữ liệu khi mở trang, hiển thị trạng thái "Đã thanh toán" / "Chưa thanh toán", có nút **"Tạo phiếu hỗ trợ / Đổi trả"** (khi đã thanh toán) hoặc **"Xem phiếu hỗ trợ"** (nếu đã có ticket).
+     - [`CreateSupportTicketPage.jsx`](file:///d:/_Ky7-FPTU/SBA301/gr_project/SBA301_BadmintonShop_SE1986-JV/frontend/src/modules/support/pages/CreateSupportTicketPage.jsx): Nhận `orderId` từ URL params để tự động chọn đơn hàng và sản phẩm cần đổi trả/hoàn tiền.
+   - Có cơ chế **Active Polling đồng bộ trạng thái** định kỳ mỗi 3 giây khi khách mở màn hình QR.
    - Các route thanh toán được bảo vệ bởi [`ProtectedRoute`](file:///d:/_Ky7-FPTU/SBA301/gr_project/SBA301_BadmintonShop_SE1986-JV/frontend/src/app/router/ProtectedRoute.jsx) yêu cầu người dùng phải đăng nhập tài khoản.
 2. **Cơ sở dữ liệu (SQL Server - `badminton_shop.sql`):**
    - Bảng [`payments`](file:///d:/_Ky7-FPTU/SBA301/gr_project/SBA301_BadmintonShop_SE1986-JV/badminton_shop.sql#L394): Quản lý phiên thanh toán (`method = 'qr'`, `status`, `amount`, `gateway_txn_ref`, `qr_code_url`).
    - Bảng [`payment_transactions`](file:///d:/_Ky7-FPTU/SBA301/gr_project/SBA301_BadmintonShop_SE1986-JV/badminton_shop.sql#L412): Lưu vết toàn bộ log request, response, webhook callback (chuỗi JSON phục vụ đối soát, tra soát).
    - Bảng [`refunds`](file:///d:/_Ky7-FPTU/SBA301/gr_project/SBA301_BadmintonShop_SE1986-JV/badminton_shop.sql#L422): Lưu trữ các lệnh hoàn tiền gắn với ticket đổi trả (`ticket_id`).
-   - Bảng [`shipments`](file:///d:/_Ky7-FPTU/SBA301/gr_project/SBA301_BadmintonShop_SE1986-JV/badminton_shop.sql#L450): Do bỏ COD, trường `cod_amount` luôn bằng 0, không phát sinh nghiệp vụ thu hộ tiền mặt.
+   - Bảng [`shipments`](file:///d:/_Ky7-FPTU/SBA301/gr_project/SBA301_BadmintonShop_SE1986-JV/badminton_shop.sql#L450): Do bỏ COD, trường `cod_amount` luôn bằng 0, không phát sinh nghiệp vụ thu hộ tiền mặt. Phí vận chuyển mặc định 0đ.
 3. **Backend (Spring Boot):**
-   - Phân hệ hỗ trợ sau bán hàng đã có các controller phân quyền theo role: [`CustomerTicketController`](file:///d:/_Ky7-FPTU/SBA301/gr_project/SBA301_BadmintonShop_SE1986-JV/backend/badmintonshop/src/main/java/fu/se/badmintonshop/modules/support_ticket/controller/CustomerTicketController.java), [`StaffTicketController`](file:///d:/_Ky7-FPTU/SBA301/gr_project/SBA301_BadmintonShop_SE1986-JV/backend/badmintonshop/src/main/java/fu/se/badmintonshop/modules/support_ticket/controller/StaffTicketController.java), [`ManagerTicketController`](file:///d:/_Ky7-FPTU/SBA301/gr_project/SBA301_BadmintonShop_SE1986-JV/backend/badmintonshop/src/main/java/fu/se/badmintonshop/modules/support_ticket/controller/ManagerTicketController.java).
+   - Package `fu.se.badmintonshop.modules.payment`:
+     - [`PayOSServiceImpl.java`](file:///d:/_Ky7-FPTU/SBA301/gr_project/SBA301_BadmintonShop_SE1986-JV/backend/badmintonshop/src/main/java/fu/se/badmintonshop/modules/payment/service/impl/PayOSServiceImpl.java): Tích hợp tạo Payment Link, xác thực chữ ký HMAC-SHA256 và tra cứu trạng thái giao dịch trực tiếp qua API payOS `GET /v2/payment-requests/{orderCode}`.
+     - [`PaymentServiceImpl.java`](file:///d:/_Ky7-FPTU/SBA301/gr_project/SBA301_BadmintonShop_SE1986-JV/backend/badmintonshop/src/main/java/fu/se/badmintonshop/modules/payment/service/impl/PaymentServiceImpl.java): Xử lý Webhook, kiểm tra Idempotency, đồng bộ trạng thái đơn hàng (`markPaymentAsPaid`), hỗ trợ đối soát chủ động (`syncPaymentStatus`, `syncPendingPayments`).
+     - [`PaymentTimeoutScheduler.java`](file:///d:/_Ky7-FPTU/SBA301/gr_project/SBA301_BadmintonShop_SE1986-JV/backend/badmintonshop/src/main/java/fu/se/badmintonshop/modules/payment/scheduler/PaymentTimeoutScheduler.java): Quét và tự động hủy đơn sau 15 phút không thanh toán.
+   - Package `fu.se.badmintonshop.modules.shop`:
+     - [`ShopService.java`](file:///d:/_Ky7-FPTU/SBA301/gr_project/SBA301_BadmintonShop_SE1986-JV/backend/badmintonshop/src/main/java/fu/se/badmintonshop/modules/shop/ShopService.java): Đặt phí ship mặc định 0đ, tự động gọi `syncPendingPayments()` khi lấy snapshot để đồng bộ trạng thái ngay trong vòng lặp Polling.
+     - [`SupportActions.java`](file:///d:/_Ky7-FPTU/SBA301/gr_project/SBA301_BadmintonShop_SE1986-JV/backend/badmintonshop/src/main/java/fu/se/badmintonshop/modules/shop/SupportActions.java): Cho phép tạo ticket hỗ trợ cho mọi đơn hàng đã thanh toán hợp lệ (`payment_status = 'paid'`).
 
 ---
 
-## 2. TỔNG QUAN NGHIỆP VỤ THANH TOÁN SAU KHI LOẠI BỎ COD
-
-Với quyết định **bỏ hoàn toàn COD** và **bỏ Payout API tự động**, hệ thống tập trung vào 2 luồng nghiệp vụ cốt lõi, rõ ràng và mạch lạc:
+## 2. QUY TRÌNH NGHIỆP VỤ THANH TOÁN & ĐỐI SOÁT KÉP (DUAL VERIFICATION)
 
 ```mermaid
 flowchart TD
-    Customer([Khách hàng mua hàng]) --> Checkout[Khách đặt hàng & Chọn VietQR payOS]
+    Customer([Khách hàng mua hàng]) --> Checkout[Khách đặt hàng & Phí ship 0đ]
     Checkout --> CreatePay[Hệ thống gọi payOS tạo VietQR & Payment Link]
-    ShowQR[Hiển thị mã VietQR động trên màn hình - Hạn 15 phút]
-    CreatePay --> ShowQR
+    CreatePay --> ShowQR[Hiển thị mã VietQR động trên màn hình - Hạn 15 phút]
     
-    ShowQR --> Transfer[Khách mở App ngân hàng quét mã VietQR xác nhận chuyển tiền]
-    Transfer --> Webhook[payOS bắn Webhook báo chuyển tiền thành công]
+    ShowQR --> Transfer[Khách mở App ngân hàng quét VietQR & chuyển tiền]
     
+    Transfer -.->|Kênh 1: Webhook Push| Webhook[payOS bắn Webhook sang Backend]
     Webhook --> HMAC{Xác thực HMAC-SHA256 & Idempotency}
-    HMAC -->|Hợp lệ| ConfirmOrder[Cập nhật đơn: payment_status='paid', status='confirmed']
-    ConfirmOrder --> Warehouse[Chuyển sang Kho đóng gói & Đơn vị vận chuyển giao hàng]
+    HMAC -->|Hợp lệ| ConfirmOrder[Cập nhật: payment_status='paid', status='confirmed']
     
+    ShowQR -.->|Kênh 2: Active Polling Pull| Polling[Frontend Polling 3s/lần hoặc bấm Kiểm tra]
+    Polling --> CheckPayOS[Backend gọi API GET payOS tra cứu orderCode]
+    CheckPayOS -->|Status='PAID'| ConfirmOrder
+    
+    ConfirmOrder --> Warehouse[Kho đóng gói & Giao hàng]
     Warehouse --> Delivered[Khách nhận hàng thành công]
-    Delivered --> ReturnCheck{Khách có yêu cầu Đổi trả / Hoàn tiền?}
     
-    ReturnCheck -->|Không| CompleteOrder([Đơn hàng hoàn tất sau 7 ngày])
-    ReturnCheck -->|Có| CreateTicket[Khách tạo Ticket Đổi trả/Hoàn tiền + Upload ảnh QR nhận tiền]
-    
-    CreateTicket --> Inspect[Khách gửi hàng về -> Staff thẩm định sản phẩm]
+    Delivered --> ReturnCheck{Khách có yêu cầu Hỗ trợ / Đổi trả?}
+    ReturnCheck -->|Có| CreateTicket[Khách ấn nút Tạo Ticket từ Lịch sử đơn hàng + Upload ảnh QR nhận tiền]
+    CreateTicket --> Inspect[Staff thẩm định sản phẩm hoàn trả]
     Inspect -->|PASSED| AmountCheck{Số tiền hoàn}
-    
-    AmountCheck -->|< 3.000.000 VNĐ| StaffApprove[Staff kiểm tra & Tự phê duyệt]
-    AmountCheck -->|>= 3.000.000 VNĐ| ManagerApprove[Manager thẩm định & Phê duyệt]
-    
-    StaffApprove --> ManualTransfer[Staff quét ảnh QR ngân hàng chuyển tiền & Nhập mã giao dịch]
+    AmountCheck -->|< 3.000.000 VNĐ| StaffApprove[Staff phê duyệt]
+    AmountCheck -->|>= 3.000.000 VNĐ| ManagerApprove[Manager phê duyệt]
+    StaffApprove --> ManualTransfer[Staff quét mã QR ngân hàng chuyển tiền hoàn]
     ManagerApprove --> ManualTransfer
-    ManualTransfer --> RefundDone([Hoàn tiền hoàn tất - status='REFUNDED'])
+    ManualTransfer --> RefundDone([Hoàn tất - status='REFUNDED'])
 ```
 
-### 2.1. Nghiệp vụ 1: Thanh toán trực tuyến 100% qua payOS (VietQR Napas 24/7)
+### 2.1. Nghiệp vụ 1: Thanh toán trực tuyến 100% qua payOS VietQR (Dual Verification)
 - **Nguyên tắc cốt lõi:** Đơn hàng chỉ được xác nhận (`status = 'confirmed'`) và xuất kho khi tiền đã thực sự về tài khoản cửa hàng (`payment_status = 'paid'`).
 - **Quy trình chi tiết:**
-  1. **Tạo phiên thanh toán:** Khi khách bấm "Đặt hàng", Backend gọi API v2 của cổng payOS (`/v2/payment-requests`), tạo mã VietQR kèm link thanh toán. Phiên có hạn 15 phút (`expires_at = now + 15m`).
+  1. **Tạo phiên thanh toán:** Khi khách bấm "Đặt hàng", Backend gọi API v2 của cổng payOS (`/v2/payment-requests`), tạo mã VietQR kèm link thanh toán. Phiên có hạn 15 phút (`expires_at = now + 15m`). Phí vận chuyển mặc định tính là 0đ.
   2. **Trải nghiệm khách hàng:** 
-     - Khách hàng không cần nhập bất kỳ thông tin nào (số tài khoản, tên ngân hàng, nội dung).
-     - Màn hình hiển thị mã VietQR động chuẩn Napas 24/7. Khách mở ứng dụng ngân hàng bất kỳ (Vietcombank, Techcombank, MBBank, BIDV...) quét mã và ấn xác nhận chuyển tiền.
-  3. **Xử lý Webhook tức thì:**
-     - Ngay khi tiền vào tài khoản, payOS bắn tín hiệu **Webhook** sang Backend hệ thống.
-     - Backend xác thực chữ ký bảo mật **HMAC-SHA256** với `checksumKey` của payOS.
-     - Backend kiểm tra tính bất biến **Idempotency** (chống xử lý trùng lặp giao dịch).
-     - Cập nhật đồng bộ: `payments.status = 'paid'` và `orders.payment_status = 'paid'`, `orders.status = 'confirmed'`.
-  4. **Cập nhật giao diện:** Frontend nhận trạng thái `paid` qua Polling (3s/lần) lập tức chuyển sang màn hình thông báo thanh toán thành công và chuyển đơn vào danh sách đang chuẩn bị đóng gói.
-  5. **Quản lý hết hạn (Timeout):** Nếu sau 15 phút khách không quét mã chuyển khoản, hệ thống chuyển giao dịch sang `expired`, tự động hủy đơn và nhả số lượng tồn kho sản phẩm cho khách khác.
+     - Khách hàng không cần nhập thông tin tài khoản hay số tiền.
+     - Màn hình hiển thị mã VietQR động chuẩn Napas 24/7. Khách mở ứng dụng ngân hàng bất kỳ quét mã và xác nhận chuyển tiền.
+  3. **Cơ chế xác nhận kép (Dual Verification):**
+     - **Kênh 1 (Webhook Push):** Ngay khi tiền vào tài khoản, payOS bắn tín hiệu **Webhook** sang Backend. Backend xác thực chữ ký bảo mật **HMAC-SHA256**, kiểm tra **Idempotency** và cập nhật `payments.status = 'paid'`, `orders.payment_status = 'paid'`, `orders.status = 'confirmed'`.
+     - **Kênh 2 (Active Polling Pull - Fail-safe):** Trong lúc khách mở màn hình QR, Frontend gọi polling định kỳ 3 giây/lần. Backend tự động gọi API `GET /v2/payment-requests/{orderCode}` của payOS để đối soát trạng thái. Ngay khi payOS báo `status == "PAID"`, Backend tự động cập nhật đơn hàng thành `paid`. Kênh này đảm bảo hệ thống tự cập nhật mượt mà ngay cả khi Webhook bị lag, mạng chập chờn hoặc khi chạy dev trên Localhost mà không cần mở ngrok tunnel.
+  4. **Cập nhật giao diện:** Frontend nhận trạng thái `paid` lập tức chuyển sang màn hình thông báo thanh toán thành công và đồng bộ lại danh sách đơn hàng.
+  5. **Quản lý hết hạn (Timeout):** Nếu sau 15 phút khách không chuyển tiền, hệ thống chuyển giao dịch sang `expired`, tự động hủy đơn và nhả số lượng tồn kho sản phẩm cho khách khác.
 
-### 2.2. Nghiệp vụ 2: Hoàn tiền đổi trả (Refunds - UC15 & UC13)
-- **Nguyên tắc cốt lõi:** Bán tự động (Manual QR Transfer). Không gọi API tự động trừ ví, loại bỏ rủi ro mất tiền ngoài ý muốn.
+### 2.2. Nghiệp vụ 2: Hỗ trợ sau bán hàng & Hoàn tiền (Support Tickets - UC15)
+- **Nguyên tắc cốt lõi:** Bán tự động (Manual QR Transfer). Không gọi API trừ ví tự động, đảm bảo an toàn tài chính.
 - **Quy trình chi tiết:**
-  1. **Khách hàng tạo yêu cầu:** Khách hàng vào mục Đổi trả/Hoàn tiền, chọn đơn hàng (trong vòng 7 ngày kể từ khi nhận hàng), nêu lý do và **bắt buộc upload ảnh mã QR tài khoản ngân hàng** nhận tiền.
-  2. **Thẩm định hàng trả về:** Khách gửi sản phẩm cũ về shop. Nhân viên kho/CSKH kiểm tra tình trạng hàng:
-     - Nếu `FAILED`: Từ chối hoàn tiền, gửi trả sản phẩm cũ cho khách.
-     - Nếu `PASSED`: Hệ thống tính toán chính xác số tiền hoàn (gồm tiền hàng đã trả, cộng thêm tiền ship nếu lỗi thuộc về cửa hàng `STORE_FAULT`).
-  3. **Phân quyền xét duyệt 2 cấp độ (Role Authorization Threshold):**
-     - **Khoản hoàn < 3.000.000 VNĐ:** Nhân viên CSKH (`STAFF`) có thẩm quyền trực tiếp ấn duyệt (`approveRefund`), trạng thái chuyển sang `PENDING_TRANSFER`.
-     - **Khoản hoàn $\ge$ 3.000.000 VNĐ:** Nhân viên **không có quyền duyệt**. Ticket chuyển sang trạng thái `PENDING_APPROVAL`. Chỉ Quản lý (`MANAGER`) mới có quyền phê duyệt hoặc từ chối (`managerDecision`).
-  4. **Thực hiện chuyển khoản:**
-     - Nhân viên phụ trách mở ứng dụng ngân hàng, quét trực tiếp ảnh mã QR do khách hàng upload.
-     - Thực hiện chuyển đúng số tiền đã duyệt.
-     - Nhập mã giao dịch ngân hàng (Bank Transaction Reference, ví dụ: `FT2611018899`) và ghi chú vào hệ thống.
-     - Hệ thống cập nhật `payments.status = 'refunded'`, `orders.payment_status = 'refunded'`, ticket chuyển sang `REFUNDED`.
+  1. **Khách hàng tạo yêu cầu trực tiếp:** Trên trang Lịch sử mua sắm (`/orders`), mỗi đơn hàng đã thanh toán (`payment_status = 'paid'`) đều có nút **"Tạo phiếu hỗ trợ / Đổi trả"** dẫn thẳng tới `/support-tickets/create?orderId={id}` (tự động chọn đơn hàng và nạp danh sách sản phẩm).
+  2. **Thẩm định hàng trả về:** Khách gửi sản phẩm cũ về shop. Nhân viên kiểm tra:
+     - Nếu `FAILED`: Từ chối hoàn tiền, gửi trả sản phẩm cho khách.
+     - Nếu `PASSED`: Hệ thống tính toán chính xác số tiền hoàn.
+  3. **Phân quyền xét duyệt 2 cấp độ:**
+     - **Khoản hoàn < 3.000.000 VNĐ:** Nhân viên CSKH (`STAFF`) trực tiếp duyệt (`approveRefund`).
+     - **Khoản hoàn $\ge$ 3.000.000 VNĐ:** Chuyển Quản lý (`MANAGER`) phê duyệt (`managerDecision`).
+  4. **Thực hiện chuyển khoản:** Nhân viên quét ảnh mã QR do khách upload, chuyển đúng số tiền đã duyệt, nhập mã giao dịch ngân hàng (Bank Reference) vào hệ thống để chuyển ticket sang `REFUNDED`.
 
 ---
 
-## 3. PHÂN TÍCH LÝ DO VÀ LỢI ÍCH CỦA VIỆC LOẠI BỎ HOÀN TOÀN COD
+## 3. BẢNG TRẠNG THÁI THANH TOÁN & ĐỒNG BỘ ĐƠN HÀNG
 
-Việc loại bỏ hoàn toàn phương thức COD (Thu tiền khi nhận hàng) và chọn mô hình **100% Trả trước qua payOS VietQR** mang lại các giá trị vượt trội:
-
-| Khía cạnh | Khi còn COD | Khi loại bỏ hoàn toàn COD (100% Online VietQR) |
-| :--- | :--- | :--- |
-| **Rủi ro bùng hàng (bom hàng)** | Khách đặt chơi, không nhận hàng khi shipper gọi. Shop mất phí vận chuyển 2 chiều và bị giam hàng trong kho shipper. | **Triệt tiêu 100% rủi ro bom hàng.** Khách đã trả tiền 100% mới đóng gói xuất kho. |
-| **Quy trình đóng gói & xuất kho** | Nhân viên kho phải kiểm tra xem đơn đã trả tiền chưa hay là COD; nhầm lẫn sẽ gây thất thoát tiền. | Đơn vào trạng thái `confirmed` là chắc chắn đã thu đủ tiền 100%. Kho chỉ việc xuất hàng đóng gói. |
-| **Hệ thống giao vận (FastShip)** | Phải quản lý trường `cod_amount`, theo dõi tài xế đã nộp tiền mặt về chưa, quản lý trạng thái `cod_collected_at`. | Module giao vận cực kỳ tinh gọn: Shipper chỉ làm đúng nhiệm vụ giao hàng, không giữ tiền mặt, không lo thất thoát. |
-| **Đối soát & Kế toán dòng tiền** | Cần đối soát công nợ định kỳ phức tạp giữa tài khoản shop và tiền mặt thu hộ của shipper. | Tiền vào thẳng tài khoản ngân hàng của shop tức thì qua VietQR Napas 24/7. |
-| **Tính đồng nhất với phân hệ Đổi trả (UC15)** | Phát sinh xung đột logic: Đơn đã giao nhưng shipper chưa nộp tiền COD thì có được hoàn tiền không? | **Đồng nhất 100%:** Mọi đơn hàng khi khách yêu cầu đổi trả đều đã ở trạng thái `paid`. |
-
----
-
-## 4. BẢNG TRẠNG THÁI VÀ ĐỒNG BỘ DỮ LIỆU ĐÃ LƯỢC BỎ COD
-
-Khi loại bỏ COD, vòng đời đơn hàng và thanh toán trở nên vô cùng rõ ràng và chuẩn xác:
-
-### 4.1. Bảng trạng thái hợp nhất
 | Trạng thái `payments.status` | Trạng thái `orders.payment_status` | Trạng thái `orders.status` | Ý nghĩa nghiệp vụ |
 | :--- | :--- | :--- | :--- |
 | `pending` | `unpaid` | `pending` | Đơn hàng vừa tạo, đang chờ khách quét VietQR trong 15 phút |
-| `paid` | `paid` | `confirmed` | payOS bắn webhook xác nhận tiền đã vào tài khoản. Đơn sẵn sàng đóng gói |
-| `expired` | `unpaid` | `cancelled` | Quá 15 phút khách không chuyển tiền. Hệ thống tự hủy đơn và nhả số lượng tồn kho |
+| `paid` | `paid` | `confirmed` | Đã nhận thanh toán (qua Webhook hoặc Active Sync). Đơn sẵn sàng đóng gói |
+| `expired` | `unpaid` | `cancelled` | Quá 15 phút khách không chuyển tiền. Tự hủy đơn và nhả tồn kho |
 | `cancelled` | `unpaid` | `cancelled` | Khách chủ động hủy yêu cầu thanh toán |
 | `failed` | `unpaid` | `pending` | Giao dịch qua cổng lỗi, khách có thể tạo lại mã QR |
 | `refunded` | `refunded` | `returned` / `completed` | Đã hoàn tất chuyển khoản tiền trả lại cho khách sau khi duyệt ticket |
 
-### 4.2. Ánh xạ cơ sở dữ liệu (`badminton_shop.sql`)
-- Bảng `payments`:
-  - `method`: Sử dụng giá trị `'qr'` (và `'cash'` nếu thanh toán tiền mặt tại quầy). Không còn sử dụng giá trị `'cod'`.
-  - `gateway`: `'payos'`.
-- Bảng `shipments`:
-  - `cod_amount = 0` cho toàn bộ các vận đơn.
-  - Bỏ sự phụ thuộc vào `cod_collected_at` (vận đơn chỉ quan tâm các trạng thái: `preparing` $\rightarrow$ `picked_up` $\rightarrow$ `in_transit` $\rightarrow$ `delivered`).
-
 ---
 
-## 5. ĐẶC TẢ DANH MỤC API THANH TOÁN CHUẨN
-
-Toàn bộ API được triển khai tại package `fu.se.badmintonshop.modules.payment`:
+## 4. ĐẶC TẢ DANH MỤC API THANH TOÁN (ZERO `/v1/`)
 
 ```http
 ### 1. Tạo phiên thanh toán VietQR (Online Checkout)
@@ -169,7 +143,7 @@ Response (200 OK):
 ```
 
 ```http
-### 2. Polling tra cứu trạng thái thanh toán (Frontend gọi 3s/lần)
+### 2. Tra cứu trạng thái thanh toán theo ID (Polling)
 GET /api/payments/201
 
 Response (200 OK):
@@ -178,7 +152,7 @@ Response (200 OK):
   "data": {
     "id": 201,
     "orderId": 105,
-    "status": "paid",          // "pending" | "paid" | "expired" | "cancelled"
+    "status": "paid",
     "gatewayTxnRef": "FT2611018899",
     "paidAt": "2026-11-01T14:18:25Z"
   }
@@ -186,7 +160,40 @@ Response (200 OK):
 ```
 
 ```http
-### 3. Nhận Webhook tự động từ payOS (Server-to-Server)
+### 3. Chủ động đối soát trực tiếp từ payOS theo Payment ID (Active Sync)
+GET /api/payments/201/sync
+
+Response (200 OK):
+{
+  "success": true,
+  "data": {
+    "id": 201,
+    "orderId": 105,
+    "status": "paid",
+    "gatewayTxnRef": "FT2611018899",
+    "paidAt": "2026-11-01T14:18:25Z"
+  }
+}
+```
+
+```http
+### 4. Chủ động đối soát trực tiếp từ payOS theo Order ID (Active Sync)
+GET /api/payments/order/105/sync
+
+Response (200 OK):
+{
+  "success": true,
+  "data": {
+    "id": 201,
+    "orderId": 105,
+    "status": "paid",
+    "gatewayTxnRef": "FT2611018899"
+  }
+}
+```
+
+```http
+### 5. Nhận Webhook tự động từ payOS (Server-to-Server Callback)
 POST /api/payments/payos/webhook
 Content-Type: application/json
 
@@ -205,15 +212,16 @@ Content-Type: application/json
   "signature": "a5d8b... (HMAC-SHA256 signature tính từ data và checksumKey)"
 }
 
-Xử lý:
-1. Verify signature HMAC-SHA256. Nếu sai -> Trả về HTTP 400.
-2. Kiểm tra nếu payments.status == 'paid' -> Trả về HTTP 200 (Idempotency).
-3. Update payments.status = 'paid', orders.payment_status = 'paid', orders.status = 'confirmed'.
-4. Trả về HTTP 200 {"success": true, "message": "Processed"}.
+Response (200 OK):
+{
+  "success": true,
+  "code": "00",
+  "message": "Processed"
+}
 ```
 
 ```http
-### 4. Ghi nhận hoàn tiền thủ công sau khi duyệt ticket (Staff/Manager)
+### 6. Ghi nhận hoàn tiền thủ công sau khi duyệt ticket (Staff/Manager)
 POST /api/staff/support-tickets/{ticketId}/refund-transfer
 Headers: X-User-Id: 2 (Staff ID)
 Content-Type: application/json
@@ -232,16 +240,15 @@ Response (200 OK):
 
 ---
 
-## 6. LỘ TRÌNH THỰC HIỆN VÀ CẬP NHẬT CODEBASE
+## 5. TỔNG KẾT TRIỂN KHAI VÀ BẢO ĐẢM KỸ THUẬT
 
-Để hệ thống vận hành đúng theo phương án đã thống nhất, nhóm thực hiện các bước sau:
-
-1. **Frontend (`frontend/`):**
-   - File [`CheckoutPage.jsx`](file:///d:/_Ky7-FPTU/SBA301/gr_project/SBA301_BadmintonShop_SE1986-JV/frontend/src/modules/payment/pages/CheckoutPage.jsx): Bỏ ô chọn phương thức "COD". Mặc định chọn "Chuyển khoản VietQR payOS".
-   - File [`mock/server.mjs`](file:///d:/_Ky7-FPTU/SBA301/gr_project/SBA301_BadmintonShop_SE1986-JV/frontend/mock/server.mjs): Bỏ logic xử lý thanh toán `cod`, đảm bảo mọi đơn hàng khi tạo đều đi vào luồng thanh toán trả trước.
-2. **Backend Spring Boot (`backend/`):**
-   - Viết Service tích hợp payOS Client (tạo Payment Link và tính mã HMAC-SHA256).
-   - Viết Webhook Controller tiếp nhận thông báo từ payOS và cập nhật trạng thái đơn hàng.
-   - Viết Task Scheduler / Cron job quét các đơn hàng `pending` quá 15 phút để tự động chuyển sang `expired` và nhả số lượng tồn kho sản phẩm.
-3. **Phân hệ Đổi trả & Hoàn tiền (`support_ticket/`):**
-   - Đảm bảo giữ vững phân quyền duyệt hoàn tiền: Ngưỡng < 3.000.000 VNĐ cho `STAFF` và $\ge$ 3.000.000 VNĐ cho `MANAGER` như đã thiết kế tại [`StaffTicketController.java`](file:///d:/_Ky7-FPTU/SBA301/gr_project/SBA301_BadmintonShop_SE1986-JV/backend/badmintonshop/src/main/java/fu/se/badmintonshop/modules/support_ticket/controller/StaffTicketController.java) và [`ManagerTicketController.java`](file:///d:/_Ky7-FPTU/SBA301/gr_project/SBA301_BadmintonShop_SE1986-JV/backend/badmintonshop/src/main/java/fu/se/badmintonshop/modules/support_ticket/controller/ManagerTicketController.java).
+1. **Frontend:**
+   - Đã loại bỏ hoàn toàn COD, chọn VietQR làm phương thức thanh toán trả trước mặc định.
+   - Phí vận chuyển mặc định 0đ hiển thị đồng bộ tại Cart, Order, Header và Checkout.
+   - Thêm nút tạo Support Ticket trực tiếp từ `OrdersPage` khi đơn hàng `payment_status = 'paid'`, tự động truyền `orderId` sang màn hình tạo phiếu.
+   - Đồng bộ state tự động: `OrdersPage`, `PaymentResultPage` và `usePayment` tự gọi `refresh()` để luôn hiển thị đơn hàng mới nhất từ database.
+2. **Backend:**
+   - Tích hợp chuẩn REST API payOS v2 và xác thực HMAC-SHA256.
+   - Triển khai thành công **Cơ chế đối soát kép (Dual Verification)**: Webhook + Active Polling Sync qua `GET /v2/payment-requests/{orderCode}`, bảo đảm không bao giờ sót trạng thái giao dịch.
+   - Quản lý vòng đời đơn hàng và tự động giải phóng tồn kho khi quá hạn 15 phút (`PaymentTimeoutScheduler`).
+   - Phân quyền duyệt hoàn tiền chặt chẽ theo hạn mức: `< 3.000.000 VNĐ` (`STAFF`) và $\ge 3.000.000 VNĐ` (`MANAGER`).
