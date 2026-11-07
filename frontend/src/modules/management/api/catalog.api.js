@@ -1,4 +1,3 @@
-import { getRoles } from '@/shared/auth/session';
 import { httpClient } from '@/shared/api/httpClient';
 
 const backendUrl = import.meta.env.VITE_BACKEND_URL?.replace(/\/+$/, '');
@@ -40,29 +39,20 @@ export const catalogEndpoints = {
 
 // API Catalog dùng chung cho giao diện quản lý và hiển thị
 export const catalogApi = {
-  // 1. Lấy toàn bộ dữ liệu Catalog từ Backend Java
-  async list(config) {
-    const tables = Object.keys(catalogEndpoints);
-    const management = getRoles().some((role) => ['ADMIN', 'MANAGER', 'STAFF'].includes(role));
-    const requests = tables.map((table) =>
-      table === 'voucher_usages' && !management
-        ? Promise.resolve([])
-        : catalogHttp.get(catalogEndpoints[table], config),
-    );
-    const responses = await Promise.all(requests);
-
-    const data = {};
-    tables.forEach((table, index) => {
-      data[table] = responses[index] || [];
-      if (table === 'brands')
-        data[table] = data[table].map((row) => ({
-          ...row,
-          logo_url: resolveImageUrl(row.logo_url),
-        }));
-      if (table === 'product_images')
-        data[table] = data[table].map((row) => ({ ...row, url: resolveImageUrl(row.url) }));
+  // One request replaces the former 11-12 separate catalog requests.
+  async list(config, view = 'auto') {
+    const snapshot = await catalogHttp.get('/catalog', {
+      ...config,
+      params: { ...config?.params, view },
     });
-    return data;
+    return {
+      ...snapshot,
+      brands: snapshot.brands.map((row) => ({ ...row, logo_url: resolveImageUrl(row.logo_url) })),
+      product_images: snapshot.product_images.map((row) => ({
+        ...row,
+        url: resolveImageUrl(row.url),
+      })),
+    };
   },
 
   // 2. Thêm mới hoặc cập nhật một bản ghi
