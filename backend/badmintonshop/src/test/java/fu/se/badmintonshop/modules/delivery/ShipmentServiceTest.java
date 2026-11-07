@@ -5,23 +5,33 @@ import fu.se.badmintonshop.modules.delivery.dto.CreateShipmentRequest;
 import fu.se.badmintonshop.modules.delivery.dto.ShipmentResponse;
 import fu.se.badmintonshop.modules.delivery.entity.Carrier;
 import fu.se.badmintonshop.modules.delivery.entity.Shipment;
+import fu.se.badmintonshop.modules.delivery.entity.ShipmentEvent;
 import fu.se.badmintonshop.modules.delivery.enums.ShipmentStatus;
 import fu.se.badmintonshop.modules.delivery.exception.DeliveryException;
 import fu.se.badmintonshop.modules.delivery.gateway.CarrierGateway;
+import fu.se.badmintonshop.modules.delivery.gateway.CarrierTracking;
 import fu.se.badmintonshop.modules.delivery.repository.CarrierRepository;
 import fu.se.badmintonshop.modules.delivery.repository.ShipmentRepository;
+import fu.se.badmintonshop.modules.delivery.service.OrderFulfillmentService;
 import fu.se.badmintonshop.modules.delivery.service.ShipmentService;
 import fu.se.badmintonshop.modules.order.entity.Order;
 import fu.se.badmintonshop.modules.order.repository.OrderRepository;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.LockModeType;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.HttpStatus;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -40,6 +50,10 @@ class ShipmentServiceTest {
     OrderRepository orderRepository;
     @Mock
     CarrierGateway carrierGateway;
+    @Mock
+    OrderFulfillmentService fulfillment;
+    @Mock
+    EntityManager entityManager;
 
     @InjectMocks
     ShipmentService service;
@@ -50,7 +64,7 @@ class ShipmentServiceTest {
     @BeforeEach
     void setUp() {
         order = Order.builder()
-                .id(10L).orderCode("ORD-10").userId(7L).status("confirmed")
+                .id(10L).orderCode("ORD-10").userId(7L).status("confirmed").paymentStatus("paid")
                 .receiverName("Nguyễn Văn A").receiverPhone("0900000000").shippingAddress("Hà Nội")
                 .subtotal(new BigDecimal("500000")).totalAmount(new BigDecimal("500000"))
                 .build();
@@ -70,36 +84,67 @@ class ShipmentServiceTest {
         return Shipment.builder().id(5L).order(order).carrier(fastship).status(status.getValue()).build();
     }
 
-    @Test
-    void createSavesRequestedShipmentWithEventAndCallsGateway() {
-        when(orderRepository.findById(10L)).thenReturn(Optional.of(order));
-        when(shipmentRepository.existsByOrderIdAndStatusNotIn(eq(10L), anyCollection())).thenReturn(false);
-        when(carrierRepository.findByCode("fastship")).thenReturn(Optional.of(fastship));
+    private void orderFound() {
+        when(entityManager.find(Order.class, 10L, LockModeType.PESSIMISTIC_WRITE)).thenReturn(order);
+    }
+
+    private void saveReturnsArgument() {
         when(shipmentRepository.save(any(Shipment.class))).thenAnswer(inv -> {
             Shipment s = inv.getArgument(0);
-            s.setId(5L);
+            if (s.getId() == null) s.setId(5L);
             return s;
         });
+    }
+
+    // ---------- tao ----------
+
+    @Test
+    void createSendsToCarrierAndAppliesAcceptedStatus() {
+        orderFound();
+        when(shipmentRepository.existsByOrderIdAndStatusNotIn(eq(10L), anyCollection())).thenReturn(false);
+        when(carrierRepository.findByCode("fastship")).thenReturn(Optional.of(fastship));
+        saveReturnsArgument();
+        doAnswer(inv -> {
+            Shipment s = inv.getArgument(0);
+            s.setPartnerRef("FS-1");
+            s.setTrackingCode("FS-1");
+            s.setStatus("pending_pickup");
+            return null;
+        }).when(carrierGateway).requestShipment(any(Shipment.class));
 
         ShipmentResponse res = service.create(createRequest(), 3L);
 
-        assertEquals(5L, res.getId());
-        assertEquals("requested", res.getStatus());
+        assertEquals("pending_pickup", res.getStatus());
+        assertEquals("FS-1", res.getTrackingCode());
         assertEquals("fast", res.getServiceType());
-        assertEquals("ORD-10", res.getOrderCode());
-        assertEquals("fastship", res.getCarrierCode());
         assertEquals(3L, res.getCreatedBy());
-        assertTrue(res.getCancellable());
-        assertEquals(1, res.getEvents().size());
-        assertEquals("manual", res.getEvents().get(0).getSource());
-        verify(carrierGateway).requestShipment(any(Shipment.class));
+        assertNotNull(res.getLastSyncedAt());
+        assertEquals(2, res.getEvents().size(), "1 event shop gui + 1 event doi tac tiep nhan");
+        verify(fulfillment).onShipmentStatus(order, ShipmentStatus.PENDING_PICKUP, 3L);
+    }
+
+    @Test
+    void createKeepsRequestedWhenCarrierIsDown() {
+        orderFound();
+        when(carrierRepository.findByCode("fastship")).thenReturn(Optional.of(fastship));
+        saveReturnsArgument();
+        doThrow(new DeliveryException(HttpStatus.BAD_GATEWAY, "down"))
+                .when(carrierGateway).requestShipment(any(Shipment.class));
+
+        ShipmentResponse res = service.create(createRequest(), 3L);
+
+        assertEquals("requested", res.getStatus());
+        assertNull(res.getPartnerRef());
+        assertEquals(2, res.getEvents().size());
+        assertEquals("Chưa gửi được sang đối tác", res.getEvents().get(1).getTitle());
+        verifyNoInteractions(fulfillment);
     }
 
     @Test
     void createDefaultsToStandardService() {
-        when(orderRepository.findById(10L)).thenReturn(Optional.of(order));
+        orderFound();
         when(carrierRepository.findByCode("fastship")).thenReturn(Optional.of(fastship));
-        when(shipmentRepository.save(any(Shipment.class))).thenAnswer(inv -> inv.getArgument(0));
+        saveReturnsArgument();
 
         CreateShipmentRequest req = createRequest();
         req.setServiceType(null);
@@ -110,7 +155,7 @@ class ShipmentServiceTest {
     @Test
     void createRejectsOrderNotReadyToShip() {
         order.setStatus("pending");
-        when(orderRepository.findById(10L)).thenReturn(Optional.of(order));
+        orderFound();
 
         DeliveryException e = assertThrows(DeliveryException.class, () -> service.create(createRequest(), 3L));
         assertEquals(HttpStatus.CONFLICT, e.getStatus());
@@ -120,7 +165,7 @@ class ShipmentServiceTest {
 
     @Test
     void createRejectsWhenOrderAlreadyHasActiveShipment() {
-        when(orderRepository.findById(10L)).thenReturn(Optional.of(order));
+        orderFound();
         when(shipmentRepository.existsByOrderIdAndStatusNotIn(eq(10L), argThat(c ->
                 c.containsAll(List.of("cancelled", "rejected")) && c.size() == 2))).thenReturn(true);
 
@@ -131,7 +176,7 @@ class ShipmentServiceTest {
 
     @Test
     void createRejectsInactiveOrUnknownCarrier() {
-        when(orderRepository.findById(10L)).thenReturn(Optional.of(order));
+        orderFound();
         fastship.setIsActive(false);
         when(carrierRepository.findByCode("fastship")).thenReturn(Optional.of(fastship));
         assertEquals(HttpStatus.BAD_REQUEST,
@@ -144,25 +189,60 @@ class ShipmentServiceTest {
 
     @Test
     void createFailsWhenOrderMissing() {
-        when(orderRepository.findById(10L)).thenReturn(Optional.empty());
         assertEquals(HttpStatus.NOT_FOUND,
                 assertThrows(DeliveryException.class, () -> service.create(createRequest(), 3L)).getStatus());
     }
 
+    // ---------- gui lai ----------
+
     @Test
-    void cancelBeforePickupMarksCancelled() {
+    void resendOnlyForUnsentRequestedShipment() {
+        Shipment unsent = shipmentWithStatus(ShipmentStatus.REQUESTED);
+        when(shipmentRepository.findWithDetailsById(5L)).thenReturn(Optional.of(unsent));
+        saveReturnsArgument();
+        doAnswer(inv -> {
+            Shipment s = inv.getArgument(0);
+            s.setPartnerRef("FS-2");
+            s.setStatus("pending_pickup");
+            return null;
+        }).when(carrierGateway).requestShipment(unsent);
+
+        assertEquals("pending_pickup", service.resend(5L, 3L).getStatus());
+
+        Shipment sent = shipmentWithStatus(ShipmentStatus.PENDING_PICKUP);
+        sent.setPartnerRef("FS-3");
+        when(shipmentRepository.findWithDetailsById(6L)).thenReturn(Optional.of(sent));
+        assertEquals(HttpStatus.CONFLICT,
+                assertThrows(DeliveryException.class, () -> service.resend(6L, 3L)).getStatus());
+    }
+
+    // ---------- huy ----------
+
+    @Test
+    void cancelBeforePickupCallsCarrierAndOrderFulfillment() {
         Shipment s = shipmentWithStatus(ShipmentStatus.PENDING_PICKUP);
+        s.setPartnerRef("FS-1");
         when(shipmentRepository.findWithDetailsById(5L)).thenReturn(Optional.of(s));
         when(shipmentRepository.save(s)).thenReturn(s);
 
-        ShipmentResponse res = service.cancel(5L, new CancelShipmentRequest("  Khách đổi ý  "));
+        ShipmentResponse res = service.cancel(5L, new CancelShipmentRequest("  Khách đổi ý  "), 3L);
 
         assertEquals("cancelled", res.getStatus());
         assertEquals("Khách đổi ý", res.getCancelReason());
         assertNotNull(res.getCancelledAt());
         assertFalse(res.getCancellable());
-        assertEquals("cancelled", s.getEvents().get(0).getStatus());
         verify(carrierGateway).cancelShipment(s, "Khách đổi ý");
+        verify(fulfillment).onShipmentStatus(order, ShipmentStatus.CANCELLED, 3L);
+    }
+
+    @Test
+    void cancelUnsentShipmentDoesNotCallCarrier() {
+        Shipment s = shipmentWithStatus(ShipmentStatus.REQUESTED);
+        when(shipmentRepository.findWithDetailsById(5L)).thenReturn(Optional.of(s));
+        when(shipmentRepository.save(s)).thenReturn(s);
+
+        assertEquals("cancelled", service.cancel(5L, new CancelShipmentRequest("x"), 3L).getStatus());
+        verifyNoInteractions(carrierGateway);
     }
 
     @Test
@@ -171,30 +251,93 @@ class ShipmentServiceTest {
         when(shipmentRepository.findWithDetailsById(5L)).thenReturn(Optional.of(s));
 
         DeliveryException e = assertThrows(DeliveryException.class,
-                () -> service.cancel(5L, new CancelShipmentRequest("x")));
+                () -> service.cancel(5L, new CancelShipmentRequest("x"), 3L));
         assertEquals(HttpStatus.CONFLICT, e.getStatus());
         assertEquals("in_transit", s.getStatus());
-        verifyNoInteractions(carrierGateway);
+        verifyNoInteractions(carrierGateway, fulfillment);
+    }
+
+    // ---------- dong bo ----------
+
+    private CarrierTracking tracking(String status, CarrierTracking.Event... events) {
+        return new CarrierTracking("FS-1", status, "Đang giao", "Tuấn", "0987", null,
+                "delivered".equals(status) ? LocalDateTime.of(2026, 11, 7, 10, 0) : null, List.of(events));
     }
 
     @Test
+    void syncUpdatesStatusOrderAndSkipsKnownEvents() {
+        Shipment s = shipmentWithStatus(ShipmentStatus.PENDING_PICKUP);
+        s.setPartnerRef("FS-1");
+        s.setTrackingCode("FS-1");
+        s.addEvent(ShipmentEvent.builder().externalEventId("FS-FS-1-1").status("pending_pickup").source("sync")
+                .occurredAt(LocalDateTime.now()).build());
+        when(shipmentRepository.findById(5L)).thenReturn(Optional.of(s));
+        saveReturnsArgument();
+        when(carrierGateway.track(s)).thenReturn(tracking("delivered",
+                new CarrierTracking.Event("FS-FS-1-1", "pending_pickup", "Đã nhận", null, null, LocalDateTime.now()),
+                new CarrierTracking.Event("FS-FS-1-2", "delivered", "Giao thành công", null, "Hà Nội", LocalDateTime.now())));
+
+        ShipmentResponse res = service.sync(5L, 3L);
+
+        assertEquals("delivered", res.getStatus());
+        assertEquals("Tuấn", res.getShipperName());
+        assertNotNull(res.getDeliveredAt());
+        assertNotNull(res.getLastSyncedAt());
+        assertEquals(2, s.getEvents().size(), "event FS-FS-1-1 da co, chi them FS-FS-1-2");
+        verify(entityManager).lock(s, LockModeType.PESSIMISTIC_WRITE);
+        verify(fulfillment).onShipmentStatus(order, ShipmentStatus.DELIVERED, 3L);
+    }
+
+    @Test
+    void syncDoesNotChangeFinalShipment() {
+        Shipment s = shipmentWithStatus(ShipmentStatus.CANCELLED);
+        s.setPartnerRef("FS-1");
+        when(shipmentRepository.findById(5L)).thenReturn(Optional.of(s));
+        saveReturnsArgument();
+        when(carrierGateway.track(s)).thenReturn(tracking("in_transit"));
+
+        assertEquals("cancelled", service.sync(5L, 3L).getStatus());
+        verifyNoInteractions(fulfillment);
+    }
+
+    @Test
+    void syncRejectsUnsentOrMismatchedShipment() {
+        Shipment unsent = shipmentWithStatus(ShipmentStatus.REQUESTED);
+        when(shipmentRepository.findById(5L)).thenReturn(Optional.of(unsent));
+        assertEquals(HttpStatus.CONFLICT,
+                assertThrows(DeliveryException.class, () -> service.sync(5L, 3L)).getStatus());
+
+        Shipment other = shipmentWithStatus(ShipmentStatus.PENDING_PICKUP);
+        other.setPartnerRef("FS-9");
+        other.setTrackingCode("FS-9");
+        when(shipmentRepository.findById(6L)).thenReturn(Optional.of(other));
+        when(carrierGateway.track(other)).thenReturn(tracking("in_transit"));
+        assertEquals(HttpStatus.BAD_GATEWAY,
+                assertThrows(DeliveryException.class, () -> service.sync(6L, 3L)).getStatus());
+    }
+
+    // ---------- danh sach ----------
+
+    @Test
+    @SuppressWarnings("unchecked")
     void listRejectsUnknownStatusAndClampsPageSize() {
         assertEquals(HttpStatus.BAD_REQUEST,
-                assertThrows(DeliveryException.class, () -> service.list("lost", null, null, 0, 20)).getStatus());
+                assertThrows(DeliveryException.class, () -> service.list("lost", null, null, null, 0, 20)).getStatus());
 
-        when(shipmentRepository.findAll(any(org.springframework.data.jpa.domain.Specification.class),
-                any(org.springframework.data.domain.Pageable.class)))
-                .thenReturn(new org.springframework.data.domain.PageImpl<>(List.of(shipmentWithStatus(ShipmentStatus.REQUESTED))));
+        when(shipmentRepository.findAll(any(Specification.class), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(shipmentWithStatus(ShipmentStatus.REQUESTED))));
 
-        var page = service.list("REQUESTED", "fastship", "ORD", -1, 1000);
+        var page = service.list("REQUESTED", "fastship", "ORD", 10L, -1, 1000);
         assertEquals(1, page.getContent().size());
         assertNull(page.getContent().get(0).getEvents(), "danh sach khong tra events");
 
-        var captor = org.mockito.ArgumentCaptor.forClass(org.springframework.data.domain.Pageable.class);
-        verify(shipmentRepository).findAll(any(org.springframework.data.jpa.domain.Specification.class), captor.capture());
+        ArgumentCaptor<Pageable> captor = ArgumentCaptor.forClass(Pageable.class);
+        verify(shipmentRepository).findAll(any(Specification.class), captor.capture());
         assertEquals(0, captor.getValue().getPageNumber());
         assertEquals(100, captor.getValue().getPageSize());
     }
+
+    // ---------- khach hang ----------
 
     @Test
     void customerSeesOnlyOwnOrderAndHiddenInternalFields() {
@@ -222,5 +365,18 @@ class ShipmentServiceTest {
         when(shipmentRepository.findByOrderIdOrderByCreatedAtDesc(10L)).thenReturn(List.of());
 
         assertTrue(service.getForCustomer(10L, 7L).isEmpty());
+    }
+
+    @Test
+    void customerListHidesInternalFields() {
+        Shipment s = shipmentWithStatus(ShipmentStatus.IN_TRANSIT);
+        s.setNote("nội bộ");
+        when(shipmentRepository.findByOrderUserIdOrderByCreatedAtDesc(7L)).thenReturn(List.of(s));
+
+        ShipmentResponse r = service.listForCustomer(7L).get(0);
+        assertEquals("in_transit", r.getStatus());
+        assertNull(r.getNote());
+        assertEquals(HttpStatus.UNAUTHORIZED,
+                assertThrows(DeliveryException.class, () -> service.listForCustomer(null)).getStatus());
     }
 }

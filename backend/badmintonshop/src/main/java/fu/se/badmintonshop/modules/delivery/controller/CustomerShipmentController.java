@@ -7,15 +7,17 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-// khach xem van don cua don hang minh (dinh danh qua X-User-Id giong module support ticket)
+import java.util.List;
+
+// khach xem van don cua don hang minh (X-User-Id duoc TokenFilter gan tu token dang nhap)
 @RestController
-@RequestMapping("/api/orders/{orderId}/shipment")
+@RequestMapping("/api")
 @RequiredArgsConstructor
 public class CustomerShipmentController {
 
     private final ShipmentService shipmentService;
 
-    @GetMapping
+    @GetMapping("/orders/{orderId}/shipment")
     public ResponseEntity<ApiResponse<ShipmentResponse>> get(
             @PathVariable Long orderId,
             @RequestHeader(value = "X-User-Id", required = false) Long userId) {
@@ -23,5 +25,19 @@ public class CustomerShipmentController {
                 .map(s -> ResponseEntity.ok(ApiResponse.success(s)))
                 // chua co van don: 200, data rong, de FE hien "chua giao cho don vi van chuyen"
                 .orElseGet(() -> ResponseEntity.ok(ApiResponse.success("Đơn hàng chưa có vận đơn", null)));
+    }
+
+    @PostMapping("/orders/{orderId}/shipment/sync")
+    public ResponseEntity<ApiResponse<ShipmentResponse>> sync(
+            @PathVariable Long orderId,
+            @RequestHeader(value = "X-User-Id", required = false) Long userId) {
+        return ResponseEntity.ok(ApiResponse.success("Đã cập nhật hành trình mới nhất",
+                shipmentService.syncForCustomer(orderId, userId)));
+    }
+
+    @GetMapping("/my/shipments")
+    public ResponseEntity<ApiResponse<List<ShipmentResponse>>> mine(
+            @RequestHeader(value = "X-User-Id", required = false) Long userId) {
+        return ResponseEntity.ok(ApiResponse.success(shipmentService.listForCustomer(userId)));
     }
 }

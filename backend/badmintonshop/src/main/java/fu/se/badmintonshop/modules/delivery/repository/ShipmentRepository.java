@@ -28,6 +28,10 @@ public interface ShipmentRepository extends JpaRepository<Shipment, Long>, JpaSp
     @EntityGraph(attributePaths = {"order", "carrier"})
     Page<Shipment> findAll(Specification<Shipment> spec, Pageable pageable);
 
+    // van don cua cac don hang thuoc 1 khach
+    @EntityGraph(attributePaths = {"order", "carrier"})
+    List<Shipment> findByOrderUserIdOrderByCreatedAtDesc(Long userId);
+
     @EntityGraph(attributePaths = {"order", "carrier", "events"})
     Optional<Shipment> findWithDetailsById(Long id);
-}
+}

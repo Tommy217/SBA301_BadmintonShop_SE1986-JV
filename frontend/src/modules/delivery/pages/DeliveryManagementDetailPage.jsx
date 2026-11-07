@@ -1,27 +1,47 @@
 import { useState } from 'react';
-import { Alert, Badge, Button, Card, Col, Row, Spinner, Table } from 'react-bootstrap';
+import { Alert, Badge, Button, Card, Col, Form, Modal, Row, Spinner, Table } from 'react-bootstrap';
 import { Link, useParams } from 'react-router';
 import { carriers, carrierServices, deliveryStatuses } from '@/modules/delivery/constants';
 import { useShop } from '@/app/providers/shop/ShopContext';
+import { useShipment } from '@/modules/delivery/hooks/useDelivery';
 import { formatDateTime, formatMoney } from '@/shared/utils/format';
 import '@/modules/delivery/delivery.css';
 import { deliveryApi } from '@/modules/delivery/api/delivery.api';
+import { toDelivery } from '@/modules/delivery/api/delivery.mapper';
 
 export default function DeliveryManagementDetailPage() {
   const { deliveryId } = useParams();
-  const { data, act } = useShop();
+  const { data } = useShop();
+  const {
+    data: delivery,
+    isLoading,
+    error: loadError,
+    setData: setDelivery,
+  } = useShipment(deliveryId);
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncMessage, setSyncMessage] = useState('');
   const [error, setError] = useState('');
+  const [cancelReason, setCancelReason] = useState(null);
 
-  const delivery = (data.deliveries || []).find((item) => String(item.id) === deliveryId);
+  if (isLoading && !delivery) {
+    return (
+      <div className="py-5 text-center">
+        <Spinner animation="border" size="sm" className="me-2" />
+        Đang tải vận đơn...
+      </div>
+    );
+  }
 
   if (!delivery) {
     return (
       <>
         <div className="eyebrow">QUẢN LÝ VẬN HÀNH & GIAO VẬN</div>
         <h1 className="h2 fw-bold mb-2">Không tìm thấy vận đơn</h1>
-        <p className="text-secondary mb-4">Vận đơn không tồn tại hoặc đã bị xóa khỏi hệ thống.</p>
+        <p className="text-secondary mb-4">
+          {loadError?.status === 404 || !loadError
+            ? 'Vận đơn không tồn tại hoặc đã bị xóa khỏi hệ thống.'
+            : loadError.message}
+        </p>
         <Button as={Link} to="/management/deliveries" variant="outline-primary">
           Quay lại danh sách vận đơn
         </Button>
@@ -42,19 +62,38 @@ export default function DeliveryManagementDetailPage() {
     variant: 'secondary',
   };
 
+  // chua gui duoc sang doi tac thi gui lai, nguoc lai doc trang thai moi nhat
   async function handleSync() {
     setIsSyncing(true);
     setError('');
     setSyncMessage('');
     try {
-      await act(() =>
-        deliveryApi.syncCarrierStatus({
-          delivery_id: delivery.id,
-        }),
-      );
-      setSyncMessage(`Đã đồng bộ thành công dữ liệu mới nhất từ cổng thông tin ${carrier.name}.`);
+      if (delivery.resendable) {
+        setDelivery(toDelivery(await deliveryApi.resend(delivery.id)));
+        setSyncMessage(`Đã gửi lại yêu cầu vận đơn cho ${carrier.name}.`);
+      } else {
+        setDelivery(toDelivery(await deliveryApi.sync(delivery.id)));
+        setSyncMessage(`Đã đồng bộ thành công dữ liệu mới nhất từ cổng thông tin ${carrier.name}.`);
+      }
     } catch (err) {
       setError(err.message || 'Không thể đồng bộ với đối tác vận chuyển.');
+    } finally {
+      setIsSyncing(false);
+    }
+  }
+
+  async function handleCancel(event) {
+    event.preventDefault();
+    setIsSyncing(true);
+    setError('');
+    setSyncMessage('');
+    try {
+      setDelivery(toDelivery(await deliveryApi.cancel(delivery.id, cancelReason.trim())));
+      setCancelReason(null);
+      setSyncMessage('Đã huỷ vận đơn.');
+    } catch (err) {
+      setError(err.message || 'Không thể huỷ vận đơn.');
+      setCancelReason(null);
     } finally {
       setIsSyncing(false);
     }
@@ -68,7 +107,7 @@ export default function DeliveryManagementDetailPage() {
       <div className="d-flex flex-wrap align-items-start justify-content-between gap-3 mb-4">
         <div>
           <div className="d-flex align-items-center gap-2 mb-2">
-            <h1 className="h2 fw-bold mb-0">{delivery.tracking_number}</h1>
+            <h1 className="h2 fw-bold mb-0">{delivery.tracking_number || 'Chưa có mã vận đơn'}</h1>
             <span
               className="carrier-badge-pill"
               style={{
@@ -247,7 +286,7 @@ export default function DeliveryManagementDetailPage() {
                 <Button
                   variant="primary"
                   onClick={handleSync}
-                  disabled={isSyncing}
+                  disabled={isSyncing || (!delivery.partner_ref && !delivery.resendable)}
                   className="d-flex align-items-center justify-content-center gap-2"
                 >
                   {isSyncing ? (
@@ -269,14 +308,26 @@ export default function DeliveryManagementDetailPage() {
                       >
                         <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67" />
                       </svg>
-                      <span>Đồng bộ từ ĐVVC ngay</span>
+                      <span>
+                        {delivery.resendable ? 'Gửi lại yêu cầu cho ĐVVC' : 'Đồng bộ từ ĐVVC ngay'}
+                      </span>
                     </>
                   )}
                 </Button>
 
-                {carrier.trackingUrl && (
+                {delivery.cancellable && (
+                  <Button
+                    variant="outline-danger"
+                    disabled={isSyncing}
+                    onClick={() => setCancelReason('')}
+                  >
+                    Huỷ vận đơn
+                  </Button>
+                )}
+
+                {delivery.tracking_number && (delivery.tracking_url || carrier.trackingUrl) && (
                   <a
-                    href={carrier.trackingUrl(delivery.tracking_number)}
+                    href={delivery.tracking_url || carrier.trackingUrl(delivery.tracking_number)}
                     target="_blank"
                     rel="noreferrer noopener"
                     className="btn btn-outline-secondary d-flex align-items-center justify-content-center gap-2"
@@ -402,6 +453,35 @@ export default function DeliveryManagementDetailPage() {
           </Card>
         </Col>
       </Row>
+
+      <Modal show={cancelReason !== null} onHide={() => setCancelReason(null)} centered>
+        <Form onSubmit={handleCancel}>
+          <Modal.Header closeButton>
+            <Modal.Title className="h5">Huỷ vận đơn</Modal.Title>
+          </Modal.Header>
+          <Modal.Body>
+            <Form.Group controlId="cancel-reason">
+              <Form.Label>Lý do huỷ</Form.Label>
+              <Form.Control
+                as="textarea"
+                rows={3}
+                maxLength={300}
+                required
+                value={cancelReason || ''}
+                onChange={(e) => setCancelReason(e.target.value)}
+              />
+            </Form.Group>
+          </Modal.Body>
+          <Modal.Footer>
+            <Button variant="outline-secondary" onClick={() => setCancelReason(null)}>
+              Đóng
+            </Button>
+            <Button type="submit" variant="danger" disabled={isSyncing || !cancelReason?.trim()}>
+              Xác nhận huỷ
+            </Button>
+          </Modal.Footer>
+        </Form>
+      </Modal>
     </>
   );
 }

@@ -24,7 +24,6 @@ public class ShopService {
     private final JdbcTemplate jdbc;
     private final SupportActions support;
     private final PaymentService payments;
-    private final ShopShipping shipping;
     @Value("${shop.frontend-url:http://localhost:5173}") private String frontendUrl;
     private static final Set<String> CATALOG_IDS = Set.of("variant_id", "product_id", "voucher_id");
     private static final Map<String, Set<String>> TRANSITIONS = Map.of(
@@ -36,7 +35,7 @@ public class ShopService {
     public Map<String, Object> snapshot(AuthService.User user) {
         var result = new LinkedHashMap<String, Object>();
         for (String name : List.of("carts", "cart_items", "orders", "order_items", "payments", "order_status_history",
-                "support_tickets", "ticket_items", "ticket_status_history", "ticket_inspections", "refund_records", "deliveries")) {
+                "support_tickets", "ticket_items", "ticket_status_history", "ticket_inspections", "refund_records")) {
             result.put(name, new ArrayList<>());
         }
         if (user == null) return result;
@@ -61,13 +60,7 @@ public class ShopService {
                 "ticket_inspections", "ticket_inspection", "refund_records", "refund_records").entrySet()) {
             result.put(entry.getKey(), rows("SELECT x.* FROM " + entry.getValue() + " x JOIN support_tickets t ON t.id=x.ticket_id JOIN orders o ON o.id=t.order_id" + orderWhere + " ORDER BY x.id", scope));
         }
-        var deliveries = rows("SELECT s.*,c.code AS carrier,o.order_code,o.receiver_name,o.receiver_phone,o.shipping_address "
-                + "FROM shipments s JOIN orders o ON o.id=s.order_id LEFT JOIN carriers c ON c.id=s.carrier_id" + orderWhere + " ORDER BY s.id", scope);
-        for (var delivery : deliveries) {
-            delivery.put("tracking_number", delivery.get("tracking_code"));
-            delivery.put("tracking_logs", rows("SELECT id,status,title,description AS note,location,occurred_at AS timestamp FROM shipment_events WHERE shipment_id=? ORDER BY occurred_at DESC,id DESC", id(delivery.get("id"))));
-        }
-        result.put("deliveries", deliveries);
+        // van don doc qua API cua module delivery (/api/manager/shipments, /api/my/shipments)
         return result;
     }
 
@@ -83,11 +76,6 @@ public class ShopService {
                 updateOrder(action, user.id());
             }
             case "start_payment" -> startPayment(action, user);
-            case "sync_carrier_status" -> shipping.sync(id(action.get("delivery_id")), user);
-            case "create_shipment" -> {
-                require(management(user), HttpStatus.FORBIDDEN, "Chỉ nhân viên hoặc quản lý được tạo vận đơn.");
-                shipping.create(id(action.get("order_id")), user.id());
-            }
             default -> support.execute(type, action, user);
         }
     }
