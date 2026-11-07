@@ -3,6 +3,7 @@ import { Alert, Badge, Button, Card, Form, Spinner, Table } from 'react-bootstra
 import { Link, useLocation } from 'react-router';
 import { carriers, carrierServices, deliveryStatuses } from '@/modules/delivery/constants';
 import { useShipments } from '@/modules/delivery/hooks/useDelivery';
+import useAutoHide from '@/modules/delivery/hooks/useAutoHide';
 import { formatDateTime, formatMoney } from '@/shared/utils/format';
 import { deliveryApi } from '@/modules/delivery/api/delivery.api';
 
@@ -13,13 +14,14 @@ export default function DeliveryManagementPage() {
   const { data: shipmentPage, isLoading, error, reload } = useShipments();
   const { state } = useLocation();
   const [query, setQuery] = useState('');
-  const [carrierFilter, setCarrierFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
   const [syncingId, setSyncingId] = useState(null);
   const [syncMessage, setSyncMessage] = useState(
     state?.updated ? "Đã cập nhật vận đơn thành công." : "",
   );
   const [syncFailed, setSyncFailed] = useState(false);
+  // thong bao thanh cong tu an sau 3 giay, thong bao loi giu lai den khi dong
+  useAutoHide(syncFailed ? '' : syncMessage, setSyncMessage);
 
   const deliveries = shipmentPage?.content || EMPTY_LIST;
   const normalizedQuery = query.trim().toLocaleLowerCase('vi');
@@ -28,7 +30,6 @@ export default function DeliveryManagementPage() {
     () =>
       [...deliveries]
         .filter((item) => {
-          const matchesCarrier = carrierFilter === 'all' || item.carrier === carrierFilter;
           const matchesStatus = statusFilter === 'all' || item.status === statusFilter;
           const searchableText = [
             item.tracking_number,
@@ -42,7 +43,6 @@ export default function DeliveryManagementPage() {
             .join(' ')
             .toLocaleLowerCase('vi');
           return (
-            matchesCarrier &&
             matchesStatus &&
             (!normalizedQuery || searchableText.includes(normalizedQuery))
           );
@@ -50,7 +50,7 @@ export default function DeliveryManagementPage() {
         .sort(
           (a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0),
         ),
-    [carrierFilter, deliveries, normalizedQuery, statusFilter],
+    [deliveries, normalizedQuery, statusFilter],
   );
 
   const countByStatus = (status) => deliveries.filter((d) => d.status === status).length;
@@ -137,7 +137,7 @@ export default function DeliveryManagementPage() {
         <Card.Body className="p-3 p-md-4">
           {/* Bộ lọc & Tìm kiếm */}
           <div className="row g-3 mb-4">
-            <div className="col-lg-6">
+            <div className="col-lg-8">
               <Form.Label
                 htmlFor="delivery-search"
                 className="fw-semibold small"
@@ -152,27 +152,8 @@ export default function DeliveryManagementPage() {
                 placeholder="Mã vận đơn, mã đơn, khách hàng, số điện thoại, địa chỉ..."
               />
             </div>
-            <div className="col-sm-6 col-lg-3">
-              <Form.Label
-                htmlFor="carrier-filter"
-                className="fw-semibold small"
-              >
-                Đối tác vận chuyển
-              </Form.Label>
-              <Form.Select
-                id="carrier-filter"
-                value={carrierFilter}
-                onChange={(e) => setCarrierFilter(e.target.value)}
-              >
-                <option value="all">Tất cả đối tác</option>
-                {Object.entries(carriers).map(([key, val]) => (
-                  <option key={key} value={key}>
-                    {val.name}
-                  </option>
-                ))}
-              </Form.Select>
-            </div>
-            <div className="col-sm-6 col-lg-3">
+            {/* chi co 1 doi tac (FastShip) nen bo loc doi tac da an */}
+            <div className="col-lg-4">
               <Form.Label htmlFor="status-filter" className="fw-semibold small">
                 Trạng thái ĐVVC
               </Form.Label>
@@ -202,16 +183,14 @@ export default function DeliveryManagementPage() {
                 Không tìm thấy vận đơn phù hợp
               </h2>
               <p className="text-secondary mb-3">
-                Thử thay đổi từ khóa tìm kiếm hoặc bỏ chọn các bộ lọc trạng thái
-                / đối tác.
+                Thử thay đổi từ khóa tìm kiếm hoặc bỏ chọn bộ lọc trạng thái.
               </p>
-              {(query || carrierFilter !== 'all' || statusFilter !== 'all') && (
+              {(query || statusFilter !== 'all') && (
                 <Button
                   variant="outline-secondary"
                   size="sm"
                   onClick={() => {
                     setQuery('');
-                    setCarrierFilter('all');
                     setStatusFilter('all');
                   }}
                 >

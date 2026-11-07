@@ -4,6 +4,7 @@ import { Link, useParams } from 'react-router';
 import { carriers, carrierServices, deliveryStatuses } from '@/modules/delivery/constants';
 import { useShop } from '@/app/providers/shop/ShopContext';
 import { useShipment } from '@/modules/delivery/hooks/useDelivery';
+import useAutoHide from '@/modules/delivery/hooks/useAutoHide';
 import { formatDateTime, formatMoney } from '@/shared/utils/format';
 import '@/modules/delivery/delivery.css';
 import { deliveryApi } from '@/modules/delivery/api/delivery.api';
@@ -22,6 +23,8 @@ export default function DeliveryManagementDetailPage() {
   const [syncMessage, setSyncMessage] = useState('');
   const [error, setError] = useState('');
   const [cancelReason, setCancelReason] = useState(null);
+  // thong bao thanh cong (dong bo / gui lai / huy) tu an sau 3 giay; loi giu lai
+  useAutoHide(syncMessage, setSyncMessage);
 
   if (isLoading && !delivery) {
     return (
