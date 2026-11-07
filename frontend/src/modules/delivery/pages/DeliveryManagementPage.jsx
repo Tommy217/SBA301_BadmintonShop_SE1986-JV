@@ -4,6 +4,7 @@ import { Link, useLocation } from 'react-router';
 import { carriers, carrierServices, deliveryStatuses } from '@/modules/delivery/constants';
 import { useShipments } from '@/modules/delivery/hooks/useDelivery';
 import useAutoHide from '@/modules/delivery/hooks/useAutoHide';
+import usePolling from '@/modules/delivery/hooks/usePolling';
 import { formatDateTime, formatMoney } from '@/shared/utils/format';
 import { deliveryApi } from '@/modules/delivery/api/delivery.api';
 
@@ -22,6 +23,8 @@ export default function DeliveryManagementPage() {
   const [syncFailed, setSyncFailed] = useState(false);
   // thong bao thanh cong tu an sau 3 giay, thong bao loi giu lai den khi dong
   useAutoHide(syncFailed ? '' : syncMessage, setSyncMessage);
+  // tu lam moi danh sach 10 giay (webhook FastShip cap nhat DB shop); tam dung khi dang dong bo
+  usePolling(reload, { interval: 10000, enabled: syncingId === null });
 
   const deliveries = shipmentPage?.content || EMPTY_LIST;
   const normalizedQuery = query.trim().toLocaleLowerCase('vi');

@@ -5,6 +5,7 @@ import { carriers, carrierServices, deliveryStatuses } from '@/modules/delivery/
 import { useShop } from '@/app/providers/shop/ShopContext';
 import { useShipment } from '@/modules/delivery/hooks/useDelivery';
 import useAutoHide from '@/modules/delivery/hooks/useAutoHide';
+import usePolling from '@/modules/delivery/hooks/usePolling';
 import { formatDateTime, formatMoney } from '@/shared/utils/format';
 import '@/modules/delivery/delivery.css';
 import { deliveryApi } from '@/modules/delivery/api/delivery.api';
@@ -18,6 +19,7 @@ export default function DeliveryManagementDetailPage() {
     isLoading,
     error: loadError,
     setData: setDelivery,
+    reload,
   } = useShipment(deliveryId);
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncMessage, setSyncMessage] = useState('');
@@ -25,6 +27,8 @@ export default function DeliveryManagementDetailPage() {
   const [cancelReason, setCancelReason] = useState(null);
   // thong bao thanh cong (dong bo / gui lai / huy) tu an sau 3 giay; loi giu lai
   useAutoHide(syncMessage, setSyncMessage);
+  // tu lam moi 5 giay de thay trang thai FastShip day qua webhook; tam dung khi dang dong bo / huy
+  usePolling(reload, { interval: 5000, enabled: !isSyncing && cancelReason === null });
 
   if (isLoading && !delivery) {
     return (
