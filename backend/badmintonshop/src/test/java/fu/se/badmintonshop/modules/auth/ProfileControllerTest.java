@@ -66,10 +66,10 @@ class ProfileControllerTest {
 
     @Test
     void rejectsAnonymousAccessToProfile() throws Exception {
-        mvc.perform(get("/api/v1/profile"))
+        mvc.perform(get("/api/profile"))
             .andExpect(status().isUnauthorized());
 
-        mvc.perform(get("/api/v1/profile/addresses"))
+        mvc.perform(get("/api/profile/addresses"))
             .andExpect(status().isUnauthorized());
     }
 
@@ -85,7 +85,7 @@ class ProfileControllerTest {
 
         when(profileService.getProfile(any())).thenReturn(profile);
 
-        mvc.perform(get("/api/v1/profile").header("Authorization", authHeader))
+        mvc.perform(get("/api/profile").header("Authorization", authHeader))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.id").value(10))
             .andExpect(jsonPath("$.email").value("profileuser@test.com"))
@@ -111,7 +111,7 @@ class ProfileControllerTest {
 
         when(profileService.updateProfile(any(), any())).thenReturn(updated);
 
-        mvc.perform(put("/api/v1/profile")
+        mvc.perform(put("/api/profile")
                 .header("Authorization", authHeader)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(mapper.writeValueAsString(request)))
@@ -128,7 +128,7 @@ class ProfileControllerTest {
             .confirmPassword("newSecret456")
             .build();
 
-        mvc.perform(post("/api/v1/profile/change-password")
+        mvc.perform(post("/api/profile/change-password")
                 .header("Authorization", authHeader)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(mapper.writeValueAsString(request)))
@@ -151,7 +151,7 @@ class ProfileControllerTest {
 
         when(profileService.getAddresses(any())).thenReturn(List.of(addr));
 
-        mvc.perform(get("/api/v1/profile/addresses").header("Authorization", authHeader))
+        mvc.perform(get("/api/profile/addresses").header("Authorization", authHeader))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.length()").value(1))
             .andExpect(jsonPath("$[0].id").value(1001))
@@ -183,7 +183,7 @@ class ProfileControllerTest {
 
         when(profileService.addAddress(any(), any())).thenReturn(created);
 
-        mvc.perform(post("/api/v1/profile/addresses")
+        mvc.perform(post("/api/profile/addresses")
                 .header("Authorization", authHeader)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(mapper.writeValueAsString(request)))
@@ -216,7 +216,7 @@ class ProfileControllerTest {
 
         when(profileService.updateAddress(any(), eq(1002L), any())).thenReturn(updated);
 
-        mvc.perform(put("/api/v1/profile/addresses/1002")
+        mvc.perform(put("/api/profile/addresses/1002")
                 .header("Authorization", authHeader)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(mapper.writeValueAsString(request)))
@@ -227,7 +227,7 @@ class ProfileControllerTest {
 
     @Test
     void deleteAddressReturnsSuccessMessage() throws Exception {
-        mvc.perform(delete("/api/v1/profile/addresses/1002").header("Authorization", authHeader))
+        mvc.perform(delete("/api/profile/addresses/1002").header("Authorization", authHeader))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.message").value("Xóa địa chỉ thành công."));
     }
