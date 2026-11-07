@@ -25,7 +25,6 @@ function view(db, includeManagement = true) {
     order_status_history,
     support_tickets,
     ticket_items,
-    deliveries,
     invoices,
     invoice_items,
     invoice_deliveries,
@@ -48,7 +47,6 @@ function view(db, includeManagement = true) {
     order_status_history,
     support_tickets,
     ticket_items,
-    deliveries: deliveries || [],
     invoices: includeManagement ? invoices || [] : [],
     invoice_items: includeManagement ? invoice_items || [] : [],
     invoice_deliveries: includeManagement ? invoice_deliveries || [] : [],
@@ -486,127 +484,6 @@ export function mutate(db, action, liveCatalog = null) {
       action.gateway === 'momo' ? 'ewallet' : action.gateway === 'card' ? 'card' : 'qr';
     payment.gateway = action.gateway;
     payment.updated_at = now;
-  } else if (action.type === 'sync_carrier_status') {
-    if (!Array.isArray(db.deliveries)) db.deliveries = [];
-    const delivery = db.deliveries.find((d) => d.id === action.delivery_id);
-    check(delivery, 'Không tìm thấy vận đơn.');
-    if (delivery.status === 'pending_pickup') {
-      delivery.status = 'in_transit';
-      delivery.carrier_status_text = 'Đã lấy hàng - Đang luân chuyển qua kho trung chuyển';
-      delivery.shipped_at = delivery.shipped_at || now;
-      delivery.tracking_logs.unshift({
-        id: 'log-' + randomUUID().slice(0, 8),
-        timestamp: now,
-        status: 'in_transit',
-        title: 'ĐVVC lấy hàng thành công',
-        location: 'Kho lấy hàng của Shop',
-        note: `Bưu tá ${delivery.carrier.toUpperCase()} đã tiếp nhận kiện hàng và đưa về kho trung chuyển.`,
-      });
-    } else if (delivery.status === 'in_transit') {
-      delivery.status = 'out_for_delivery';
-      delivery.carrier_status_text = 'Bưu tá ĐVVC đang trên đường đi giao cho người nhận';
-      delivery.shipper_name = delivery.shipper_name || 'Nguyễn Văn Tuấn (Bưu tá ĐVVC)';
-      delivery.shipper_phone = delivery.shipper_phone || '0987.654.321';
-      delivery.tracking_logs.unshift({
-        id: 'log-' + randomUUID().slice(0, 8),
-        timestamp: now,
-        status: 'out_for_delivery',
-        title: 'Bưu tá đang phát hàng',
-        location: 'Bưu cục phát gần nhất',
-        note: `Bưu tá ${delivery.shipper_name} (${delivery.shipper_phone}) đang đi giao.`,
-      });
-    } else if (delivery.status === 'out_for_delivery') {
-      delivery.status = 'delivered';
-      delivery.carrier_status_text = 'Giao hàng thành công - Khách hàng đã nhận và ký xác nhận';
-      delivery.delivered_at = now;
-      delivery.tracking_logs.unshift({
-        id: 'log-' + randomUUID().slice(0, 8),
-        timestamp: now,
-        status: 'delivered',
-        title: 'Giao thành công',
-        location: delivery.shipping_address,
-        note: 'Khách hàng đã nhận kiện hàng nguyên vẹn và hoàn tất đối soát.',
-      });
-      const order = db.orders.find((o) => o.id === delivery.order_id);
-      if (order) {
-        order.status = 'completed';
-        if (order.payment_status === 'unpaid') {
-          order.payment_status = 'paid';
-          const payment = db.payments.find((p) => p.order_id === order.id);
-          if (payment) payment.status = 'completed';
-        }
-        db.order_status_history.push({
-          id: randomUUID(),
-          order_id: order.id,
-          from_status: 'shipping',
-          to_status: 'completed',
-          changed_by: 'system_carrier_sync',
-          note: `ĐVVC ${delivery.carrier.toUpperCase()} xác nhận giao thành công mã ${delivery.tracking_number}`,
-          created_at: now,
-        });
-      }
-    }
-    delivery.last_synced_at = now;
-    delivery.updated_at = now;
-  } else if (action.type === 'create_shipment') {
-    if (!Array.isArray(db.deliveries)) db.deliveries = [];
-    const order = db.orders.find((o) => o.id === action.order_id);
-    check(order, 'Không tìm thấy đơn hàng.');
-    const existing = db.deliveries.find((d) => d.order_id === order.id);
-    check(!existing, 'Đơn hàng này đã được tạo vận đơn trước đó.');
-    const carrier = String(action.carrier || 'fastship').toLowerCase();
-    check(
-      ['fastship', 'ghn', 'ghtk', 'viettelpost'].includes(carrier),
-      'Đơn vị vận chuyển không hợp lệ.',
-    );
-    const serviceType = String(action.service_type || 'standard');
-    const trackingNumber = `${carrier.toUpperCase()}-${Date.now().toString().slice(-6)}${order.id.slice(0, 4).toUpperCase()}`;
-    const id = 'del-' + randomUUID().slice(0, 8);
-    const newDelivery = {
-      id,
-      order_id: order.id,
-      order_code: order.order_code,
-      tracking_number: trackingNumber,
-      carrier,
-      service_type: serviceType,
-      shipping_fee: order.shipping_fee || 0,
-      cod_amount: order.payment_status === 'paid' ? 0 : order.total_amount,
-      status: 'pending_pickup',
-      carrier_status_text: `Đã tạo vận đơn trên hệ thống ${carrier.toUpperCase()} - Chờ bưu tá lấy hàng`,
-      receiver_name: order.receiver_name,
-      receiver_phone: order.receiver_phone,
-      shipping_address: order.shipping_address,
-      note: action.note || order.note || '',
-      shipper_name: null,
-      shipper_phone: null,
-      estimated_delivery_date: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString(),
-      shipped_at: null,
-      delivered_at: null,
-      last_synced_at: now,
-      created_at: now,
-      updated_at: now,
-      tracking_logs: [
-        {
-          id: 'log-' + randomUUID().slice(0, 8),
-          timestamp: now,
-          status: 'pending_pickup',
-          title: 'Tạo vận đơn thành công',
-          location: `Cổng kết nối API ${carrier.toUpperCase()}`,
-          note: `Shop đã đẩy đơn sang ${carrier.toUpperCase()} và nhận mã vận đơn ${trackingNumber}. Đang chờ bưu tá đến lấy.`,
-        },
-      ],
-    };
-    db.deliveries.push(newDelivery);
-    order.status = 'shipping';
-    db.order_status_history.push({
-      id: randomUUID(),
-      order_id: order.id,
-      from_status: 'pending',
-      to_status: 'shipping',
-      changed_by: cart.user_id,
-      note: `Tạo vận đơn ${carrier.toUpperCase()} (${trackingNumber})`,
-      created_at: now,
-    });
   } else throw new Error('Thao tác không hợp lệ.');
   cart.updated_at = now;
   return db;
@@ -670,7 +547,6 @@ export function createApiHandler(databasePath = dbPath, backendUrl = process.env
             order_status_history: [],
             support_tickets: [],
             ticket_items: [],
-            deliveries: [],
             invoices: [],
             invoice_items: [],
             invoice_deliveries: [],
@@ -699,8 +575,6 @@ export function createApiHandler(databasePath = dbPath, backendUrl = process.env
             'approve_refund_support_ticket',
             'manager_decision_support_ticket',
             'refund_transfer_support_ticket',
-            'create_shipment',
-            'sync_carrier_status',
             'update_support_ticket',
             'catalog_save',
             'catalog_delete',

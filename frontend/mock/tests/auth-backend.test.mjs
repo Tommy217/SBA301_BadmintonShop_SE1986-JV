@@ -61,7 +61,6 @@ test('customer cannot invoke management actions with a backend token', async () 
       'manager_update_order',
       'review_support_ticket',
       'manager_decision_support_ticket',
-      'create_shipment',
     ]) {
       const response = await fetch(base + '/api/shop', {
         method: 'POST',
@@ -70,6 +69,6 @@ test('customer cannot invoke management actions with a backend token', async () 
       });
       assert.equal(response.status, 403, type);
     }
-    assert.equal(calls.length, 4);
+    assert.equal(calls.length, 3);
   });
 });

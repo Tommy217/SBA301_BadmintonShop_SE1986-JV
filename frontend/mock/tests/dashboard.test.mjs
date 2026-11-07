@@ -57,15 +57,13 @@ test('inventory counts all SKU stock, separates low/out, excludes unknown costs'
   assert.equal(inventory.products[0].quantity, 13);
   assert.equal(inventory.groups[0].quantity, 13);
 });
-test('dashboard seed is repeatable and preserves existing stock and deliveries', () => {
+test('dashboard seed is repeatable and preserves existing stock', () => {
   const db = JSON.parse(readFileSync(new URL('../db.json', import.meta.url), 'utf8'));
   const existing = structuredClone(db.product_variants.filter((v) => !v.is_demo));
-  const deliveries = structuredClone(db.deliveries);
   seedDashboard(db);
   const once = structuredClone(db);
   seedDashboard(db);
   assert.deepEqual(db, once);
-  assert.deepEqual(db.deliveries, deliveries);
   assert.deepEqual(
     db.product_variants.filter((v) => !v.is_demo),
     existing,
