@@ -51,7 +51,7 @@ export const carriers = {
 export const deliveryStatuses = {
   requested: {
     label: 'Chờ đối tác duyệt',
-    variant: 'light',
+    variant: 'info',
     description: 'Shop đã gửi yêu cầu tạo vận đơn, chờ đối tác vận chuyển duyệt',
     stepIndex: 0,
   },
