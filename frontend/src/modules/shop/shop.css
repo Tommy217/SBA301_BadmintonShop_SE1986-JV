@@ -670,3 +670,41 @@
 .purchase-stepper input::-webkit-inner-spin-button, .purchase-stepper input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
 .purchase-stepper input:disabled { background: #fafafa; color: #aaa; }
 .purchase-stepper :focus-visible { outline: 2px solid #fe2c55; outline-offset: -2px; }
+
+/* Detail page shares the option sheet's colors, chips and purchase controls. */
+.detail-purchase-panel { padding: 8px 24px; }
+.detail-brand { display: inline-block; padding: 6px 12px; border-radius: 6px; background: #fff1f4; color: #e51e46; font-size: 11px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; }
+.detail-title { margin: 16px 0 14px; color: #222; font-size: clamp(24px, 2.5vw, 32px); font-weight: 650; line-height: 1.35; }
+.detail-price { margin: 0 0 18px; padding: 16px 20px; border-radius: 12px; background: #fff5f7; color: #fe2c55; font-size: 30px; font-weight: 700; }
+.product-detail-page .product-detail-description { color: #777; font-size: 14px; line-height: 1.7; }
+.product-detail-page .detail-image-button { height: 520px; border-color: #eee; border-radius: 18px; background: #fafafa; }
+.product-detail-page .purchase-selection { margin: 20px 0; }
+.product-detail-page .purchase-quantity-row .form-label { margin: 0; font-size: 14px; font-weight: 650; }
+.detail-total { margin-top: 22px; padding-top: 18px; border-top: 1px solid #f0f0f0; }
+.detail-total strong { color: #fe2c55; font-size: 23px; }
+.detail-purchase-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 20px; }
+.detail-cart-button { min-height: 48px; padding: 10px 14px; border: 1px solid #fe2c55; border-radius: 10px; background: #fff1f4; color: #e51e46; font-size: 15px; font-weight: 650; }
+.detail-cart-button:hover:not(:disabled) { background: #ffe1e8; }
+.detail-cart-button:disabled { border-color: #f0cdd5; color: #d7a3af; cursor: not-allowed; }
+.detail-cart-button:focus-visible { outline: 3px solid #111; outline-offset: 3px; }
+.detail-specs { margin-top: 48px; padding: 28px; border: 1px solid #eee; border-radius: 16px; background: #fff; }
+.detail-specs h2 { margin-bottom: 20px; font-size: 21px; font-weight: 650; }
+.detail-specs h3 { font-size: 17px; font-weight: 600; }
+.detail-specs .table { --bs-table-striped-bg: #fafafa; --bs-table-border-color: #f0f0f0; font-size: 13px; }
+.detail-specs .table > :not(caption) > * > * { padding: 13px 16px; vertical-align: middle; }
+.product-detail-page .detail-specs th { color: #666; font-weight: 500; }
+.product-detail-page .detail-variants-table th { width: auto; white-space: nowrap; background: #f7f7f8; }
+@media (max-width: 767px) {
+  .detail-purchase-panel { padding: 8px 12px; }
+  .product-detail-page .detail-image-button { height: 340px; }
+  .detail-price { font-size: 26px; padding: 12px 16px; }
+  .detail-specs { margin-top: 32px; padding: 18px 12px; }
+  .detail-purchase-actions { gap: 8px; }
+  .detail-cart-button, .detail-purchase-actions .purchase-confirm { font-size: 13px; }
+}
+
+.product-detail-page .detail-back-button { display: inline-flex; align-items: center; gap: 9px; min-height: 42px; margin-bottom: 24px; padding: 10px 15px; border: 1px solid #f6d5dd; border-radius: 10px; background: #fff1f4; color: #e51e46; font-size: 13px; font-weight: 600; text-decoration: none; transition: background .15s, border-color .15s; }
+.product-detail-page .detail-back-button:hover { background: #ffe1e8; border-color: #fe2c55; color: #e51e46; }
+.product-detail-page .detail-back-button:active { background: #ffd3de; }
+.product-detail-page .detail-back-button:focus-visible { outline: 3px solid #111; outline-offset: 3px; }
+.product-detail-page .detail-back-button svg { flex-shrink: 0; }
