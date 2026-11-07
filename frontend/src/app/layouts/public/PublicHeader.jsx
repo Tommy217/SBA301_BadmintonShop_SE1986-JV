@@ -94,6 +94,9 @@ export default function PublicHeader({ management = false }) {
               </Dropdown.Toggle>
               <Dropdown.Menu className="header-account-menu">
                 <Dropdown.Header className="text-truncate">{user.email}</Dropdown.Header>
+                <Dropdown.Item as={Link} to="/profile">
+                  Hồ sơ cá nhân
+                </Dropdown.Item>
                 <Dropdown.Item as={Link} to={accountPath}>
                   {accountLabel}
                 </Dropdown.Item>

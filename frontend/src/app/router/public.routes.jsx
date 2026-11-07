@@ -15,6 +15,7 @@ import MySupportTicketsPage from '@/modules/support/pages/MySupportTicketsPage';
 import CreateSupportTicketPage from '@/modules/support/pages/CreateSupportTicketPage';
 import SupportTicketDetailPage from '@/modules/support/pages/SupportTicketDetailPage';
 import OrderTrackingPage from '@/modules/delivery/pages/OrderTrackingPage';
+import ProfilePage from '@/modules/auth/pages/ProfilePage';
 import { Navigate } from 'react-router';
 export const publicRoutes = [
   { path: '/login', element: <Login /> },
@@ -29,6 +30,7 @@ export const publicRoutes = [
       {
         element: <ProtectedRoute />,
         children: [
+          { path: 'profile', element: <ProfilePage /> },
           { path: 'cart', element: <CartPage /> },
           { path: 'order', element: <OrderPage /> },
           { path: 'orders', element: <OrdersPage /> },
