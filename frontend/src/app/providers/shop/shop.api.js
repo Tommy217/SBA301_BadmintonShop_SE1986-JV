@@ -19,3 +19,6 @@ export async function sendShopAction(action) {
     () => catalogApi.list(undefined, 'shop'),
   );
 }
+
+// Refresh scoped order/payment data without downloading the catalog again.
+export const fetchOrderData = (config) => httpClient.get('/shop', config);

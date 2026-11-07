@@ -1,4 +1,5 @@
-import { useEffect } from 'react';
+import useOrderUpdates from '../hooks/useOrderUpdates';
+import { getOrderStatus } from '../utils/orderStatus';
 import { Alert, Badge, Button, Card } from 'react-bootstrap';
 import { Link, useLocation } from 'react-router';
 import { useShop } from '@/app/providers/shop/ShopContext';
@@ -7,19 +8,17 @@ import { carriers, deliveryStatuses } from '@/modules/delivery/constants';
 import { useMyShipments } from '@/modules/delivery/hooks/useDelivery';
 
 export default function OrdersPage() {
-  const { data, refresh } = useShop(),
+  const { data } = useShop(),
     { state } = useLocation();
-  const { data: shipments } = useMyShipments(data?.orders?.length > 0);
+  const { data: shipments, reload: reloadShipments } = useMyShipments(data?.orders?.length > 0);
 
-  useEffect(() => {
-    refresh?.();
-  }, [refresh]);
+  useOrderUpdates(reloadShipments);
   return (
     <>
       <div className="eyebrow">LỊCH SỬ MUA SẮM</div>
       <h1 className="h2 fw-bold mb-4">Đơn hàng của tôi</h1>
       {state?.placed && (
-        <Alert variant="success">Đặt hàng thành công! Đơn hàng của bạn đang chờ xác nhận.</Alert>
+        <Alert variant="success">Đặt hàng thành công! Bạn có thể theo dõi trạng thái mới nhất bên dưới.</Alert>
       )}
       {!data.orders.length && (
         <div className="empty-state">
@@ -31,7 +30,8 @@ export default function OrdersPage() {
       )}
       {[...data.orders].reverse().map((o) => {
         // danh sach van don da sap moi nhat truoc
-        const delivery = (shipments || []).find((d) => d.order_id === o.id);
+        const orderStatus = getOrderStatus(o.status);
+        const delivery = (shipments || []).find((d) => String(d.order_id) === String(o.id));
         const carrier = delivery ? carriers[delivery.carrier] : null;
         const statusInfo = delivery ? deliveryStatuses[delivery.status] : null;
         const ticket = (data.support_tickets || []).find(
@@ -47,6 +47,7 @@ export default function OrdersPage() {
                   <small className="text-secondary">{formatDateTime(o.created_at)}</small>
                 </div>
                 <div className="text-end">
+                  <Badge bg={orderStatus.variant} text={orderStatus.variant === 'warning' ? 'dark' : undefined} className="mb-1">{orderStatus.label}</Badge>
                   {delivery ? (
                     <>
                       <Badge
@@ -60,11 +61,7 @@ export default function OrdersPage() {
                         {delivery.tracking_number || 'Đang chờ cấp mã'}
                       </small>
                     </>
-                  ) : (
-                    <Badge bg="info" text="dark">
-                      Chờ xác nhận
-                    </Badge>
-                  )}
+                  ) : null}
                 </div>
               </div>
               <hr />
@@ -129,7 +126,7 @@ export default function OrdersPage() {
                   </span>
                 </Button>
 
-                {o.payment_status === 'unpaid' && (
+                {o.payment_status === 'unpaid' && !['cancelled', 'returned'].includes(o.status) && (
                   <Button
                     as={Link}
                     to={'/payments?order=' + encodeURIComponent(o.id)}

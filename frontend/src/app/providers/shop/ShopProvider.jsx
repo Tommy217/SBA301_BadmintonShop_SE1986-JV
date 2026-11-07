@@ -1,8 +1,8 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Button } from 'react-bootstrap';
 import Loading from '@/shared/components/Loading';
 import { ShopContext } from './ShopContext';
-import { fetchShopData } from './shop.api';
+import { fetchOrderData, fetchShopData } from './shop.api';
 
 const LOAD_ERROR =
   'Không tải được dữ liệu cửa hàng. Hãy kiểm tra backend Java, kết nối database và đăng nhập rồi thử lại.';
@@ -13,6 +13,8 @@ export default function ShopProvider({ children }) {
   const [data, setData] = useState(null);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const orderRevision = useRef(0);
+  const mutationActive = useRef(false);
 
   const load = useCallback(async () => {
     try {
@@ -36,6 +38,8 @@ export default function ShopProvider({ children }) {
   }, []);
 
   const act = useCallback(async (request) => {
+    mutationActive.current = true;
+    orderRevision.current += 1;
     setBusy(true);
     setError('');
     try {
@@ -51,13 +55,23 @@ export default function ShopProvider({ children }) {
       setError(e.message);
       throw e;
     } finally {
+      mutationActive.current = false;
       setBusy(false);
     }
   }, []);
 
   const refresh = useCallback(() => act(() => fetchShopData()), [act]);
 
-  const value = useMemo(() => ({ data, busy, act, refresh }), [data, busy, act, refresh]);
+  const refreshOrders = useCallback(async () => {
+    if (mutationActive.current) return;
+    const revision = ++orderRevision.current;
+    const snapshot = await fetchOrderData();
+    if (revision === orderRevision.current && !mutationActive.current) {
+      setData((previous) => previous ? { ...previous, ...snapshot } : previous);
+    }
+  }, []);
+
+  const value = useMemo(() => ({ data, busy, act, refresh, refreshOrders }), [data, busy, act, refresh, refreshOrders]);
 
   return (
     <ShopContext.Provider value={value}>

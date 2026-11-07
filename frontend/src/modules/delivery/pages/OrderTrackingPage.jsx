@@ -1,3 +1,5 @@
+import useOrderUpdates from '@/modules/shop/hooks/useOrderUpdates';
+import { getOrderStatus } from '@/modules/shop/utils/orderStatus';
 import { useState } from 'react';
 import { Alert, Badge, Button, Card, Col, Row, Spinner, Table } from 'react-bootstrap';
 import { Link, useParams } from 'react-router';
@@ -17,7 +19,8 @@ export default function OrderTrackingPage() {
   const [error, setError] = useState('');
 
   const order = (data.orders || []).find((item) => String(item.id) === orderId);
-  const { data: delivery, setData: setDelivery } = useOrderShipment(orderId, Boolean(order));
+  const { data: delivery, setData: setDelivery, reload: reloadShipment } = useOrderShipment(orderId, Boolean(order));
+  useOrderUpdates(reloadShipment);
   const orderItems = (data.order_items || []).filter((item) => String(item.order_id) === orderId);
 
   if (!order) {
@@ -50,7 +53,7 @@ export default function OrderTrackingPage() {
         label: delivery.status || 'Chưa xác định',
         variant: 'secondary',
       }
-    : { label: 'Đang chuẩn bị hàng', variant: 'warning' };
+    : getOrderStatus(order.status);
 
   async function handleRefresh() {
     if (!delivery) return;
@@ -90,6 +93,7 @@ export default function OrderTrackingPage() {
         <div>
           <div className="d-flex align-items-center gap-2 mb-1">
             <h1 className="h3 fw-bold mb-0">Đơn hàng #{order.order_code}</h1>
+            <Badge bg={getOrderStatus(order.status).variant} text={order.status === 'pending' ? 'dark' : undefined}>{getOrderStatus(order.status).label}</Badge>
             {carrier && (
               <span
                 className="carrier-badge-pill"
@@ -110,7 +114,7 @@ export default function OrderTrackingPage() {
                 Cập nhật: {formatDateTime(delivery.last_synced_at)}
               </>
             ) : (
-              'Shop đang đóng gói và chuẩn bị bàn giao cho đối tác vận chuyển.'
+              getOrderStatus(order.status).description
             )}
           </p>
         </div>
