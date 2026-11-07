@@ -1,15 +1,18 @@
-import { ManagerSearch } from '@/shared/components/ManagerControls';
+import { ManagerPagination, ManagerSearch } from '@/shared/components/ManagerControls';
 import { useState } from 'react';
 import { Badge, Button, Form, Table } from 'react-bootstrap';
 import { Link } from 'react-router';
 import { formatMoney, formatNumber } from '@/shared/utils/format';
 import { exportCsv, optionLabels } from '@/modules/management/utils/managementUtils';
 
+const PAGE_SIZE = 10;
+
 export default function InventoryOverview({ inventory }) {
   const [search, setSearch] = useState('');
   const [type, setType] = useState('');
   const [stock, setStock] = useState('');
   const [expanded, setExpanded] = useState(null);
+  const [page, setPage] = useState(1);
   const rows = inventory.products.filter(
     (p) =>
       (!type || p.product_type === type) &&
@@ -19,6 +22,20 @@ export default function InventoryOverview({ inventory }) {
         .toLocaleLowerCase('vi')
         .includes(search.toLocaleLowerCase('vi')),
   );
+  const currentPage = Math.min(page, Math.max(1, Math.ceil(rows.length / PAGE_SIZE)));
+  const pageRows = rows.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+
+  function changeFilter(setValue, value) {
+    setValue(value);
+    setPage(1);
+    setExpanded(null);
+  }
+
+  function changePage(value) {
+    setPage(value);
+    setExpanded(null);
+  }
+
   function download() {
     exportCsv(
       'bao-cao-ton-kho.csv',
@@ -96,7 +113,7 @@ export default function InventoryOverview({ inventory }) {
       <div className="manager-stock-signals">
         <button
           type="button"
-          onClick={() => setStock(stock === 'low' ? '' : 'low')}
+          onClick={() => changeFilter(setStock, stock === 'low' ? '' : 'low')}
           className={'manager-signal warning' + (stock === 'low' ? ' selected' : '')}
         >
           <strong>{inventory.low}</strong>
@@ -104,7 +121,7 @@ export default function InventoryOverview({ inventory }) {
         </button>
         <button
           type="button"
-          onClick={() => setStock(stock === 'out' ? '' : 'out')}
+          onClick={() => changeFilter(setStock, stock === 'out' ? '' : 'out')}
           className={'manager-signal danger' + (stock === 'out' ? ' selected' : '')}
         >
           <strong>{inventory.out}</strong>
@@ -123,7 +140,7 @@ export default function InventoryOverview({ inventory }) {
             <button
               type="button"
               key={g.type}
-              onClick={() => setType(type === g.type ? '' : g.type)}
+              onClick={() => changeFilter(setType, type === g.type ? '' : g.type)}
               className={type === g.type ? 'selected' : ''}
             >
               <div>
@@ -158,12 +175,12 @@ export default function InventoryOverview({ inventory }) {
             label="Tìm sản phẩm trong kho"
             placeholder="Tìm tên sản phẩm, thương hiệu, SKU…"
             value={search}
-            onChange={setSearch}
+            onChange={(value) => changeFilter(setSearch, value)}
           />
           <Form.Select
             aria-label="Loại sản phẩm trong kho"
             value={type}
-            onChange={(e) => setType(e.target.value)}
+            onChange={(e) => changeFilter(setType, e.target.value)}
           >
             <option value="">Tất cả loại sản phẩm</option>
             {inventory.groups.map((g) => (
@@ -175,7 +192,7 @@ export default function InventoryOverview({ inventory }) {
           <Form.Select
             aria-label="Tình trạng tồn kho"
             value={stock}
-            onChange={(e) => setStock(e.target.value)}
+            onChange={(e) => changeFilter(setStock, e.target.value)}
           >
             <option value="">Tất cả tồn kho</option>
             <option value="in">Còn hàng</option>
@@ -194,7 +211,7 @@ export default function InventoryOverview({ inventory }) {
             </tr>
           </thead>
           <tbody>
-            {rows.map((p) => (
+            {pageRows.map((p) => (
               <InventoryRow
                 key={p.id}
                 product={p}
@@ -211,8 +228,14 @@ export default function InventoryOverview({ inventory }) {
             )}
           </tbody>
         </Table>
+        <ManagerPagination
+          total={rows.length}
+          page={currentPage}
+          pageSize={PAGE_SIZE}
+          onChange={changePage}
+        />
         <small className="text-secondary">
-          Hiển thị {rows.length}/{inventory.totalProducts} sản phẩm · Tổng tồn trong kết quả:{' '}
+          Kết quả lọc: {rows.length}/{inventory.totalProducts} sản phẩm · Tổng tồn trong kết quả:{' '}
           {formatNumber(rows.reduce((s, p) => s + p.quantity, 0))}
         </small>
       </div>

@@ -3,7 +3,7 @@ import { AUTH_EXPIRED_EVENT, clearSession, getToken } from '@/shared/auth/sessio
 
 export const httpClient = axios.create({
   baseURL: import.meta.env.VITE_API_URL || '/api',
-  headers: { 'Content-Type': 'application/json' },
+  timeout: 15000,
 });
 
 httpClient.interceptors.request.use((config) => {
@@ -21,9 +21,18 @@ httpClient.interceptors.response.use(
       clearSession();
       window.dispatchEvent(new Event(AUTH_EXPIRED_EVENT));
     }
-    const message = error.response
-      ? error.response.data?.message || 'Yêu cầu không thành công. Vui lòng thử lại.'
-      : 'Không kết nối được server. Hãy kiểm tra npm run dev hoặc backend.';
+    const timeout = ['ECONNABORTED', 'ETIMEDOUT'].includes(error.code);
+    const readOnly = ['get', 'head', 'options'].includes(error.config?.method?.toLowerCase());
+    const message = timeout
+      ? readOnly
+        ? 'Máy chủ phản hồi quá lâu. Vui lòng thử lại.'
+        : 'Chưa nhận được xác nhận từ máy chủ. Hãy kiểm tra dữ liệu trước khi gửi lại.'
+      : error.response
+        ? error.response.data?.message ||
+          ([502, 503, 504, 530].includes(status)
+            ? 'Máy chủ tạm thời chưa sẵn sàng. Vui lòng thử lại sau.'
+            : 'Yêu cầu không thành công. Vui lòng thử lại.')
+        : 'Không kết nối được máy chủ. Vui lòng kiểm tra kết nối mạng và thử lại.';
     return Promise.reject(Object.assign(new Error(message), { status, cause: error }));
   },
 );

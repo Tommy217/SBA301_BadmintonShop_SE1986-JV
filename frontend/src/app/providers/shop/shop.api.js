@@ -7,7 +7,7 @@ import { commitShopAction } from './shopActions';
 export async function fetchShopData(config) {
   const [shopSnapshot, catalogData] = await Promise.all([
     httpClient.get('/shop', config),
-    catalogApi.list(config),
+    catalogApi.list(config, 'shop'),
   ]);
   return { ...mergeShopSnapshot(shopSnapshot, catalogData), catalogRefreshFailed: false };
 }
@@ -15,7 +15,7 @@ export async function fetchShopData(config) {
 // Read the catalog after committing the action so stock reflects the saved order.
 export async function sendShopAction(action) {
   return commitShopAction(
-    () => httpClient.post('/shop', action),
-    () => catalogApi.list(),
+    () => httpClient.post('/shop', action, { timeout: 30000 }),
+    () => catalogApi.list(undefined, 'shop'),
   );
 }

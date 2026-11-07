@@ -18,18 +18,20 @@ export default function ShopProvider({ children }) {
     try {
       setData(await fetchShopData());
       setError('');
-    } catch {
-      setError(LOAD_ERROR);
+    } catch (failure) {
+      setError(failure.message || LOAD_ERROR);
     }
   }, []);
 
   useEffect(() => {
     let active = true;
-    fetchShopData()
+    const controller = new AbortController();
+    fetchShopData({ signal: controller.signal })
       .then((result) => active && setData(result))
-      .catch(() => active && setError(LOAD_ERROR));
+      .catch((failure) => active && setError(failure.message || LOAD_ERROR));
     return () => {
       active = false;
+      controller.abort();
     };
   }, []);
 
