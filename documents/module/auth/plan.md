@@ -68,18 +68,22 @@ flowchart LR
 
 ---
 
-### Giai đoạn 3: Phân hệ Profile Management & Sổ địa chỉ (Ưu tiên 2)
+### Giai đoạn 3: Phân hệ Profile Management & Sổ địa chỉ (Đã hoàn thành)
+* **Trạng thái:** ✅ **DONE (100%)**
 * **Thời lượng dự kiến:** 2 ngày.
 * **Nhiệm vụ trọng tâm:**
-  1. **Tạo `ProfileService` & `ProfileController` (`/api/v1/profile`):**
+  - [x] ✅ **Tạo `ProfileService` & `ProfileController` (`/api/v1/profile`):**
      - `GET /api/v1/profile`: Lấy đầy đủ thông tin cá nhân của user đang đăng nhập.
      - `PUT /api/v1/profile`: Cập nhật họ tên, số điện thoại, ngày sinh, giới tính, avatar URL.
      - `POST /api/v1/profile/change-password`: Kiểm tra mật khẩu hiện tại bằng `passwordEncoder.matches`, cập nhật mật khẩu mới nếu hợp lệ.
-  2. **Quản lý sổ địa chỉ giao hàng (`/api/v1/profile/addresses`):**
+  - [x] ✅ **Quản lý sổ địa chỉ giao hàng (`/api/v1/profile/addresses`):**
      - `GET /api/v1/profile/addresses`: Lấy danh sách địa chỉ nhận hàng của user.
      - `POST /api/v1/profile/addresses`: Thêm địa chỉ mới; nếu đánh dấu `is_default = true`, tự động hủy cờ mặc định của các địa chỉ cũ.
      - `PUT /api/v1/profile/addresses/{id}`: Chỉnh sửa thông tin địa chỉ (chỉ được sửa địa chỉ của chính mình).
      - `DELETE /api/v1/profile/addresses/{id}`: Xóa địa chỉ nhận hàng.
+  - [x] ✅ **Bộ kiểm thử tự động (Unit & Integration Tests):**
+     - `ProfileServiceTest`: 13/13 tests kiểm tra logic cập nhật profile, đổi mật khẩu, sổ địa chỉ và chuyển cờ mặc định.
+     - `ProfileControllerTest`: 8/8 tests kiểm tra xác thực JWT, mã trạng thái HTTP (200, 201, 401, 404).
 
 ---
 
@@ -103,21 +107,21 @@ flowchart LR
 
 | Phân hệ | Phương thức | Endpoint | Phân quyền | Bảng CSDL tác động |
 | :--- | :---: | :--- | :---: | :--- |
-| **Auth** | `POST` | `/api/v1/auth/register` | Public | `users`, `user_roles` |
-| **Auth** | `POST` | `/api/v1/auth/login` | Public | `users` (`last_login_at`) |
-| **Auth** | `POST` | `/api/v1/auth/logout` | Authenticated | Không |
-| **Auth** | `GET` | `/api/v1/auth/me` | Authenticated | `users`, `user_roles`, `roles` |
-| **Profile** | `GET` | `/api/v1/profile` | Authenticated | `users` |
-| **Profile** | `PUT` | `/api/v1/profile` | Authenticated | `users` |
-| **Profile** | `POST` | `/api/v1/profile/change-password` | Authenticated | `users` (`password_hash`) |
-| **Profile** | `GET` | `/api/v1/profile/addresses` | Authenticated | `addresses` |
-| **Profile** | `POST` | `/api/v1/profile/addresses` | Authenticated | `addresses` |
-| **Profile** | `PUT` | `/api/v1/profile/addresses/{id}` | Authenticated | `addresses` |
-| **Profile** | `DELETE` | `/api/v1/profile/addresses/{id}` | Authenticated | `addresses` |
-| **User Admin** | `GET` | `/api/v1/users` | `ROLE_ADMIN` | `users`, `user_roles`, `roles` |
-| **User Admin** | `GET` | `/api/v1/users/{id}` | `ROLE_ADMIN` | `users`, `user_roles`, `roles` |
-| **User Admin** | `POST` | `/api/v1/users` | `ROLE_ADMIN` | `users`, `user_roles` |
-| **User Admin** | `PATCH` | `/api/v1/users/{id}` | `ROLE_ADMIN` | `users`, `user_roles` |
+| **Auth** | `POST` | `/api/v1/auth/register` | Public | `users`, `user_roles` | ✅ **DONE** |
+| **Auth** | `POST` | `/api/v1/auth/login` | Public | `users` (`last_login_at`) | ✅ **DONE** |
+| **Auth** | `POST` | `/api/v1/auth/logout` | Authenticated | Không | ✅ **DONE** |
+| **Auth** | `GET` | `/api/v1/auth/me` | Authenticated | `users`, `user_roles`, `roles` | ✅ **DONE** |
+| **Profile** | `GET` | `/api/v1/profile` | Authenticated | `users` | ✅ **DONE** |
+| **Profile** | `PUT` | `/api/v1/profile` | Authenticated | `users` | ✅ **DONE** |
+| **Profile** | `POST` | `/api/v1/profile/change-password` | Authenticated | `users` (`password_hash`) | ✅ **DONE** |
+| **Profile** | `GET` | `/api/v1/profile/addresses` | Authenticated | `addresses` | ✅ **DONE** |
+| **Profile** | `POST` | `/api/v1/profile/addresses` | Authenticated | `addresses` | ✅ **DONE** |
+| **Profile** | `PUT` | `/api/v1/profile/addresses/{id}` | Authenticated | `addresses` | ✅ **DONE** |
+| **Profile** | `DELETE` | `/api/v1/profile/addresses/{id}` | Authenticated | `addresses` | ✅ **DONE** |
+| **User Admin** | `GET` | `/api/v1/users` | `ROLE_ADMIN` | `users`, `user_roles`, `roles` | ⏳ *Chưa làm* |
+| **User Admin** | `GET` | `/api/v1/users/{id}` | `ROLE_ADMIN` | `users`, `user_roles`, `roles` | ⏳ *Chưa làm* |
+| **User Admin** | `POST` | `/api/v1/users` | `ROLE_ADMIN` | `users`, `user_roles` | ⏳ *Chưa làm* |
+| **User Admin** | `PATCH` | `/api/v1/users/{id}` | `ROLE_ADMIN` | `users`, `user_roles` | ⏳ *Chưa làm* |
 
 ---
 

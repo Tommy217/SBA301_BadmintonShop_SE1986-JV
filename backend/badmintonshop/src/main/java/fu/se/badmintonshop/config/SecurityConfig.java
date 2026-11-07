@@ -72,7 +72,7 @@ public class SecurityConfig {
                     "/api/vouchers/**",
                     "/api/carriers/**"
                 ).permitAll()
-                .requestMatchers("/api/auth/**", "/api/v1/auth/**", "/api/v1/profile/**").authenticated()
+                .requestMatchers("/api/auth/**", "/api/v1/auth/**", "/api/profile", "/api/profile/**", "/api/v1/profile", "/api/v1/profile/**").authenticated()
                 .requestMatchers("/api/users/**", "/api/v1/users/**").hasRole("ADMIN")
                 .requestMatchers("/api/manager/shipments", "/api/manager/shipments/**").hasAnyRole("STAFF", "MANAGER", "ADMIN")
                 .requestMatchers("/api/manager/**").hasAnyRole("MANAGER", "ADMIN")

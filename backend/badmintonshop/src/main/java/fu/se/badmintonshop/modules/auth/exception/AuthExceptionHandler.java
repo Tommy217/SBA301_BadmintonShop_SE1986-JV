@@ -9,7 +9,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.util.Map;
 
-@RestControllerAdvice(basePackageClasses = AuthController.class)
+@RestControllerAdvice(basePackages = "fu.se.badmintonshop.modules.auth.controller")
 public class AuthExceptionHandler {
 
     @ExceptionHandler(ResponseStatusException.class)
