@@ -10,6 +10,7 @@ import { payments } from '@/modules/management/constants';
 import useOrderUpdates from '../hooks/useOrderUpdates';
 import { getOrderStatus } from '../utils/orderStatus';
 import { productImage, productImageFallback } from '../utils/productImages';
+import ShopPagination from '../components/ShopPagination';
 import '../orders.css';
 
 const tabs = [
@@ -25,18 +26,22 @@ export default function OrdersPage() {
   const { data } = useShop();
   const { state } = useLocation();
   const [activeTab, setActiveTab] = useState('all');
+  const [page, setPage] = useState(1);
   const { data: shipments, reload: reloadShipments } = useMyShipments(data?.orders?.length > 0);
   useOrderUpdates(reloadShipments);
   const orders = [...data.orders].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
   const visibleOrders = orders.filter(tabs.find((tab) => tab.id === activeTab).match);
+  const totalPages = Math.max(1, Math.ceil(visibleOrders.length / 5));
+  const currentPage = Math.min(page, totalPages);
+  const pageOrders = visibleOrders.slice((currentPage - 1) * 5, currentPage * 5);
 
   return <section className="customer-orders">
     <header className="orders-heading"><div><span className="orders-eyebrow">MUA SẮM CỦA BẠN</span><h1>Đơn hàng của tôi</h1><p>Theo dõi đơn hàng và những món đồ bạn yêu thích.</p></div><Link to="/products" className="orders-shop-link">Tiếp tục mua sắm <span aria-hidden="true">↗</span></Link></header>
     {state?.placed && <Alert variant="success">Đặt hàng thành công! Trạng thái mới nhất sẽ được cập nhật tại đây.</Alert>}
-    <nav className="orders-tabs" aria-label="Lọc trạng thái đơn hàng">{tabs.map((tab) => <button type="button" key={tab.id} className={activeTab === tab.id ? 'is-active' : ''} aria-pressed={activeTab === tab.id} onClick={() => setActiveTab(tab.id)}>{tab.label}{tab.id === 'all' && <span>{orders.length}</span>}</button>)}</nav>
+    <nav className="orders-tabs" aria-label="Lọc trạng thái đơn hàng">{tabs.map((tab) => <button type="button" key={tab.id} className={activeTab === tab.id ? 'is-active' : ''} aria-pressed={activeTab === tab.id} onClick={() => { setActiveTab(tab.id); setPage(1); }}>{tab.label}{tab.id === 'all' && <span>{orders.length}</span>}</button>)}</nav>
     <div className="orders-list" aria-live="polite">
       {!visibleOrders.length && <div className="orders-empty"><span className="orders-empty-icon"><Icon name="bag" size={32} /></span><h2>{orders.length ? 'Chưa có đơn hàng ở mục này' : 'Bạn chưa có đơn hàng nào'}</h2><p>Khám phá trang bị cho trận cầu tiếp theo của bạn.</p><Link className="order-action order-action-primary" to="/products">Khám phá sản phẩm</Link></div>}
-      {visibleOrders.map((order) => {
+      {pageOrders.map((order) => {
         const status = getOrderStatus(order.status);
         const delivery = (shipments || []).find((d) => String(d.order_id) === String(order.id));
         const carrier = carriers[delivery?.carrier];
@@ -69,5 +74,6 @@ export default function OrdersPage() {
         </article>;
       })}
     </div>
+    <ShopPagination page={currentPage} totalPages={totalPages} total={visibleOrders.length} noun="đơn hàng" onChange={setPage} />
   </section>;
 }

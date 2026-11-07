@@ -1,4 +1,5 @@
 import ProductCard from '../components/ProductCard';
+import ShopPagination from '../components/ShopPagination';
 import ProductOptionsModal from '../components/ProductOptionsModal';
 import { productApi } from '@/modules/management/api/catalog.api';
 import { productImage, productImageFallback } from '../utils/productImages';
@@ -8,7 +9,7 @@ import { getToken } from '@/shared/auth/session';
 import Icon from '@/shared/components/Icon';
 import '@/modules/shop/shop.css';
 import { useEffect, useState } from 'react';
-import { Alert, Button, Col, Form, Modal, Pagination, Row } from 'react-bootstrap';
+import { Alert, Button, Col, Form, Modal, Row } from 'react-bootstrap';
 import { Link, useNavigate } from 'react-router';
 import { useShop } from '@/app/providers/shop/ShopContext';
 export default function HomePage({ catalog = false }) {
@@ -142,14 +143,7 @@ export default function HomePage({ catalog = false }) {
           <ProductCard product={product} data={data} busy={busy} onPreview={setPreview} onPurchase={setPurchase} />
         </Col>)}
       </Row>
-      {result?.totalPages > 1 && !loadError && <div className="d-flex justify-content-between align-items-center flex-wrap gap-2 mt-4">
-        <small className="text-secondary">Trang {page + 1} / {result.totalPages} · {result.totalElements} sản phẩm</small>
-        <Pagination className="mb-0" aria-label="Phân trang sản phẩm">
-          <Pagination.Prev disabled={loading || page === 0} onClick={() => changePage(page - 1)} />
-          {Array.from({ length: result.totalPages }, (_, index) => <Pagination.Item key={index} active={page === index} disabled={loading} onClick={() => changePage(index)}>{index + 1}</Pagination.Item>)}
-          <Pagination.Next disabled={loading || page >= result.totalPages - 1} onClick={() => changePage(page + 1)} />
-        </Pagination>
-      </div>}
+      {!loadError && <ShopPagination page={page + 1} totalPages={result?.totalPages || 0} total={result?.totalElements || 0} noun="sản phẩm" disabled={loading} onChange={(next) => changePage(next - 1)} />}
       {purchase && <ProductOptionsModal product={purchase.product} data={data} buy={purchase.buy} busy={busy} onHide={() => setPurchase(null)} onConfirm={add} />}
       <Modal show={Boolean(preview)} onHide={() => setPreview(null)} centered size="lg">
         <Modal.Header closeButton><Modal.Title className="h5">{preview?.product.name}</Modal.Title></Modal.Header>
