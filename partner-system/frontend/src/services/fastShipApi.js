@@ -30,4 +30,14 @@ export const consoleApi = {
   reject: (id, reason) => post(`/console/shipments/${encodeURIComponent(id)}/reject`, { reason }),
   updateStatus: (id, status, note, location) =>
     post(`/console/shipments/${encodeURIComponent(id)}/status`, { status, note, location }),
+  // nhat ky webhook gui shop
+  webhooks: (shipmentId, state) => {
+    const q = new URLSearchParams();
+    if (shipmentId) q.set("shipmentId", shipmentId);
+    if (state) q.set("state", state);
+    const qs = q.toString();
+    return request(`/console/webhooks${qs ? `?${qs}` : ""}`);
+  },
+  webhookConfig: () => request("/console/webhooks/config"),
+  retryWebhook: (id) => post(`/console/webhooks/${encodeURIComponent(id)}/retry`),
 };

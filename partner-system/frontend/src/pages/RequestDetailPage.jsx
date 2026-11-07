@@ -61,7 +61,10 @@ export default function RequestDetailPage({ id }) {
           <div>
             <Link to="/requests" className="console-back">← Yêu cầu tạo vận đơn</Link>
             <h1 className="console-title">Đơn {s.shopOrderCode || s.shopOrderId}</h1>
-            <p className="console-desc">Vận đơn shop #{s.shopShipmentId} · gửi lúc {formatDate(s.createdAt)}</p>
+            <p className="console-desc">
+              Vận đơn shop #{s.shopShipmentId} · gửi lúc {formatDate(s.createdAt)} ·{" "}
+              <Link to={`/webhooks?shipmentId=${encodeURIComponent(s.id)}`}>Webhook đã gửi shop</Link>
+            </p>
           </div>
           <span className={`badge-status ${badge.cls}`}>{badge.label}</span>
         </div>

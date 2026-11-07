@@ -39,7 +39,7 @@ export default function ShipmentsPage() {
     try {
       const updated = await consoleApi.updateStatus(s.id, next, note || null, null);
       setItems((list) => list.map((x) => (x.id === updated.id ? updated : x)));
-      setLog(`[${new Date().toLocaleTimeString("vi-VN")}] ${updated.trackingCode}: ${label}. Shop bấm "Đồng bộ" để nhận trạng thái mới.`);
+      setLog(`[${new Date().toLocaleTimeString("vi-VN")}] ${updated.trackingCode}: ${label}. Đã báo shop qua webhook (xem Nhật ký webhook).`);
     } catch (e) {
       setError(e.message);
     } finally {
