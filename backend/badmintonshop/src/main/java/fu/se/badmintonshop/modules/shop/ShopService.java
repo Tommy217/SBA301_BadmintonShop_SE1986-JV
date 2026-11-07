@@ -97,7 +97,10 @@ public class ShopService {
                 long variantId = id(action.get("variant_id"));
                 var variant = variant(variantId);
                 var existing = rows("SELECT id,quantity FROM cart_items WHERE cart_id=? AND variant_id=?", cartId, variantId);
-                int quantity = existing.isEmpty() ? 1 : number(existing.getFirst().get("quantity")) + 1;
+                int addedQuantity = positiveInt(action.getOrDefault("quantity", 1));
+                long totalQuantity = (existing.isEmpty() ? 0L : number(existing.getFirst().get("quantity"))) + addedQuantity;
+                require(totalQuantity <= number(variant.get("stock_quantity")), HttpStatus.CONFLICT, "Sản phẩm không đủ tồn kho.");
+                int quantity = (int) totalQuantity;
                 require(quantity <= number(variant.get("stock_quantity")), HttpStatus.CONFLICT, "Sản phẩm không đủ tồn kho.");
                 if (existing.isEmpty()) insert("INSERT INTO cart_items(cart_id,variant_id,quantity,is_selected,added_at) VALUES(?,?,?,?,?)", cartId, variantId, quantity, true, now());
                 else jdbc.update("UPDATE cart_items SET quantity=? WHERE id=?", quantity, id(existing.getFirst().get("id")));

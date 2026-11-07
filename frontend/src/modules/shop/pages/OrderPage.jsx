@@ -15,11 +15,15 @@ export default function OrderPage() {
   const [params] = useSearchParams();
   const directVariant = params.get('variant');
   const fromCart = !directVariant && params.get('source') === 'cart';
-  const [quantity, setQuantity] = useState(1);
+  const [quantity, setQuantity] = useState(() => {
+    const requested = Number(params.get('quantity'));
+    const stock = data.product_variants.find((v) => String(v.id) === directVariant && v.is_active)?.stock_quantity || 1;
+    return Number.isSafeInteger(requested) && requested > 0 ? Math.min(requested, stock) : 1;
+  });
   const [voucherCode, setVoucherCode] = useState('');
   const [appliedCode, setAppliedCode] = useState('');
   const [voucherError, setVoucherError] = useState('');
-  const [paymentMethod, setPaymentMethod] = useState('prepaid');
+  const [paymentMethod] = useState('prepaid');
   const [form, setForm] = useState({
     receiver_name: '',
     receiver_phone: '',

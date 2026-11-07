@@ -1,3 +1,4 @@
+import ProductOptionsModal from '../components/ProductOptionsModal';
 import { productApi } from '@/modules/management/api/catalog.api';
 import { productImage, productImageFallback } from '../utils/productImages';
 import { useAuth } from '@/app/providers/auth/AuthContext';
@@ -31,13 +32,14 @@ export default function HomePage({ catalog = false }) {
   }, [page, search, type, retry]);
   function changePage(next) { setLoading(true); setPage(next); }
   const navigate = useNavigate();
-  async function add(id, buy) {
+  const [purchase, setPurchase] = useState(null);
+  async function add(id, buy, quantity = 1) {
     if (!getToken(user)) {
       navigate('/login', {
         state: {
           from: {
             pathname: buy ? '/order' : '/cart',
-            search: buy ? '?variant=' + encodeURIComponent(id) : '',
+            search: buy ? '?variant=' + encodeURIComponent(id) + '&quantity=' + quantity : '',
           },
           message: 'Vui lòng đăng nhập để mua hàng.',
         },
@@ -45,14 +47,14 @@ export default function HomePage({ catalog = false }) {
       return;
     }
     if (buy) {
-      navigate('/order?variant=' + encodeURIComponent(id));
+      navigate('/order?variant=' + encodeURIComponent(id) + '&quantity=' + quantity);
       return;
     }
     try {
-      await act(() => cartApi.addItem(id));
+      await act(() => cartApi.addItem(id, quantity));
       setNotice('Đã thêm sản phẩm vào giỏ hàng.');
     } catch {
-      /* Error shown by provider. */
+      throw new Error('Không thể thêm sản phẩm vào giỏ.');
     }
   }
 
@@ -158,8 +160,8 @@ export default function HomePage({ catalog = false }) {
                     <Badge bg={v?.stock_quantity ? 'success' : 'secondary'}>{v?.stock_quantity ? 'Còn ' + v.stock_quantity + ' sản phẩm' : 'Hết hàng'}</Badge>
                   </div>
                   <div className="product-actions mt-auto">
-                    <Button variant="outline-primary" className="icon-button" disabled={busy || !v?.stock_quantity} aria-label={'Thêm ' + p.name + ' vào giỏ'} title="Thêm vào giỏ" onClick={() => options.length > 1 ? navigate('/products/' + p.id) : add(v.id, false)}><Icon name="cart" size={18} /></Button>
-                    <Button className="icon-button" disabled={busy || !v?.stock_quantity} onClick={() => options.length > 1 ? navigate('/products/' + p.id) : add(v.id, true)}><Icon name="bag" size={18} />Đặt hàng</Button>
+                    <Button variant="outline-primary" className="icon-button" disabled={busy || !v?.stock_quantity} aria-label={'Thêm ' + p.name + ' vào giỏ'} title="Thêm vào giỏ" onClick={() => setPurchase({ product: p, buy: false })}><Icon name="cart" size={18} /></Button>
+                    <Button className="icon-button" disabled={busy || !v?.stock_quantity} onClick={() => setPurchase({ product: p, buy: true })}><Icon name="bag" size={18} />Đặt hàng</Button>
                   </div>
                 </Card.Body>
               </Card>
@@ -175,6 +177,7 @@ export default function HomePage({ catalog = false }) {
           <Pagination.Next disabled={loading || page >= result.totalPages - 1} onClick={() => changePage(page + 1)} />
         </Pagination>
       </div>}
+      {purchase && <ProductOptionsModal product={purchase.product} data={data} buy={purchase.buy} busy={busy} onHide={() => setPurchase(null)} onConfirm={add} />}
       <Modal show={Boolean(preview)} onHide={() => setPreview(null)} centered size="lg">
         <Modal.Header closeButton><Modal.Title className="h5">{preview?.product.name}</Modal.Title></Modal.Header>
         <Modal.Body className="product-preview">
