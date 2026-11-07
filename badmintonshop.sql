@@ -2324,7 +2324,7 @@ BEGIN TRY
  ) s(slug,gender,apparel_kind,material) JOIN dbo.products p ON p.slug=s.slug
  WHERE NOT EXISTS (SELECT 1 FROM dbo.apparel_specs x WHERE x.product_id=p.id);
 
- -- Moi san pham 2 bien the, co gia von, ton kho va barcode de trong.
+ -- Moi san pham 2 mau x 2 kich co = 4 bien the; SKU va ton kho rieng cho tung to hop.
 
  INSERT INTO dbo.product_variants(product_id,sku,barcode,color,size,price,cost_price,stock_quantity,low_stock_threshold,is_active,weight_grams,created_at,updated_at)
  SELECT p.id,s.sku,NULL,s.color,s.size,s.price,s.cost_price,s.stock_quantity,s.low_stock_threshold,1,0,SYSDATETIME(),SYSDATETIME()
@@ -2358,7 +2358,37 @@ BEGIN TRY
  (N'li-ning-shirt-aayu', N'NEW-14-M', N'Đen', N'M', 390000, 253500, 14, 5),
  (N'li-ning-shirt-aayu', N'NEW-14-L', N'Trắng', N'L', 390000, 253500, 23, 5),
  (N'badminton-shop-training-socks', N'NEW-15-M', N'Đen', N'M', 99000, 64350, 14, 5),
- (N'badminton-shop-training-socks', N'NEW-15-L', N'Trắng', N'L', 99000, 64350, 23, 5)
+ (N'badminton-shop-training-socks', N'NEW-15-L', N'Trắng', N'L', 99000, 64350, 23, 5),
+ (N'yonex-astrox-100zz', N'NEW-01-3U-G5-C1', N'Đen', N'3U-G5', 3890000, 2528500, 23, 5),
+ (N'yonex-astrox-100zz', N'NEW-01-4U-G5-C2', N'Xanh', N'4U-G5', 3890000, 2528500, 14, 5),
+ (N'yonex-arcsaber-11-pro', N'NEW-02-3U-G5-C1', N'Đen', N'3U-G5', 4190000, 2723500, 23, 5),
+ (N'yonex-arcsaber-11-pro', N'NEW-02-4U-G5-C2', N'Xanh', N'4U-G5', 4190000, 2723500, 14, 5),
+ (N'yonex-nanoflare-1000z', N'NEW-03-3U-G5-C1', N'Đen', N'3U-G5', 4590000, 2983500, 23, 5),
+ (N'yonex-nanoflare-1000z', N'NEW-03-4U-G5-C2', N'Xanh', N'4U-G5', 4590000, 2983500, 14, 5),
+ (N'victor-thruster-ryuga-ii', N'NEW-04-3U-G5-C1', N'Đen', N'3U-G5', 3690000, 2398500, 23, 5),
+ (N'victor-thruster-ryuga-ii', N'NEW-04-4U-G5-C2', N'Xanh', N'4U-G5', 3690000, 2398500, 14, 5),
+ (N'victor-auraspeed-90k-ii', N'NEW-05-3U-G5-C1', N'Đen', N'3U-G5', 3490000, 2268500, 23, 5),
+ (N'victor-auraspeed-90k-ii', N'NEW-05-4U-G5-C2', N'Xanh', N'4U-G5', 3490000, 2268500, 14, 5),
+ (N'li-ning-axforce-90-dragon', N'NEW-06-3U-G5-C1', N'Đen', N'3U-G5', 3990000, 2593500, 23, 5),
+ (N'li-ning-axforce-90-dragon', N'NEW-06-4U-G5-C2', N'Xanh', N'4U-G5', 3990000, 2593500, 14, 5),
+ (N'yonex-power-cushion-65z3', N'NEW-07-42-C1', N'Đen', N'42', 2890000, 1878500, 23, 5),
+ (N'yonex-power-cushion-65z3', N'NEW-07-40-C2', N'Trắng', N'40', 2890000, 1878500, 14, 5),
+ (N'yonex-aerus-z2', N'NEW-08-42-C1', N'Đen', N'42', 3190000, 2073500, 23, 5),
+ (N'yonex-aerus-z2', N'NEW-08-40-C2', N'Trắng', N'40', 3190000, 2073500, 14, 5),
+ (N'victor-p9200iii', N'NEW-09-42-C1', N'Đen', N'42', 2590000, 1683500, 23, 5),
+ (N'victor-p9200iii', N'NEW-09-40-C2', N'Trắng', N'40', 2590000, 1683500, 14, 5),
+ (N'li-ning-saga-lite', N'NEW-10-42-C1', N'Đen', N'42', 1790000, 1163500, 23, 5),
+ (N'li-ning-saga-lite', N'NEW-10-40-C2', N'Trắng', N'40', 1790000, 1163500, 14, 5),
+ (N'yonex-shirt-crew-10650', N'NEW-11-L-C1', N'Đen', N'L', 590000, 383500, 23, 5),
+ (N'yonex-shirt-crew-10650', N'NEW-11-M-C2', N'Trắng', N'M', 590000, 383500, 14, 5),
+ (N'yonex-shorts-15110', N'NEW-12-L-C1', N'Đen', N'L', 490000, 318500, 23, 5),
+ (N'yonex-shorts-15110', N'NEW-12-M-C2', N'Trắng', N'M', 490000, 318500, 14, 5),
+ (N'victor-shirt-t25000', N'NEW-13-L-C1', N'Đen', N'L', 450000, 292500, 23, 5),
+ (N'victor-shirt-t25000', N'NEW-13-M-C2', N'Trắng', N'M', 450000, 292500, 14, 5),
+ (N'li-ning-shirt-aayu', N'NEW-14-L-C1', N'Đen', N'L', 390000, 253500, 23, 5),
+ (N'li-ning-shirt-aayu', N'NEW-14-M-C2', N'Trắng', N'M', 390000, 253500, 14, 5),
+ (N'badminton-shop-training-socks', N'NEW-15-L-C1', N'Đen', N'L', 99000, 64350, 23, 5),
+ (N'badminton-shop-training-socks', N'NEW-15-M-C2', N'Trắng', N'M', 99000, 64350, 14, 5)
  ) s(slug,sku,color,size,price,cost_price,stock_quantity,low_stock_threshold) JOIN dbo.products p ON p.slug=s.slug
  WHERE NOT EXISTS (SELECT 1 FROM dbo.product_variants v WHERE v.sku=s.sku)
    AND NOT EXISTS (SELECT 1 FROM dbo.product_variants v WHERE v.product_id=p.id AND v.color=s.color AND v.size=s.size);
