@@ -6,6 +6,7 @@ import { formatMoney } from '@/shared/utils/format';
 import Icon from '@/shared/components/Icon';
 import QuantityControl from '@/shared/components/QuantityControl';
 import '@/modules/shop/shop.css';
+import '../cart.css';
 import { cartApi } from '../api/shop.api';
 
 export default function CartPage() {
