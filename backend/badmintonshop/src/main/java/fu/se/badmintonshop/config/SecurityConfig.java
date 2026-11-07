@@ -28,7 +28,7 @@ public class SecurityConfig {
             .exceptionHandling(e -> e.authenticationEntryPoint((req,res,ex) -> res.sendError(401)).accessDeniedHandler((req,res,ex) -> res.sendError(403)))
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/error").permitAll()
-                .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/shop").permitAll()
+                .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/shop", "/api/catalog").permitAll()
                 .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/auth/login", "/api/v1/payments/payos/webhook").permitAll()
                 .requestMatchers("/api/auth/**").authenticated()
                 .requestMatchers("/api/users/**").hasRole("ADMIN")
@@ -51,6 +51,7 @@ public class SecurityConfig {
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("*"));
         configuration.setAllowCredentials(true);
+        configuration.setMaxAge(3600L);
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
         return source;

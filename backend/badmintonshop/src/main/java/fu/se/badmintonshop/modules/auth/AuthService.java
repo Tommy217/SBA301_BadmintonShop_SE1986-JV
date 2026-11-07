@@ -16,8 +16,15 @@ public class AuthService {
  public record User(long id,String email,String fullName,List<String> roles,boolean isActive) {}
  public AuthService(JdbcTemplate jdbc) { this.jdbc=jdbc; }
  public User user(long id) {
-  return jdbc.query("SELECT id,email,full_name,status FROM users WHERE id=?",(rs,n)->new User(rs.getLong("id"),rs.getString("email"),rs.getString("full_name"),
-   jdbc.queryForList("SELECT r.code FROM roles r JOIN user_roles ur ON ur.role_id=r.id WHERE ur.user_id=?",String.class,id).stream().map(r->r.toUpperCase(Locale.ROOT)).toList(),"active".equals(rs.getString("status"))),id).stream().findFirst().orElse(null);
+  return jdbc.query("SELECT u.id,u.email,u.full_name,u.status,r.code AS role_code FROM users u "
+   + "LEFT JOIN user_roles ur ON ur.user_id=u.id LEFT JOIN roles r ON r.id=ur.role_id WHERE u.id=? ORDER BY r.code", rs -> {
+    if (!rs.next()) return null;
+    String email=rs.getString("email"), fullName=rs.getString("full_name");
+    boolean active="active".equals(rs.getString("status"));
+    var roles=new LinkedHashSet<String>();
+    do { String role=rs.getString("role_code"); if(role!=null) roles.add(role.toUpperCase(Locale.ROOT)); } while(rs.next());
+    return new User(id,email,fullName,List.copyOf(roles),active);
+   },id);
  }
  public Map<String,Object> login(String email,String password) {
   var rows=jdbc.queryForList("SELECT id,password_hash FROM users WHERE LOWER(email)=?",email.trim().toLowerCase(Locale.ROOT));

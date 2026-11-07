@@ -51,4 +51,34 @@ class AuthServiceTest {
         assertNull(auth.authenticate(header));
         assertThrows(ResponseStatusException.class, () -> auth.login("customer@gmail.com", "123"));
     }
+
+    @Test void joinedIdentityReadKeepsUsersWithoutRolesAndCombinesMultipleRoles() {
+        jdbc.update("INSERT INTO user_roles(user_id,role_id) VALUES(4,3)");
+        assertEquals(java.util.Set.of("CUSTOMER", "STAFF"), new java.util.HashSet<>(auth.user(4).roles()));
+        jdbc.update("DELETE FROM user_roles WHERE user_id=4");
+        assertNotNull(auth.user(4));
+        assertTrue(auth.user(4).roles().isEmpty());
+        assertNull(auth.user(999));
+    }
+
+    @Test void simultaneousAuthenticationDoesNotNeedANestedPoolConnection() throws Exception {
+        try (var pool = new com.zaxxer.hikari.HikariDataSource()) {
+            pool.setDataSource(jdbc.getDataSource());
+            pool.setMaximumPoolSize(2);
+            pool.setMinimumIdle(0);
+            pool.setConnectionTimeout(1000);
+            var measuredAuth = new AuthService(new JdbcTemplate(pool));
+            String header = "Bearer " + measuredAuth.login("customer@gmail.com", "123").get("authToken");
+            var gate = new java.util.concurrent.CountDownLatch(1);
+            try (var executor = java.util.concurrent.Executors.newFixedThreadPool(8)) {
+                var checks = new java.util.ArrayList<java.util.concurrent.Future<AuthService.User>>();
+                for (int i = 0; i < 16; i++) checks.add(executor.submit(() -> {
+                    gate.await();
+                    return measuredAuth.authenticate(header);
+                }));
+                gate.countDown();
+                for (var check : checks) assertEquals(java.util.List.of("CUSTOMER"), check.get(5, java.util.concurrent.TimeUnit.SECONDS).roles());
+            }
+        }
+    }
 }
