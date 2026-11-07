@@ -1,82 +1,67 @@
 # LUỒNG HOẠT ĐỘNG MODULE THANH TOÁN (PAYMENT FLOW)
 > **Dự án:** SBA301_BadmintonShop_SE1986-JV  
-> **Cổng thanh toán:** payOS (VietQR Napas 24/7)  
-> **Quyết định phạm vi (Scope Decision):**  
-> 1. **LOẠI BỎ HOÀN TOÀN COD:** 100% đơn hàng online bắt buộc thanh toán trực tuyến qua payOS VietQR trước khi xác nhận đơn và xuất kho giao hàng.  
-> 2. **LOẠI BỎ PAYOUT API TỰ ĐỘNG:** Áp dụng phương án Hoàn tiền thủ công quét mã QR ngân hàng (Manual QR Transfer) theo phân quyền duyệt linh hoạt < Ngưỡng (Staff) và $\ge$ Ngưỡng (Manager).  
-> 3. **QUẢN LÝ CẤU HÌNH NGƯỠNG DUYỆT LINH HOẠT:** Ngưỡng phê duyệt (mặc định 3.000.000 VNĐ) được lưu trong bảng `system_settings` và Quản lý (`MANAGER`) có thể điều chỉnh trực tiếp trên hệ thống.  
-> **Kiến trúc:** Java 21, Spring Boot 3, Spring Data JPA, Spring Security, SQL Server, React 19 (Vite)
+> **Cổng thanh toán:** payOS (VietQR Napas 24/7) 
+> **Quyết định phạm vi (Scope Decision):** **LOẠI BỎ HOÀN TOÀN COD**. 100% đơn hàng online bắt buộc thanh toán trực tuyến qua payOS VietQR trước khi xuất kho giao hàng.  
+> **Kiến trúc:** Java 21, Spring Boot, Spring Data JPA, Spring Security, SQL Server, Event-Driven
 
 ---
 
 ## 1. TỔNG QUAN KIẾN TRÚC & CÁC PHƯƠNG THỨC THANH TOÁN
 
-Hệ thống hỗ trợ 2 luồng nghiệp vụ thanh toán chính thức:
-1. **payOS (VietQR Napas 24/7):** Thanh toán tự động 24/7 qua cổng OpenBanking. Khách quét mã VietQR bằng ứng dụng ngân hàng bất kỳ, Webhook tự động cập nhật đơn hàng sang `paid` và `confirmed` trong vòng vài giây. Frontend tự động Polling định kỳ mỗi 3 giây để chuyển hướng ngay khi giao dịch thành công.
-2. **Refund (Hoàn tiền thủ công qua quét QR tài khoản khách):** Áp dụng khi đổi trả hàng (`support_tickets` - UC15), hỗ trợ hoàn tiền qua quét mã QR tài khoản ngân hàng của khách với phân quyền duyệt < Ngưỡng (`STAFF`) và $\ge$ Ngưỡng (`MANAGER`), trong đó Ngưỡng hoàn tiền do Quản lý (`MANAGER`) cấu hình động trên hệ thống (lưu bảng `system_settings`).
+Hệ thống hỗ trợ 2 luồng thanh toán chính (loại bỏ hoàn toàn COD):
+1. **payOS (VietQR Napas 24/7):** Thanh toán tự động 24/7 qua cổng OpenBanking. Khách quét mã VietQR bằng ứng dụng ngân hàng bất kỳ, Webhook tự động cập nhật đơn hàng sang `paid` và `confirmed` trong vòng vài giây. Đơn hàng chỉ được đóng gói và giao đi khi đã thanh toán thành công.
+2. **Refund (Hoàn tiền thủ công qua quét QR):** Áp dụng khi đổi trả hàng (`support_tickets` - UC15), hỗ trợ hoàn tiền qua quét mã QR tài khoản ngân hàng của khách với phân quyền duyệt < 3.000.000 VNĐ (`STAFF`) và $\ge$ 3.000.000 VNĐ (`MANAGER`).
 
 ---
 
 ## 2. CHI TIẾT CÁC LUỒNG HOẠT ĐỘNG (FLOWS & SEQUENCE DIAGRAMS)
 
-### 2.1. Luồng 1: Thanh toán trực tuyến qua payOS (VietQR Flow) & Polling tự động
+### 2.1. Luồng 1: Thanh toán trực tuyến qua payOS (VietQR Flow)
 
 ```mermaid
 sequenceDiagram
     autonumber
     actor User as Khách hàng (User)
     participant FE as Frontend (React)
-    participant ShopAPI as ShopService / Controller
-    participant PayBE as PaymentService / Controller
+    participant BE as Backend (PaymentController / Service)
     participant PayOS as Cổng payOS (VietQR)
     participant BankApp as App Ngân hàng (Mobile Banking)
-    participant DB as SQL Server (badmintonshop)
+    participant DB as SQL Server (badminton_shop)
+    participant Event as EventPublisher (PaymentSuccessEvent)
 
-    User->>FE: Bấm "Đặt hàng" (Phương thức VietQR payOS)
-    FE->>ShopAPI: POST /api/shop (action: 'checkout', method: 'prepaid')
-    ShopAPI->>DB: INSERT orders (status='pending', payment_status='unpaid')
-    ShopAPI->>DB: INSERT payments (status='pending', method='qr')
-    ShopAPI-->>FE: Trả về snapshot đơn hàng mới
+    User->>FE: Chọn phương thức "VietQR (payOS)" & bấm "Đặt hàng"
+    FE->>BE: POST /api/v1/payments/create (orderId, amount, description)
+    Note over BE: 1. Sinh paymentCode (PAY-yyyyMMdd-XXXXX)<br/>2. Sinh payosOrderCode (số nguyên < 53 bit)<br/>3. Tính chữ ký HMAC-SHA256 request
+    BE->>PayOS: POST /v2/payment-requests (orderCode, amount, signature...)
+    PayOS-->>BE: Trả về checkoutUrl, qrCode, paymentLinkId
+    BE->>DB: Lưu bảng payments (status='pending', expires_at = now + 15m)
+    BE->>DB: Ghi log bảng payment_transactions (direction='request')
+    BE-->>FE: Trả về JSON (paymentId, checkoutUrl, qrCodeUrl)
     
-    FE->>FE: Chuyển hướng sang /payments?order={id} (CheckoutPage)
-    User->>FE: Bấm "Tiếp tục thanh toán"
-    FE->>ShopAPI: POST /api/shop (action: 'start_payment')
-    ShopAPI->>PayBE: createPayment(orderId)
-    
-    Note over PayBE: 1. Kiểm tra & Tái sử dụng (Reuse) bản ghi Payment pending<br/>2. Sinh payosOrderCode duy nhất (100000 + paymentId)<br/>3. Tính chữ ký số HMAC-SHA256 request
-    PayBE->>PayOS: POST /v2/payment-requests (orderCode, amount, signature...)
-    PayOS-->>PayBE: Trả về checkoutUrl, qrCode
-    PayBE->>DB: UPDATE payments (gateway='payos', qr_code_url, checkout_url)
-    PayBE->>DB: INSERT payment_transactions (direction='request', payload JSON)
-    PayBE-->>FE: Trả về qrCodeUrl, checkoutUrl, expiresAt
-    
-    FE->>FE: Chuyển hướng sang /payments/qr?order={id} (QrPaymentPage)
-    FE->>User: Hiển thị mã VietQR động chuẩn Napas 24/7 kèm số tiền & nội dung
-    
-    Note over FE: Bắt đầu Polling tự động mỗi 3 giây (fetchShopSnapshot)
-    loop Định kỳ mỗi 3 giây
-        FE->>ShopAPI: GET /api/shop (hoặc GET /api/v1/payments/{id})
-        ShopAPI-->>FE: Trả về trạng thái hiện tại
+    alt Cách 1: Quét mã QR trực tiếp trên trang Web
+        FE->>User: Hiển thị mã VietQR động trên màn hình
+        FE->>BE: Chạy Polling (cứ 3s gọi GET /api/v1/payments/{id})
+    else Cách 2: Chuyển hướng sang payOS
+        FE->>User: window.location.href = checkoutUrl
     end
 
-    User->>BankApp: Mở App Ngân hàng quét VietQR & bấm Xác nhận chuyển khoản
-    BankApp->>PayOS: Chuyển tiền liên ngân hàng Napas 24/7 thành công
-    PayOS->>PayBE: POST /api/v1/payments/payos/webhook (code="00", data, signature)
+    User->>BankApp: Mở App Ngân hàng quét mã VietQR & bấm Xác nhận chuyển khoản
+    BankApp->>PayOS: Chuyển tiền Napas 24/7 thành công
+    PayOS->>BE: POST /api/v1/payments/payos/webhook (code="00", data, signature)
     
-    Note over PayBE: 1. Verify chữ ký HMAC-SHA256 với checksumKey<br/>2. Kiểm tra Idempotency (chống trùng lặp callback)<br/>3. Ghi log payment_transactions (direction='callback')<br/>4. Cập nhật payments & orders
-    PayBE->>DB: UPDATE payments SET status='paid', paid_at=NOW()
-    PayBE->>DB: UPDATE orders SET payment_status='paid', status='confirmed'
-    PayBE-->>PayOS: HTTP 200 {"success": true, "code": "00", "message": "Processed"}
+    Note over BE: 1. Ghi log callback vào payment_transactions<br/>2. Xác thực chữ ký HMAC-SHA256 với checksumKey<br/>3. Kiểm tra Idempotency (chống trùng lặp)<br/>4. Cập nhật payments (status='paid', paid_at=now)<br/>5. Cập nhật orders (payment_status='paid', status='confirmed')
+    BE->>DB: UPDATE payments & orders
+    BE->>Event: publishEvent(PaymentSuccessEvent)
+    Note over Event: Bắn tín hiệu sang Order/Kho/Hóa đơn tự động đóng gói
+    BE-->>PayOS: HTTP 200 {"success": true, "message": "Processed"}
     
-    FE->>ShopAPI: Tick Polling tiếp theo phát hiện payment_status='paid'
-    Note over FE: Dừng Polling (clearInterval) & Tự động điều hướng
-    FE->>FE: navigate('/payments/result?order={id}')
-    FE->>User: Hiển thị màn hình "Thanh toán thành công! Đơn hàng đang được chuẩn bị"!
+    FE->>BE: GET /api/v1/payments/{id} nhận status='paid'
+    FE->>User: Hiển thị màn hình "Thanh toán thành công & Đang chuẩn bị hàng"!
 ```
 
 ---
 
-### 2.2. Luồng 2: Xử lý Hoàn tiền đổi trả (Refund Flow - UC15) & Thiết lập ngưỡng Quản lý
+### 2.2. Luồng 2: Xử lý Hoàn tiền đổi trả (Refund Flow - UC15 & UC13)
 
 ```mermaid
 sequenceDiagram
@@ -84,88 +69,52 @@ sequenceDiagram
     actor Customer as Khách hàng
     actor Staff as Nhân viên CSKH
     actor Manager as Quản lý (Manager)
-    participant FE as Frontend Quản trị (React)
-    participant TicketBE as SupportTicketService
-    participant DB as SQL Server (badmintonshop)
+    participant FE as Frontend Quản trị
+    participant BE as Backend Payment / Support Service
+    participant DB as SQL Server
 
-    opt Thiết lập ngưỡng duyệt (Dành cho Quản lý)
-        Manager->>FE: Mở modal "Thiết lập ngưỡng Quản lý duyệt" & nhập số tiền
-        FE->>TicketBE: PUT /api/manager/support-tickets/settings/threshold { threshold: 5000000 }
-        TicketBE->>DB: UPDATE system_settings SET setting_value = '5000000'
-        TicketBE-->>FE: HTTP 200 (Cập nhật thành công)
-    end
-
-    Customer->>FE: Tạo Ticket hoàn tiền (chọn đơn đã nhận, lý do, upload ảnh QR ngân hàng)
-    Staff->>FE: Nhận hàng hoàn trả & tiến hành kiểm tra chất lượng (PASSED / FAILED)
-    Staff->>TicketBE: POST /api/staff/support-tickets/{id}/inspect (PASSED)
+    Customer->>FE: Tạo Ticket hoàn tiền (chọn đơn, lý do, upload ảnh QR ngân hàng)
+    Staff->>FE: Nhận hàng hoàn trả & kiểm tra chất lượng (PASSED / FAILED)
     
-    Note over TicketBE: Đọc ngưỡng duyệt động từ bảng system_settings
-    alt Số tiền hoàn < Ngưỡng duyệt (Mặc định 3.000.000 VNĐ)
-        TicketBE->>DB: UPDATE tickets SET status='PENDING_TRANSFER', approved_by=staffId
-        TicketBE-->>FE: Chuyển thẳng sang bước chuyển khoản
-    else Số tiền hoàn >= Ngưỡng duyệt (Mặc định 3.000.000 VNĐ)
-        TicketBE->>DB: UPDATE tickets SET status='PENDING_APPROVAL' (Chờ Quản lý duyệt)
-        Manager->>FE: Xem phiếu & bấm Phê duyệt
-        FE->>TicketBE: POST /api/manager/support-tickets/{id}/decision (Approve)
-        TicketBE->>DB: UPDATE tickets SET status='PENDING_TRANSFER', approved_by=managerId
+    alt Số tiền hoàn < 3.000.000 VNĐ
+        Staff->>BE: POST /api/staff/support-tickets/{id}/approve-refund
+        BE->>DB: UPDATE tickets SET status='PENDING_TRANSFER'
+    else Số tiền hoàn >= 3.000.000 VNĐ
+        Staff->>BE: Trình phiếu sang Quản lý duyệt (PENDING_APPROVAL)
+        Manager->>BE: POST /api/manager/support-tickets/{id}/decision (Approve)
+        BE->>DB: UPDATE tickets SET status='PENDING_TRANSFER'
     end
 
-    Staff->>Customer: Mở app ngân hàng quét ảnh QR do khách upload để chuyển tiền
-    Staff->>FE: Nhập mã giao dịch ngân hàng & ghi chú chuyển tiền
-    FE->>TicketBE: POST /api/staff/support-tickets/{id}/refund-transfer (bankReference, note)
-    Note over TicketBE: 1. Lưu bản ghi refund_records & refunds (status='completed')<br/>2. Cập nhật payments.status='refunded'<br/>3. Cập nhật orders.payment_status='refunded'<br/>4. Cập nhật tickets.status='REFUNDED'
-    TicketBE->>DB: INSERT refunds & UPDATE payments, orders, tickets
-    TicketBE-->>FE: Hoàn tiền hoàn tất
-    FE->>Staff: Thông báo phiếu hỗ trợ đã hoàn tất (REFUNDED)
+    Staff->>Customer: Mở app ngân hàng quét ảnh QR của khách để chuyển tiền
+    Staff->>BE: POST /api/staff/support-tickets/{id}/refund-transfer (transactionReference, note)
+    Note over BE: 1. Lưu bảng refunds (status='completed')<br/>2. Cập nhật payments.status='refunded'<br/>3. Cập nhật orders.payment_status='refunded'<br/>4. Cập nhật tickets.status='REFUNDED'
+    BE->>DB: INSERT refunds & UPDATE payments, orders, tickets
+    BE-->>FE: Trả về kết quả hoàn tiền thành công
+    FE->>Staff: Hiển thị thông báo phiếu đã hoàn tất (REFUNDED)
 ```
 
 ---
 
-## 3. CÁC CƠ CHẾ BẢO MẬT VÀ TỐI ƯU HÓA KỸ THUẬT
+## 3. CƠ CHẾ BẢO MẬT VÀ XỬ LÝ LỖI TRONG LUỒNG THANH TOÁN
 
 ### 3.1. Xác thực chữ ký số Webhook (HMAC-SHA256)
-* Khi payOS gửi Webhook sang backend:
-  1. Backend trích xuất object `data` từ payload.
-  2. Sắp xếp toàn bộ các thuộc tính của `data` theo thứ tự chữ cái A-Z (`canonical alphabet sorting`).
-  3. Băm chuỗi dữ liệu chuẩn hóa bằng thuật toán `HmacSHA256` với khóa bí mật `PAYOS_CHECKSUM_KEY`.
-  4. Đối chiếu mã băm tính được với trường `signature` của webhook.
-  5. Nếu không khớp $\rightarrow$ Ngay lập tức từ chối HTTP 400 Bad Request, ghi log cảnh báo và không thay đổi dữ liệu đơn hàng.
+* Khi payOS gửi dữ liệu qua webhook, server tính toán lại mã băm HMAC-SHA256 từ object `data` theo thứ tự chữ cái của các trường (canonical alphabet sorting).
+* Nếu chữ ký tính được **khớp** với `signature` từ payOS $\rightarrow$ Chấp nhận giao dịch.
+* Nếu chữ ký **sai lệch** (bị sửa đổi payload trên đường truyền hoặc bị kẻ gian bắn webhook giả) $\rightarrow$ Từ chối ngay lập tức, không cập nhật DB.
 
 ### 3.2. Cơ chế Idempotency (Chống xử lý trùng lặp giao dịch)
-* Khi nhận webhook callback, `PaymentServiceImpl` tra cứu trạng thái phiên thanh toán:
-  * Nếu `payment.getStatus().equalsIgnoreCase("paid")`: Hệ thống ghi log thông tin và **bỏ qua cập nhật trùng lặp**, lập tức trả về HTTP 200 `{ "success": true, "code": "00", "message": "Processed" }`.
-  * Đảm bảo tính bất biến: webhook có thể gửi retry nhiều lần do mạng chập chờn mà không bao giờ gây duplicate trừ kho, cộng tiền hoặc gửi thông báo 2 lần.
+* Trong môi trường mạng, payOS có thể retry gửi Webhook nhiều lần nếu đường truyền chập chờn.
+* Khi nhận webhook, `PaymentServiceImpl` kiểm tra trạng thái hiện tại của `Payment`:
+  * Nếu `payment.getStatus().equals("paid")`, hệ thống ghi nhận log và **bỏ qua không cập nhật lại**, trả về HTTP 200 `{ "success": true }`.
+  * Tránh rủi ro cộng tiền 2 lần, bắn duplicate event hoặc xuất trùng hóa đơn.
 
-### 3.3. Cơ chế Tái sử dụng phiên thanh toán (Payment Session Reuse)
-* **Khắc phục lỗi tạo thừa bản ghi:**
-  * Khi `createPayment(request)` được gọi, hệ thống kiểm tra `paymentRepository.findFirstByOrderIdAndStatusOrderByCreatedAtDesc(orderId, "pending")`.
-  * Nếu đơn hàng đã có bản ghi `Payment` đang ở trạng thái `pending`:
-    * Hệ thống **tái sử dụng chính bản ghi đó**, cập nhật `method = "qr"`, `gateway = "payos"`.
-    * Nếu bản ghi đã có mã VietQR và link còn hạn (< 14 phút), hệ thống trả về ngay link cũ mà không gọi lại API payOS (tránh lỗi duplicate `orderCode` của payOS).
-    * Nếu bản ghi chưa có mã QR (vừa được tạo khi checkout), hệ thống sinh `payosOrderCode = 100000L + payment.getId()` (duy nhất tuyệt đối), gọi payOS lấy link và lưu vào bản ghi đó.
-  * Chỉ khi phiên thanh toán cũ đã bị hủy (`cancelled`), hết hạn (`expired`), hoặc lỗi (`failed`), khi khách bấm "Thanh toán lại" (Retry), hệ thống mới tạo 1 bản ghi `Payment` mới để lưu vết lịch sử phục vụ đối soát.
-
-### 3.4. Cơ chế Polling tự động định kỳ 3 giây ở Frontend
-* Trên hook [`usePayment.js`](file:///d:/_Ky7-FPTU/SBA301/gr_project/SBA301_BadmintonShop_SE1986-JV/frontend/src/modules/payment/hooks/usePayment.js):
-  * Khi mở màn hình QR (`QrPaymentPage`), timer tự động kích hoạt chu kỳ 3000ms.
-  * Khi tiền về tài khoản shop và Webhook cập nhật DB thành công $\rightarrow$ Lần poll tiếp theo phát hiện `payment_status === 'paid'`, tự động hủy timer và chuyển hướng ngay sang trang kết quả `/payments/result?order={id}`.
-  * Có cơ chế tự động dọn dẹp timer khi component unmount hoặc khi đơn bị cancelled/expired.
-
-### 3.5. Tự động nạp biến môi trường (`.env Loader`)
-* Trong [`BadmintonshopApplication.java`](file:///d:/_Ky7-FPTU/SBA301/gr_project/SBA301_BadmintonShop_SE1986-JV/backend/badmintonshop/src/main/java/fu/se/badmintonshop/BadmintonshopApplication.java):
-  * Tích hợp hàm `loadDotEnv()` chạy trước khi khởi tạo Spring Boot.
-  * Tự động nạp các biến `PAYOS_CLIENT_ID`, `PAYOS_API_KEY`, `PAYOS_CHECKSUM_KEY`, `SPRING_DATASOURCE_*` từ file `.env` vào System Properties.
-  * Spring Boot tự động đưa các biến này vào [`application.properties`](file:///d:/_Ky7-FPTU/SBA301/gr_project/SBA301_BadmintonShop_SE1986-JV/backend/badmintonshop/src/main/resources/application.properties) mà không cần cấu hình tay trên IDE.
-
-### 3.6. Thời hạn phiên thanh toán & Tự động hủy đơn (Scheduler Timeout)
-* Mỗi link payOS có thời hạn 15 phút.
-* [`PaymentTimeoutScheduler.java`](file:///d:/_Ky7-FPTU/SBA301/gr_project/SBA301_BadmintonShop_SE1986-JV/backend/badmintonshop/src/main/java/fu/se/badmintonshop/modules/payment/scheduler/PaymentTimeoutScheduler.java) chạy định kỳ mỗi 60 giây quét các payment `pending` quá 15 phút:
-  * Chuyển `payments.status = 'expired'`.
-  * Nếu đơn hàng vẫn ở trạng thái `unpaid` và `pending`, tự động chuyển `orders.status = 'cancelled'` để nhả số lượng tồn kho sản phẩm cho khách hàng khác mua.
+### 3.3. Thời hạn phiên thanh toán (Timeout & Expired)
+* Mỗi link payOS có trường `expires_at = NOW + 15 phút`.
+* Sau 15 phút nếu khách không quét mã chuyển khoản, cron job hoặc scheduler có thể quét các payment `pending` quá hạn $\rightarrow$ chuyển trạng thái sang `expired` và nhả số lượng tồn kho sản phẩm.
 
 ---
 
-## 4. BẢNG TRẠNG THÁI THANH TOÁN VÀ ĐỒNG BỘ ĐƠN HÀNG
+## 4. BẢNG TRẠNG THÁI THANH TOÁN & ĐỒNG BỘ ĐƠN HÀNG
 
 | Trạng thái `payments.status` | Trạng thái `orders.payment_status` | Trạng thái `orders.status` | Ý nghĩa nghiệp vụ |
 | :--- | :--- | :--- | :--- |
@@ -178,35 +127,32 @@ sequenceDiagram
 
 ---
 
-## 5. DANH MỤC API ENDPOINTS HOÀN CHỈNH
+## 5. CÁC API ENDPOINTS PHỤC VỤ LUỒNG THANH TOÁN
 
 | Method | Endpoint | Mục đích | Quyền truy cập |
 | :--- | :--- | :--- | :--- |
-| `POST` | `/api/v1/payments/create` | Tạo phiên thanh toán payOS VietQR (Tái sử dụng phiên pending nếu có) | Authenticated User |
-| `GET` | `/api/v1/payments/{id}` | Tra cứu trạng thái thanh toán theo Payment ID (Polling) | Authenticated User |
-| `GET` | `/api/v1/payments/by-code/{code}` | Tra cứu theo mã thanh toán nội bộ `PAY-yyyyMMdd-XXXXX` | Authenticated User |
-| `GET` | `/api/v1/payments/by-payos-code/{code}` | Tra cứu theo mã số nguyên `payosOrderCode` | Authenticated User |
-| `GET` | `/api/v1/payments/order/{orderId}` | Lịch sử các lần thử thanh toán của một đơn hàng | Authenticated User |
+| `POST` | `/api/v1/payments/create` | Tạo phiên thanh toán payOS VietQR | Authenticated User |
+| `GET` | `/api/v1/payments/{id}` | Tra cứu trạng thái thanh toán theo ID (Polling 3s) | Authenticated User |
+| `GET` | `/api/v1/payments/by-code/{code}` | Tra cứu theo mã nội bộ `PAY-...` | Authenticated User |
+| `GET` | `/api/v1/payments/by-payos-code/{code}` | Tra cứu theo mã số nguyên payOS | Authenticated User |
+| `GET` | `/api/v1/payments/order/{orderId}` | Lịch sử các lần thanh toán của đơn | Authenticated User |
 | `POST` | `/api/v1/payments/{id}/cancel` | Hủy link thanh toán | Authenticated User |
-| `POST` | `/api/v1/payments/payos/webhook` | Cổng payOS bắn Webhook thông báo kết quả (Bảo vệ HMAC-SHA256) | Public (`permitAll`) |
-| `POST` | `/api/v1/payments/payos/confirm-webhook`| Xác thực Webhook URL khi đăng ký cổng payOS | Admin (`hasRole('ADMIN')`) |
-| `GET` | `/api/manager/support-tickets/settings/threshold` | Xem ngưỡng phê duyệt hoàn tiền hiện tại của hệ thống | Manager / Admin |
-| `PUT` | `/api/manager/support-tickets/settings/threshold` | Cập nhật ngưỡng phê duyệt hoàn tiền linh hoạt | Manager / Admin |
-| `POST` | `/api/staff/support-tickets/{id}/approve-refund` | Duyệt hoàn tiền khoản < Ngưỡng xét duyệt | Staff |
-| `POST` | `/api/manager/support-tickets/{id}/decision` | Thẩm định & Phê duyệt khoản hoàn $\ge$ Ngưỡng xét duyệt | Manager |
-| `POST` | `/api/staff/support-tickets/{id}/refund-transfer` | Ghi nhận mã giao dịch chuyển khoản thủ công sau khi quét QR | Staff |
+| `POST` | `/api/staff/support-tickets/{id}/approve-refund` | Duyệt hoàn tiền khoản < 3.000.000 VNĐ | Staff |
+| `POST` | `/api/manager/support-tickets/{id}/decision` | Thẩm định & Duyệt hoàn tiền $\ge$ 3.000.000 VNĐ | Manager |
+| `POST` | `/api/staff/support-tickets/{id}/refund-transfer` | Ghi nhận chuyển khoản thủ công sau khi quét QR | Staff |
+| `POST` | `/api/v1/payments/payos/webhook` | Cổng payOS bắn Webhook thông báo | Public (Bảo vệ bằng HMAC) |
+| `POST` | `/api/v1/payments/payos/confirm-webhook`| Xác thực URL khi cài đặt payOS | Public |
 
 ---
 
-## 6. HƯỚNG DẪN KIỂM THỬ MOCK LUỒNG (POSTMAN / CURL)
+## 6. HƯỚNG DẪN TEST MOCK TOÀN BỘ LUỒNG (POSTMAN & CURL)
 
 ### Bước 1: Tạo phiên thanh toán (Tạo mã QR / Link)
 ```bash
 curl -X POST http://localhost:8080/api/v1/payments/create \
   -H "Content-Type: application/json" \
-  -H "Authorization: Bearer <JWT_TOKEN>" \
   -d '{
-    "orderId": 105,
+    "orderId": 1,
     "amount": 1500000,
     "description": "Vot Yonex Astrox 88D",
     "buyerName": "Nguyen Van A",
@@ -214,7 +160,7 @@ curl -X POST http://localhost:8080/api/v1/payments/create \
     "buyerPhone": "0912345678"
   }'
 ```
-*Nhận về `paymentId`, `payosOrderCode` (ví dụ: `100201`), `checkoutUrl` và `qrCodeUrl`.*
+*Nhận về `payosOrderCode` (ví dụ: `5567891234`) và `checkoutUrl`, `qrCodeUrl`.*
 
 ### Bước 2: Giả lập Webhook payOS báo chuyển khoản thành công
 ```bash
@@ -224,36 +170,20 @@ curl -X POST http://localhost:8080/api/v1/payments/payos/webhook \
     "code": "00",
     "desc": "success",
     "data": {
-      "orderCode": 100201,
+      "orderCode": 5567891234,
       "amount": 1500000,
       "description": "Vot Yonex Astrox 88D",
       "accountNumber": "1903678910",
-      "reference": "FT2611078899",
+      "reference": "FT2610318899",
       "currency": "VND",
       "code": "00"
     },
-    "signature": "<HMAC_SHA256_SIGNATURE>"
+    "signature": "d682498522646c05dbb320d75a34e0622e03fcba0bf3e0f9b378033ee9bc27a9"
   }'
 ```
 
 ### Bước 3: Kiểm tra trạng thái thanh toán đã sang `paid`
 ```bash
-curl -X GET http://localhost:8080/api/v1/payments/201 \
-  -H "Authorization: Bearer <JWT_TOKEN>"
+curl http://localhost:8080/api/v1/payments/1
 ```
-*Trường `status` sẽ trả về `"paid"` và `gatewayTxnRef` là mã giao dịch ngân hàng `"FT2611078899"`.*
-
-### Bước 4: Kiểm tra và thay đổi ngưỡng phê duyệt hoàn tiền (Manager)
-```bash
-# Xem ngưỡng hiện tại
-curl -X GET http://localhost:8080/api/manager/support-tickets/settings/threshold \
-  -H "Authorization: Bearer <MANAGER_JWT_TOKEN>"
-
-# Cập nhật ngưỡng mới thành 5.000.000 VNĐ
-curl -X PUT http://localhost:8080/api/manager/support-tickets/settings/threshold \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer <MANAGER_JWT_TOKEN>" \
-  -d '{
-    "threshold": 5000000
-  }'
-```
+*Trường `status` sẽ trả về `"paid"` và `gatewayTxnRef` là `"FT2610318899"`.*
