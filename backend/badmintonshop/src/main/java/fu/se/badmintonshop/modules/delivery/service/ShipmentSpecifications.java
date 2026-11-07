@@ -12,15 +12,19 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
-// bo loc danh sach van don cho manager: status, carrier, q (ma van don / ma don / nguoi nhan / sdt)
+// bo loc danh sach van don cho manager: orderId, status, carrier, q (ma van don / ma don / nguoi nhan / sdt)
 public final class ShipmentSpecifications {
 
     private ShipmentSpecifications() {
     }
 
-    public static Specification<Shipment> filter(String status, String carrierCode, String q) {
+    public static Specification<Shipment> filter(String status, String carrierCode, String q, Long orderId) {
         return (root, query, cb) -> {
             List<Predicate> predicates = new ArrayList<>();
+
+            if (orderId != null) {
+                predicates.add(cb.equal(root.get("order").get("id"), orderId));
+            }
 
             if (hasText(status)) {
                 predicates.add(cb.equal(root.get("status"), status.trim().toLowerCase(Locale.ROOT)));

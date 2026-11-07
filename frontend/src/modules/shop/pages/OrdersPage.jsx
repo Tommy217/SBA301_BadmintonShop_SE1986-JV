@@ -3,10 +3,12 @@ import { Link, useLocation } from 'react-router';
 import { useShop } from '@/app/providers/shop/ShopContext';
 import { formatDateTime, formatMoney } from '@/shared/utils/format';
 import { carriers, deliveryStatuses } from '@/modules/delivery/constants';
+import { useMyShipments } from '@/modules/delivery/hooks/useDelivery';
 
 export default function OrdersPage() {
   const { data } = useShop(),
     { state } = useLocation();
+  const { data: shipments } = useMyShipments(data.orders.length > 0);
   return (
     <>
       <div className="eyebrow">LỊCH SỬ MUA SẮM</div>
@@ -23,7 +25,8 @@ export default function OrdersPage() {
         </div>
       )}
       {[...data.orders].reverse().map((o) => {
-        const delivery = (data.deliveries || []).find((d) => d.order_id === o.id);
+        // danh sach van don da sap moi nhat truoc
+        const delivery = (shipments || []).find((d) => d.order_id === o.id);
         const carrier = delivery ? carriers[delivery.carrier] : null;
         const statusInfo = delivery ? deliveryStatuses[delivery.status] : null;
 
@@ -46,7 +49,7 @@ export default function OrdersPage() {
                         {statusInfo?.label || 'Đang giao'} ({carrier?.shortName || 'ĐVVC'})
                       </Badge>
                       <small className="text-secondary font-monospace d-block">
-                        {delivery.tracking_number}
+                        {delivery.tracking_number || 'Đang chờ cấp mã'}
                       </small>
                     </>
                   ) : (

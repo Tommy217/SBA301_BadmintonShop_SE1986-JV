@@ -24,13 +24,8 @@ public interface SupportTicketService {
 
     TicketResponse approveRefund(Long id, Long staffId);
 
-    TicketResponse shipExchange(Long id, ShipExchangeRequest request);
-
-    TicketResponse replacementUnavailable(Long id, Long staffId, String note);
-
     TicketResponse recordRefundTransfer(Long id, RefundTransferRequest request);
 
     // Manager operations
     TicketResponse managerDecision(Long id, ManagerDecisionRequest request);
 }
-

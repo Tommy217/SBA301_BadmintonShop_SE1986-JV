@@ -74,6 +74,7 @@ public class SecurityConfig {
                 ).permitAll()
                 .requestMatchers("/api/auth/**", "/api/v1/auth/**", "/api/v1/profile/**").authenticated()
                 .requestMatchers("/api/users/**", "/api/v1/users/**").hasRole("ADMIN")
+                .requestMatchers("/api/manager/shipments", "/api/manager/shipments/**").hasAnyRole("STAFF", "MANAGER", "ADMIN")
                 .requestMatchers("/api/manager/**").hasAnyRole("MANAGER", "ADMIN")
                 .requestMatchers("/api/staff/**", "/api/inventory/**", "/api/invoices/**").hasAnyRole("STAFF", "MANAGER", "ADMIN")
                 .requestMatchers(HttpMethod.GET, "/api/vouchers/usages", "/api/vouchers/usages/**").hasAnyRole("STAFF", "MANAGER", "ADMIN")

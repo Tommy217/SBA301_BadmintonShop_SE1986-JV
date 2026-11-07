@@ -32,7 +32,6 @@ Mở `http://localhost:5173`. Vite chuyển `/api/*` sang backend Java cổng 80
 | `npm run format`       | Format toàn bộ code bằng Prettier                                 |
 | `npm run format:check` | Kiểm tra format, không sửa file                                   |
 | `npm test`             | Chạy test frontend trong `tests/`; backend có bộ test Maven riêng |
-| `npm run partner`      | Chạy hệ thống đối tác giao vận FastShip (`../partner-system`)     |
 
 ### Biến môi trường (`.env`)
 

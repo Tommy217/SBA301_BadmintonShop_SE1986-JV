@@ -45,12 +45,12 @@ class DeliveryControllerTest {
 
     @Test
     void listPassesFiltersAndWrapsPage() throws Exception {
-        when(service.list("requested", "fastship", "ORD", 1, 10))
+        when(service.list("requested", "fastship", "ORD", 10L, 1, 10))
                 .thenReturn(PageResponse.<ShipmentResponse>builder()
                         .content(List.of(sample())).page(1).size(10).totalElements(11).totalPages(2).build());
 
         mvc.perform(get("/api/manager/shipments")
-                        .param("status", "requested").param("carrier", "fastship").param("q", "ORD")
+                        .param("status", "requested").param("carrier", "fastship").param("q", "ORD").param("orderId", "10")
                         .param("page", "1").param("size", "10"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200))
@@ -95,7 +95,7 @@ class DeliveryControllerTest {
 
     @Test
     void businessErrorsKeepStatusAndMessage() throws Exception {
-        when(service.cancel(eq(5L), any())).thenThrow(DeliveryException.conflict("cannot-cancel"));
+        when(service.cancel(eq(5L), any(), any())).thenThrow(DeliveryException.conflict("cannot-cancel"));
         mvc.perform(post("/api/manager/shipments/5/cancel")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"reason\":\"Khách đổi ý\"}"))
@@ -109,6 +109,19 @@ class DeliveryControllerTest {
 
         mvc.perform(get("/api/manager/shipments/abc"))
                 .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void syncAndResendPassStaffHeader() throws Exception {
+        when(service.sync(5L, 3L)).thenReturn(sample());
+        mvc.perform(post("/api/manager/shipments/5/sync").header("X-User-Id", "3"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.id").value(5));
+
+        when(service.resend(5L, 3L)).thenThrow(new DeliveryException(org.springframework.http.HttpStatus.BAD_GATEWAY, "partner-down"));
+        mvc.perform(post("/api/manager/shipments/5/resend").header("X-User-Id", "3"))
+                .andExpect(status().isBadGateway())
+                .andExpect(jsonPath("$.message").value("partner-down"));
     }
 
     @Test
@@ -136,5 +149,14 @@ class DeliveryControllerTest {
         mvc.perform(get("/api/orders/11/shipment").header("X-User-Id", "7"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data").doesNotExist());
+
+        when(service.listForCustomer(7L)).thenReturn(List.of(sample()));
+        mvc.perform(get("/api/my/shipments").header("X-User-Id", "7"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data[0].id").value(5));
+
+        when(service.syncForCustomer(10L, 7L)).thenReturn(sample());
+        mvc.perform(post("/api/orders/10/shipment/sync").header("X-User-Id", "7"))
+                .andExpect(status().isOk());
     }
 }

@@ -9,8 +9,8 @@ public class FastShipApplication {
         SpringApplication.run(FastShipApplication.class, args);
         System.out.println("\n========================================================");
         System.out.println("  FASTSHIP EXPRESS BACKEND (SPRING BOOT) SẴN SÀNG!  ");
-        System.out.println("   • Port API:  http://localhost:8081/api/v1/shipments");
-        System.out.println("   • Database:  MS SQL Server (fastship_db)");
+        System.out.println("   • Port API:  http://localhost:8081/api/v1");
+        System.out.println("   • Database:  MongoDB (fastship_db)");
         System.out.println("========================================================\n");
     }
 }

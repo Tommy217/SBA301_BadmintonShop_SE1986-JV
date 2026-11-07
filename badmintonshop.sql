@@ -1,4 +1,4 @@
-﻿-- Script duy nhất của DB shop: pull về chạy lại toàn bộ file này là có DB mới nhất.
+-- Script duy nhất của DB shop: pull về chạy lại toàn bộ file này là có DB mới nhất.
 -- CẢNH BÁO: chạy lại sẽ XOÁ database badminton_shop cũ cùng toàn bộ dữ liệu trong đó.
 USE master;
 GO
@@ -344,19 +344,19 @@ CREATE TABLE voucher_usages (                       -- Voucher Using
 );
 
 -- =====================================================================
--- 11. COMPLAINTS & RETURNS (tạo trước vì refunds tham chiếu)
+-- 11. RETURNS & REFUNDS (tạo trước vì refunds tham chiếu)
 -- =====================================================================
 CREATE TABLE support_tickets (
   id                     BIGINT IDENTITY(1,1) PRIMARY KEY,
   ticket_code            VARCHAR(30) NOT NULL UNIQUE,
   user_id                BIGINT NOT NULL,
   order_id               BIGINT NOT NULL,
-  ticket_type            VARCHAR(20) NOT NULL CHECK (ticket_type IN ('return','exchange','warranty','complaint')),
+  ticket_type            VARCHAR(20) NOT NULL DEFAULT 'REFUND' CHECK (ticket_type IN ('REFUND')),
   status                 VARCHAR(20)
                          NOT NULL DEFAULT 'open' CHECK (status IN ('open','under_review','approved','rejected','resolved','cancelled')),
   reason                 NVARCHAR(300) NOT NULL,
   description            NVARCHAR(MAX),
-  resolution_type        VARCHAR(20) NULL CHECK (resolution_type IN ('refund','exchange','repair','none')),
+  resolution_type        VARCHAR(20) NULL CHECK (resolution_type IN ('refund','none')),
   proposed_resolution    NVARCHAR(MAX) NULL,                  -- Staff proposes resolution/refund
   proposed_refund_amount DECIMAL(12,0) NULL,
   handled_by             BIGINT NULL,
@@ -375,10 +375,8 @@ CREATE TABLE ticket_items (
   ticket_id           BIGINT NOT NULL,
   order_item_id       BIGINT NOT NULL,
   quantity            INT NOT NULL CHECK (quantity > 0),
-  exchange_variant_id BIGINT NULL,                   -- đổi sang size/màu khác
   FOREIGN KEY (ticket_id)           REFERENCES support_tickets(id) ON DELETE CASCADE,
-  FOREIGN KEY (order_item_id)       REFERENCES order_items(id),
-  FOREIGN KEY (exchange_variant_id) REFERENCES product_variants(id)
+  FOREIGN KEY (order_item_id)       REFERENCES order_items(id)
 );
 
 CREATE TABLE ticket_attachments (                   -- Attach defect evidences
@@ -843,13 +841,13 @@ GROUP BY u.id, u.full_name, u.email, u.phone, u.status, u.created_at;
 GO
 
 -- ===== Return & Refund Report =====
--- Số phiếu đổi/trả theo tháng và loại. LOWER() để chạy được với cả giá trị thường lẫn HOA của module support ticket.
+-- Số phiếu trả hàng/hoàn tiền theo tháng và loại. LOWER() để chạy được với cả giá trị thường lẫn HOA của module support ticket.
 CREATE VIEW v_return_ticket_monthly AS
 SELECT CONVERT(CHAR(7), t.created_at, 126) + '|' + LOWER(t.ticket_type) AS id,
        CONVERT(CHAR(7), t.created_at, 126) AS [month],
        LOWER(t.ticket_type) AS ticket_type,
        COUNT(*) AS total_tickets,
-       SUM(CASE WHEN LOWER(t.status) IN ('resolved','completed','refunded','exchanged') THEN 1 ELSE 0 END) AS resolved_tickets,
+       SUM(CASE WHEN LOWER(t.status) IN ('resolved','refunded') THEN 1 ELSE 0 END) AS resolved_tickets,
        SUM(CASE WHEN LOWER(t.status) IN ('rejected','inspection_failed') THEN 1 ELSE 0 END) AS rejected_tickets,
        SUM(CASE WHEN LOWER(t.status) = 'cancelled' THEN 1 ELSE 0 END) AS cancelled_tickets
 FROM support_tickets t
@@ -879,7 +877,7 @@ INSERT INTO permissions (code, name) VALUES
   ('payment.refund',   N'Xử lý hoàn tiền'),
   ('inventory.manage', N'Quản lý kho'),
   ('invoice.manage',   N'Quản lý hóa đơn'),
-  ('ticket.handle',    N'Xử lý khiếu nại/đổi trả'),
+  ('ticket.handle',    N'Xử lý trả hàng & hoàn tiền'),
   ('report.view',      N'Xem báo cáo'),
   ('user.manage',      N'Quản lý người dùng & phân quyền'),
   ('log.view',         N'Xem nhật ký hoạt động');
@@ -2358,13 +2356,38 @@ IF COL_LENGTH('dbo.support_tickets', 'approved_by') IS NULL
 IF COL_LENGTH('dbo.support_tickets', 'approved_at') IS NULL
     ALTER TABLE dbo.support_tickets ADD approved_at DATETIME2(0) NULL;
 GO
-IF COL_LENGTH('dbo.ticket_items', 'replacement_variant_id') IS NULL
-    ALTER TABLE dbo.ticket_items ADD replacement_variant_id BIGINT NULL REFERENCES dbo.product_variants(id);
+-- Drop exchange/replacement variant columns from ticket_items if present (exchange feature eliminated)
+IF COL_LENGTH('dbo.ticket_items', 'replacement_variant_id') IS NOT NULL
+BEGIN
+    DECLARE @fkName NVARCHAR(MAX) = (
+        SELECT f.name
+        FROM sys.foreign_keys f
+        JOIN sys.foreign_key_columns fc ON f.object_id = fc.constraint_object_id
+        WHERE f.parent_object_id = OBJECT_ID('dbo.ticket_items')
+          AND COL_NAME(fc.parent_object_id, fc.parent_column_id) = 'replacement_variant_id'
+    );
+    IF @fkName IS NOT NULL
+        EXEC('ALTER TABLE dbo.ticket_items DROP CONSTRAINT ' + @fkName);
+    ALTER TABLE dbo.ticket_items DROP COLUMN replacement_variant_id;
+END;
 GO
-UPDATE dbo.ticket_items SET replacement_variant_id=exchange_variant_id
-WHERE replacement_variant_id IS NULL AND exchange_variant_id IS NOT NULL;
+IF COL_LENGTH('dbo.ticket_items', 'exchange_variant_id') IS NOT NULL
+BEGIN
+    DECLARE @fkNameEx NVARCHAR(MAX) = (
+        SELECT f.name
+        FROM sys.foreign_keys f
+        JOIN sys.foreign_key_columns fc ON f.object_id = fc.constraint_object_id
+        WHERE f.parent_object_id = OBJECT_ID('dbo.ticket_items')
+          AND COL_NAME(fc.parent_object_id, fc.parent_column_id) = 'exchange_variant_id'
+    );
+    IF @fkNameEx IS NOT NULL
+        EXEC('ALTER TABLE dbo.ticket_items DROP CONSTRAINT ' + @fkNameEx);
+    ALTER TABLE dbo.ticket_items DROP COLUMN exchange_variant_id;
+END;
 GO
--- Keep legacy ticket types/statuses, and accept the workflow already used by Java.
+-- Strictly Return & Refund (UC15). Convert any legacy ticket types to REFUND.
+UPDATE dbo.support_tickets SET ticket_type = 'REFUND' WHERE ticket_type != 'REFUND';
+GO
 DECLARE @ticketChecks NVARCHAR(MAX) = N'';
 SELECT @ticketChecks += N'ALTER TABLE dbo.support_tickets DROP CONSTRAINT ' + QUOTENAME(name) + N';'
 FROM sys.check_constraints
@@ -2375,11 +2398,11 @@ GO
 ALTER TABLE dbo.support_tickets ALTER COLUMN status VARCHAR(30) NOT NULL;
 ALTER TABLE dbo.support_tickets ALTER COLUMN refund_qr_url NVARCHAR(MAX) NULL;
 ALTER TABLE dbo.support_tickets ADD CONSTRAINT CK_shop_ticket_type_v2 CHECK
-    (ticket_type IN ('return','exchange','warranty','complaint','REFUND','EXCHANGE'));
+    (ticket_type IN ('REFUND'));
 ALTER TABLE dbo.support_tickets ADD CONSTRAINT CK_shop_ticket_status_v2 CHECK
     (status IN ('open','under_review','approved','rejected','resolved','cancelled',
         'PENDING','REJECTED','AWAITING_RETURN','INSPECTION_FAILED','PENDING_APPROVAL',
-        'PENDING_TRANSFER','REFUNDED','COMPLETED','CANCELLED'));
+        'PENDING_TRANSFER','REFUNDED','CANCELLED'));
 GO
 IF OBJECT_ID('dbo.ticket_evidence', 'U') IS NULL
 BEGIN

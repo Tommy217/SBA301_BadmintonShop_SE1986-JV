@@ -1,0 +1,6 @@
+
+/* Let the new sports emblem stand on its own without the old badge decoration. */
+.brand-logo .brand-logo-symbol,
+.shop-app .store-header .brand-logo .brand-logo-symbol { background: transparent; box-shadow: none; border-radius: 14px; }
+.brand-logo .brand-logo-symbol::after { content: none; }
+.shop-app .store-header .brand-logo .brand-logo-symbol { border: 1px solid #ffffff40; }

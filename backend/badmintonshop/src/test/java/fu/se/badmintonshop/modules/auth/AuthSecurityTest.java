@@ -60,7 +60,7 @@ class AuthSecurityTest {
 
             mvc.perform(get("/api/users").header("Authorization", header)).andExpect(status().is(role.equals("ADMIN") ? 200 : 403));
             mvc.perform(get("/api/inventory").header("Authorization", header)).andExpect(status().is(role.equals("CUSTOMER") ? 403 : 200));
-            mvc.perform(get("/api/manager/shipments").header("Authorization", header)).andExpect(status().is(List.of("ADMIN", "MANAGER").contains(role) ? 200 : 403));
+            mvc.perform(get("/api/manager/shipments").header("Authorization", header)).andExpect(status().is(role.equals("CUSTOMER") ? 403 : 200));
             mvc.perform(post("/api/brands").header("Authorization", header)).andExpect(status().is(role.equals("CUSTOMER") ? 403 : 200));
             mvc.perform(get("/api/support-tickets").header("Authorization", header).header("X-User-Id", "1"))
                 .andExpect(status().isOk()).andExpect(content().string("4"));

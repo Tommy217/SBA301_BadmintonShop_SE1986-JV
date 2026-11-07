@@ -51,23 +51,6 @@ class SupportActions {
                 tickets.inspectTicket(ticketId, request);
             }
             case "approve_refund_support_ticket" -> tickets.approveRefund(ticketId, user.id());
-            case "ship_exchange_support_ticket" -> {
-                var request = request(action, ShipExchangeRequest.class);
-                request.setStaffId(user.id());
-                require(!text(action, "tracking_code").isBlank(), HttpStatus.BAD_REQUEST, "Vui lòng nhập mã vận đơn hàng thay thế.");
-                require(jdbc.queryForObject("SELECT COUNT(*) FROM support_tickets t JOIN ticket_inspection i ON i.ticket_id=t.id WHERE t.id=? AND t.ticket_type='EXCHANGE' AND t.status='AWAITING_RETURN' AND i.result='PASSED'", Long.class, ticketId) == 1,
-                        HttpStatus.CONFLICT, "Hàng đổi phải được thẩm định đạt trước khi xuất kho.");
-                for (var item : jdbc.queryForList("SELECT replacement_variant_id,quantity FROM ticket_items WHERE ticket_id=? ORDER BY replacement_variant_id", ticketId)) {
-                    long variantId = ((Number)item.get("replacement_variant_id")).longValue();
-                    int quantity = ((Number)item.get("quantity")).intValue();
-                    require(jdbc.update("UPDATE product_variants SET stock_quantity=stock_quantity-? WHERE id=? AND is_active=1 AND stock_quantity>=?", quantity, variantId, quantity) == 1,
-                            HttpStatus.CONFLICT, "Biến thể thay thế không đủ tồn kho.");
-                    jdbc.update("INSERT INTO inventory_movements(variant_id,movement_type,quantity,balance_after,ref_type,ref_id,note,created_by,created_at) VALUES(?,'stock_out',?,(SELECT stock_quantity FROM product_variants WHERE id=?),'ticket',?,'Xuất hàng đổi',?,?)",
-                            variantId, -quantity, variantId, ticketId, user.id(), java.time.LocalDateTime.now());
-                }
-                tickets.shipExchange(ticketId, request);
-            }
-            case "replacement_unavailable_support_ticket" -> tickets.replacementUnavailable(ticketId, user.id(), text(action, "note"));
             case "refund_transfer_support_ticket" -> {
                 var request = request(action, RefundTransferRequest.class);
                 request.setStaffId(user.id());

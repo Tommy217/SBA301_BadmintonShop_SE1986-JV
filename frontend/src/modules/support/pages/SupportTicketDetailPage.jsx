@@ -45,13 +45,9 @@ export default function SupportTicketDetailPage() {
     .filter((item) => item.ticket_id === ticket.id)
     .map((item) => {
       const orderItem = allOrderItems.find((oi) => oi.id === item.order_item_id);
-      const replacementVariant = item.replacement_variant_id
-        ? allVariants.find((v) => v.id === item.replacement_variant_id)
-        : null;
       return {
         ...item,
         orderItem,
-        replacementVariant,
       };
     })
     .filter((item) => item.orderItem);
@@ -103,7 +99,7 @@ export default function SupportTicketDetailPage() {
             Yêu cầu của bạn đã được nhân viên tiếp nhận. Vui lòng đóng gói sản phẩm cẩn thận (bao gồm tem mác, hộp và quà tặng nếu có) và gửi về địa chỉ:
           </p>
           <div className="p-3 bg-white rounded border border-info-subtle mb-2">
-            <div><strong>Người nhận:</strong> Bộ phận Tiếp Nhận Đổi Trả - Badminton Shop</div>
+            <div><strong>Người nhận:</strong> Bộ phận Tiếp Nhận Hàng Hoàn - Badminton Shop</div>
             <div><strong>Địa chỉ:</strong> Số 123 Cầu Giấy, Phường Quan Hoa, Quận Cầu Giấy, TP. Hà Nội</div>
             <div><strong>Hotline hỗ trợ:</strong> 1900 6868 (8:00 - 21:00)</div>
             <div><strong>Mã tham chiếu ghi trên kiện hàng:</strong> <span className="badge bg-dark">{ticket.ticket_code}</span></div>
@@ -173,7 +169,7 @@ export default function SupportTicketDetailPage() {
           {/* SẢN PHẨM LIÊN QUAN */}
           <Card className="border-0 shadow-sm mb-4">
             <Card.Header className="bg-white py-3 border-bottom">
-              <h2 className="h6 fw-bold mb-0 text-primary">SẢN PHẨM YÊU CẦU {ticket.ticket_type === 'REFUND' ? 'HOÀN TIỀN' : 'ĐỔI'}</h2>
+              <h2 className="h6 fw-bold mb-0 text-primary">SẢN PHẨM YÊU CẦU HOÀN TIỀN</h2>
             </Card.Header>
             <Card.Body className="p-0">
               <Table responsive hover className="align-middle mb-0">
@@ -182,12 +178,11 @@ export default function SupportTicketDetailPage() {
                     <th>Sản phẩm</th>
                     <th className="text-end" style={{ width: '110px' }}>Đơn giá</th>
                     <th className="text-center" style={{ width: '80px' }}>SL</th>
-                    {ticket.ticket_type === 'EXCHANGE' && <th>Đổi sang biến thể</th>}
                     <th className="text-end" style={{ width: '120px' }}>Thành tiền</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {ticketItems.map(({ id, quantity, orderItem, replacementVariant }) => (
+                  {ticketItems.map(({ id, quantity, orderItem }) => (
                     <tr key={id}>
                       <td>
                         <div className="fw-semibold">{orderItem?.product_name}</div>
@@ -197,19 +192,6 @@ export default function SupportTicketDetailPage() {
                       </td>
                       <td className="text-end">{formatMoney(orderItem?.unit_price || 0)}</td>
                       <td className="text-center">{quantity}</td>
-                      {ticket.ticket_type === 'EXCHANGE' && (
-                        <td>
-                          {replacementVariant ? (
-                            <div>
-                              <span className="badge bg-success-subtle text-success border border-success-subtle">
-                                {replacementVariant.color || ''} {replacementVariant.size || ''} ({replacementVariant.sku})
-                              </span>
-                            </div>
-                          ) : (
-                            <span className="text-muted">Chưa chỉ định</span>
-                          )}
-                        </td>
-                      )}
                       <td className="text-end fw-semibold">
                         {formatMoney((orderItem?.unit_price || 0) * quantity)}
                       </td>

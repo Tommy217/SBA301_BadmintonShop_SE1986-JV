@@ -21,7 +21,7 @@ public class StaffTicketController {
     private final SupportTicketService ticketService;
 
     /**
-     * NhÃ¢n viÃªn xem hÃ ng Ä‘á»£i danh sÃ¡ch phiáº¿u há»— trá»£ (lá»c theo status, type).
+     * Nhân viên xem hàng đợi danh sách phiếu hỗ trợ (lọc theo status, type).
      */
     @GetMapping
     public ResponseEntity<ApiResponse<List<TicketResponse>>> getAllTickets(
@@ -32,7 +32,7 @@ public class StaffTicketController {
     }
 
     /**
-     * NhÃ¢n viÃªn xem chi tiáº¿t 1 phiáº¿u há»— trá»£.
+     * Nhân viên xem chi tiết 1 phiếu hỗ trợ.
      */
     @GetMapping("/{id}")
     public ResponseEntity<ApiResponse<TicketResponse>> getTicketById(@PathVariable Long id) {
@@ -41,9 +41,9 @@ public class StaffTicketController {
     }
 
     /**
-     * NhÃ¢n viÃªn sÆ¡ duyá»‡t tiáº¿p nháº­n (SLA 48h):
-     * - Duyá»‡t (báº¯t buá»™c chá»n cause: STORE_FAULT hoáº·c CUSTOMER_PREFERENCE) -> AWAITING_RETURN
-     * - Tá»« chá»‘i (báº¯t buá»™c cÃ³ rejectReason) -> REJECTED
+     * Nhân viên sơ duyệt tiếp nhận (SLA 48h):
+     * - Duyệt (bắt buộc chọn cause: STORE_FAULT hoặc CUSTOMER_PREFERENCE) -> AWAITING_RETURN
+     * - Từ chối (bắt buộc có rejectReason) -> REJECTED
      */
     @PostMapping("/{id}/review")
     public ResponseEntity<ApiResponse<TicketResponse>> reviewTicket(
@@ -54,11 +54,11 @@ public class StaffTicketController {
             request.setStaffId(staffId);
         }
         TicketResponse response = ticketService.reviewTicket(id, request);
-        return ResponseEntity.ok(ApiResponse.success("ÄÃ£ ghi nháº­n sÆ¡ duyá»‡t thÃ nh cÃ´ng", response));
+        return ResponseEntity.ok(ApiResponse.success("Đã ghi nhận sơ duyệt thành công", response));
     }
 
     /**
-     * NhÃ¢n viÃªn ghi nháº­n biÃªn báº£n tháº©m Ä‘á»‹nh hÃ ng tráº£ vá» (PASSED hoáº·c FAILED).
+     * Nhân viên ghi nhận biên bản thẩm định hàng trả về (PASSED hoặc FAILED).
      */
     @PostMapping("/{id}/inspection")
     public ResponseEntity<ApiResponse<TicketResponse>> inspectTicket(
@@ -69,51 +69,22 @@ public class StaffTicketController {
             request.setStaffId(staffId);
         }
         TicketResponse response = ticketService.inspectTicket(id, request);
-        return ResponseEntity.ok(ApiResponse.success("ÄÃ£ ghi nháº­n káº¿t quáº£ tháº©m Ä‘á»‹nh", response));
+        return ResponseEntity.ok(ApiResponse.success("Đã ghi nhận kết quả thẩm định", response));
     }
 
     /**
-     * NhÃ¢n viÃªn phÃª duyá»‡t hoÃ n tiá»n (chá»‰ Ã¡p dá»¥ng vá»›i khoáº£n hoÃ n dÆ°á»›i 3.000.000 VNÄ).
+     * Nhân viên phê duyệt hoàn tiền (chỉ áp dụng với khoản hoàn dưới 3.000.000 VNĐ).
      */
     @PostMapping("/{id}/approve-refund")
     public ResponseEntity<ApiResponse<TicketResponse>> approveRefund(
             @PathVariable Long id,
             @RequestHeader(value = "X-User-Id", required = false, defaultValue = "1") Long staffId) {
         TicketResponse response = ticketService.approveRefund(id, staffId);
-        return ResponseEntity.ok(ApiResponse.success("NhÃ¢n viÃªn Ä‘Ã£ phÃª duyá»‡t hoÃ n tiá»n", response));
+        return ResponseEntity.ok(ApiResponse.success("Nhân viên đã phê duyệt hoàn tiền", response));
     }
 
     /**
-     * NhÃ¢n viÃªn xÃ¡c nháº­n xuáº¥t kho gá»­i hÃ ng thay tháº¿ (EXCHANGE thÃ nh cÃ´ng -> COMPLETED).
-     */
-    @PostMapping("/{id}/ship-exchange")
-    public ResponseEntity<ApiResponse<TicketResponse>> shipExchange(
-            @PathVariable Long id,
-            @RequestBody ShipExchangeRequest request,
-            @RequestHeader(value = "X-User-Id", required = false) Long staffId) {
-        if (request.getStaffId() == null && staffId != null) {
-            request.setStaffId(staffId);
-        }
-        TicketResponse response = ticketService.shipExchange(id, request);
-        return ResponseEntity.ok(ApiResponse.success("ÄÃ£ xÃ¡c nháº­n giao hÃ ng thay tháº¿", response));
-    }
-
-    /**
-     * NhÃ¢n viÃªn bÃ¡o háº¿t hÃ ng thay tháº¿:
-     * - Náº¿u STORE_FAULT: Tá»± Ä‘á»™ng ráº½ nhÃ¡nh sang luá»“ng hoÃ n tiá»n.
-     * - Náº¿u CUSTOMER_PREFERENCE: Chuyá»ƒn sang CANCELLED, gá»­i tráº£ hÃ ng cÅ©, khÃ´ng hoÃ n tiá»n.
-     */
-    @PostMapping("/{id}/replacement-unavailable")
-    public ResponseEntity<ApiResponse<TicketResponse>> replacementUnavailable(
-            @PathVariable Long id,
-            @RequestParam(required = false, defaultValue = "Háº¿t hÃ ng thay tháº¿") String note,
-            @RequestHeader(value = "X-User-Id", required = false, defaultValue = "1") Long staffId) {
-        TicketResponse response = ticketService.replacementUnavailable(id, staffId, note);
-        return ResponseEntity.ok(ApiResponse.success("ÄÃ£ xá»­ lÃ½ trÆ°á»ng há»£p háº¿t hÃ ng thay tháº¿", response));
-    }
-
-    /**
-     * NhÃ¢n viÃªn chuyá»ƒn khoáº£n thá»§ cÃ´ng qua quÃ©t mÃ£ QR cá»§a khÃ¡ch vÃ  lÆ°u mÃ£ giao dá»‹ch ngÃ¢n hÃ ng (UC13).
+     * Nhân viên chuyển khoản thủ công qua quét mã QR của khách và lưu mã giao dịch ngân hàng (UC13).
      */
     @PostMapping("/{id}/refund-transfer")
     public ResponseEntity<ApiResponse<TicketResponse>> recordRefundTransfer(
@@ -124,7 +95,6 @@ public class StaffTicketController {
             request.setStaffId(staffId);
         }
         TicketResponse response = ticketService.recordRefundTransfer(id, request);
-        return ResponseEntity.ok(ApiResponse.success("ÄÃ£ ghi nháº­n chuyá»ƒn khoáº£n hoÃ n tiá»n thÃ nh cÃ´ng", response));
+        return ResponseEntity.ok(ApiResponse.success("Đã ghi nhận chuyển khoản hoàn tiền thành công", response));
     }
 }
-
