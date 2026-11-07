@@ -13,6 +13,7 @@ import fu.se.badmintonshop.modules.supportticket.repository.*;
 import fu.se.badmintonshop.modules.supportticket.service.SupportTicketService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -28,7 +29,7 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class SupportTicketServiceImpl implements SupportTicketService {
 
-    private static final BigDecimal APPROVAL_THRESHOLD = new BigDecimal("3000000"); // 3,000,000 VND
+    private static final BigDecimal DEFAULT_APPROVAL_THRESHOLD = new BigDecimal("3000000"); // 3,000,000 VND
     private static final int RETURN_WINDOW_DAYS = 7;
 
     private final SupportTicketRepository ticketRepository;
@@ -41,6 +42,7 @@ public class SupportTicketServiceImpl implements SupportTicketService {
     private final OrderRepository orderRepository;
     private final OrderItemRepository orderItemRepository;
     private final PaymentRepository paymentRepository;
+    private final JdbcTemplate jdbcTemplate;
 
     @Override
     @Transactional
@@ -284,20 +286,21 @@ public class SupportTicketServiceImpl implements SupportTicketService {
             BigDecimal refundAmount = calculateRefundAmount(ticket);
             ticket.setRefundAmount(refundAmount);
 
-            if (refundAmount.compareTo(APPROVAL_THRESHOLD) < 0) {
+            BigDecimal threshold = getApprovalThreshold();
+            if (refundAmount.compareTo(threshold) < 0) {
                 ticket.setStatus(TicketStatus.PENDING_TRANSFER.getValue());
                 ticket.setApprovedBy(request.getStaffId());
                 ticket.setApprovedAt(LocalDateTime.now());
                 ticketRepository.save(ticket);
 
                 addStatusHistory(ticket.getId(), TicketStatus.AWAITING_RETURN.getValue(), TicketStatus.PENDING_TRANSFER.getValue(),
-                        request.getStaffId(), "Thẩm định ĐẠT. Hoàn tiền " + refundAmount + " VND (< 3 triệu), Nhân viên duyệt chuyển khoản.");
+                        request.getStaffId(), "Thẩm định ĐẠT. Hoàn tiền " + refundAmount + " VND (< " + threshold + " VND), Nhân viên duyệt chuyển khoản.");
             } else {
                 ticket.setStatus(TicketStatus.PENDING_APPROVAL.getValue());
                 ticketRepository.save(ticket);
 
                 addStatusHistory(ticket.getId(), TicketStatus.AWAITING_RETURN.getValue(), TicketStatus.PENDING_APPROVAL.getValue(),
-                        request.getStaffId(), "Thẩm định ĐẠT. Hoàn tiền " + refundAmount + " VND (>= 3 triệu), chuyển Quản lý phê duyệt.");
+                        request.getStaffId(), "Thẩm định ĐẠT. Hoàn tiền " + refundAmount + " VND (>= " + threshold + " VND), chuyển Quản lý phê duyệt.");
             }
         }
 
@@ -317,7 +320,8 @@ public class SupportTicketServiceImpl implements SupportTicketService {
         BigDecimal amount = ticket.getRefundAmount() != null ? ticket.getRefundAmount() : calculateRefundAmount(ticket);
         ticket.setRefundAmount(amount);
 
-        if (amount.compareTo(APPROVAL_THRESHOLD) >= 0) {
+        BigDecimal threshold = getApprovalThreshold();
+        if (amount.compareTo(threshold) >= 0) {
             throw new IllegalStateException("Sá»‘ tiá»n hoÃ n tá»« 3.000.000Ä‘ trá»Ÿ lÃªn báº¯t buá»™c pháº£i do Quáº£n lÃ½ (Manager) phÃª duyá»‡t.");
         }
 
@@ -559,6 +563,62 @@ public class SupportTicketServiceImpl implements SupportTicketService {
                 .refundRecord(refundRecordResponse)
                 .statusHistories(historyResponses)
                 .build();
+    }
+
+    @Override
+    public BigDecimal getApprovalThreshold() {
+        try {
+            ensureSystemSettingsTable();
+            String val = jdbcTemplate.queryForObject(
+                    "SELECT setting_value FROM system_settings WHERE setting_key = 'refund_approval_threshold'",
+                    String.class);
+            if (val != null && !val.isBlank()) {
+                return new BigDecimal(val.trim());
+            }
+        } catch (Exception e) {
+            log.warn("Không thể đọc ngưỡng refund_approval_threshold từ DB, dùng mặc định 3,000,000 VND: {}", e.getMessage());
+        }
+        return DEFAULT_APPROVAL_THRESHOLD;
+    }
+
+    @Override
+    @Transactional
+    public void updateApprovalThreshold(BigDecimal newThreshold, Long managerId) {
+        if (newThreshold == null || newThreshold.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("Ngưỡng phê duyệt phải lớn hơn 0 VNĐ.");
+        }
+        ensureSystemSettingsTable();
+        int updated = jdbcTemplate.update(
+                "UPDATE system_settings SET setting_value = ?, updated_at = SYSDATETIME(), updated_by = ? WHERE setting_key = 'refund_approval_threshold'",
+                newThreshold.toPlainString(), managerId);
+        if (updated == 0) {
+            jdbcTemplate.update(
+                    "INSERT INTO system_settings (setting_key, setting_value, description, updated_at, updated_by) VALUES ('refund_approval_threshold', ?, N'Ngưỡng hoàn tiền yêu cầu Quản lý phê duyệt (VND)', SYSDATETIME(), ?)",
+                    newThreshold.toPlainString(), managerId);
+        }
+        log.info("Manager ID {} đã cập nhật ngưỡng duyệt hoàn tiền thành: {} VND", managerId, newThreshold);
+    }
+
+    private void ensureSystemSettingsTable() {
+        try {
+            jdbcTemplate.execute("IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'system_settings') " +
+                    "BEGIN " +
+                    "CREATE TABLE system_settings (" +
+                    "  setting_key VARCHAR(100) PRIMARY KEY," +
+                    "  setting_value NVARCHAR(500) NOT NULL," +
+                    "  description NVARCHAR(255) NULL," +
+                    "  updated_at DATETIME2(0) NOT NULL DEFAULT SYSDATETIME()," +
+                    "  updated_by BIGINT NULL" +
+                    "); " +
+                    "END; " +
+                    "IF NOT EXISTS (SELECT * FROM system_settings WHERE setting_key = 'refund_approval_threshold') " +
+                    "BEGIN " +
+                    "INSERT INTO system_settings (setting_key, setting_value, description) " +
+                    "VALUES ('refund_approval_threshold', '3000000', N'Ngưỡng hoàn tiền yêu cầu Quản lý phê duyệt (VND)'); " +
+                    "END;");
+        } catch (Exception e) {
+            log.warn("Lỗi kiểm tra/tạo bảng system_settings: {}", e.getMessage());
+        }
     }
 }
 

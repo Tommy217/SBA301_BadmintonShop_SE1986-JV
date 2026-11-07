@@ -1,20 +1,35 @@
 import { ManagerSearch, ManagerPagination } from '@/shared/components/ManagerControls';
 import { useMemo, useState } from 'react';
-import { Alert, Badge, Card, Col, Form, Row, Table } from 'react-bootstrap';
+import { Alert, Badge, Button, Card, Col, Form, Modal, Row, Table } from 'react-bootstrap';
 import { Link, useLocation } from 'react-router';
 import { ticketStatuses, ticketTypes } from '@/modules/support/constants';
 import { useShop } from '@/app/providers/shop/ShopContext';
+import { useAuth } from '@/app/providers/auth/AuthContext';
+import { ROLES } from '@/shared/constants/roles';
+import { supportApi } from '@/modules/support/api/support.api';
 import { formatDateTime, formatMoney } from '@/shared/utils/format';
 
 const EMPTY_LIST = [];
 
 export default function SupportTicketManagementPage() {
-  const { data } = useShop();
+  const { data, act } = useShop();
+  const { user } = useAuth();
   const { state } = useLocation();
   const [query, setQuery] = useState('');
   const [page, setPage] = useState(1);
   const [statusFilter, setStatusFilter] = useState('all');
   const [typeFilter, setTypeFilter] = useState('all');
+
+  const currentThreshold = Number(data?.refund_approval_threshold) || 3000000;
+  const isManager = user?.roles?.some(
+    (r) => String(r).toUpperCase() === ROLES.MANAGER || String(r).toUpperCase() === ROLES.ADMIN,
+  );
+
+  const [showThresholdModal, setShowThresholdModal] = useState(false);
+  const [newThresholdInput, setNewThresholdInput] = useState('');
+  const [thresholdError, setThresholdError] = useState('');
+  const [thresholdSuccess, setThresholdSuccess] = useState('');
+  const [savingThreshold, setSavingThreshold] = useState(false);
 
   const tickets = data?.support_tickets || EMPTY_LIST;
   const orders = data?.orders || EMPTY_LIST;
@@ -68,9 +83,28 @@ export default function SupportTicketManagementPage() {
             Hàng đợi tiếp nhận, thẩm định sản phẩm và quy trình hoàn tiền theo chuẩn UC15.
           </p>
         </div>
-        <Badge bg="primary" className="fs-6 py-2 px-3">
-          Tổng số: {tickets.length} phiếu
-        </Badge>
+        <div className="d-flex align-items-center gap-2 flex-wrap">
+          <Badge bg="secondary" className="fs-6 py-2 px-3">
+            Ngưỡng Quản lý duyệt: {formatMoney(currentThreshold)}
+          </Badge>
+          {isManager && (
+            <Button
+              variant="outline-primary"
+              size="sm"
+              onClick={() => {
+                setNewThresholdInput(String(currentThreshold));
+                setThresholdError('');
+                setThresholdSuccess('');
+                setShowThresholdModal(true);
+              }}
+            >
+              ⚙️ Đổi ngưỡng duyệt
+            </Button>
+          )}
+          <Badge bg="primary" className="fs-6 py-2 px-3">
+            Tổng số: {tickets.length} phiếu
+          </Badge>
+        </div>
       </div>
 
       {state?.updated && (
@@ -79,12 +113,70 @@ export default function SupportTicketManagementPage() {
         </Alert>
       )}
 
+      {/* MODAL THIẾT LẬP NGƯỠNG PHÊ DUYỆT */}
+      <Modal show={showThresholdModal} onHide={() => setShowThresholdModal(false)} centered>
+        <Modal.Header closeButton>
+          <Modal.Title className="h5 fw-bold">Thiết lập ngưỡng Quản lý phê duyệt</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <p className="small text-secondary mb-3">
+            Các khoản hoàn tiền <strong>nhỏ hơn</strong> ngưỡng này sẽ do Nhân viên CSKH trực tiếp duyệt. Các khoản từ ngưỡng này trở lên bắt buộc phải do Quản lý (Manager) thẩm định và phê duyệt.
+          </p>
+          {thresholdError && <Alert variant="danger" className="py-2 small">{thresholdError}</Alert>}
+          {thresholdSuccess && <Alert variant="success" className="py-2 small">{thresholdSuccess}</Alert>}
+          <Form.Group controlId="thresholdInput">
+            <Form.Label className="fw-semibold">Ngưỡng phê duyệt hoàn tiền (VNĐ)</Form.Label>
+            <Form.Control
+              type="number"
+              step="100000"
+              min="100000"
+              placeholder="VD: 3000000"
+              value={newThresholdInput}
+              disabled={savingThreshold}
+              onChange={(e) => setNewThresholdInput(e.target.value)}
+            />
+            <Form.Text className="text-muted d-block mt-1">
+              Xem trước: <strong>{formatMoney(Number(newThresholdInput) || 0)}</strong>
+            </Form.Text>
+          </Form.Group>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setShowThresholdModal(false)} disabled={savingThreshold}>
+            Đóng
+          </Button>
+          <Button
+            variant="primary"
+            disabled={savingThreshold || !newThresholdInput}
+            onClick={async () => {
+              const val = Number(newThresholdInput);
+              if (!val || val <= 0) {
+                setThresholdError('Vui lòng nhập số tiền hợp lệ (> 0).');
+                return;
+              }
+              setSavingThreshold(true);
+              setThresholdError('');
+              try {
+                await act(() => supportApi.updateThreshold(val));
+                setThresholdSuccess('Đã cập nhật ngưỡng phê duyệt thành công!');
+                setTimeout(() => setShowThresholdModal(false), 1200);
+              } catch (e) {
+                setThresholdError(e.message || 'Lỗi khi cập nhật ngưỡng.');
+              } finally {
+                setSavingThreshold(false);
+              }
+            }}
+          >
+            {savingThreshold ? 'Đang lưu…' : 'Lưu thay đổi'}
+          </Button>
+        </Modal.Footer>
+      </Modal>
+
       {/* STAT CARDS */}
       <Row className="g-3 mb-4">
         {[
           ['Chờ sơ duyệt', countByStatus('PENDING'), 'warning'],
           ['Chờ khách gửi hàng', countByStatus('AWAITING_RETURN'), 'info'],
-          ['Chờ Quản lý duyệt (>= 3Tr)', countByStatus('PENDING_APPROVAL'), 'primary'],
+          [`Chờ Quản lý duyệt (>= ${formatMoney(currentThreshold)})`, countByStatus('PENDING_APPROVAL'), 'primary'],
           ['Chờ chuyển tiền', countByStatus('PENDING_TRANSFER'), 'warning'],
           ['Đã hoàn tất', countByStatus('REFUNDED'), 'success'],
         ].map(([label, count, variant]) => (

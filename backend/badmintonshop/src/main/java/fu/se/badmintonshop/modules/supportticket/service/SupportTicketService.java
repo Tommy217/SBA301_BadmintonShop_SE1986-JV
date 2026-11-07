@@ -2,6 +2,7 @@ package fu.se.badmintonshop.modules.supportticket.service;
 
 import fu.se.badmintonshop.modules.supportticket.dto.*;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 public interface SupportTicketService {
@@ -28,4 +29,8 @@ public interface SupportTicketService {
 
     // Manager operations
     TicketResponse managerDecision(Long id, ManagerDecisionRequest request);
+
+    BigDecimal getApprovalThreshold();
+
+    void updateApprovalThreshold(BigDecimal newThreshold, Long managerId);
 }

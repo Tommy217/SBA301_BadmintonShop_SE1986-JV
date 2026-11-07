@@ -60,6 +60,8 @@ export default function SupportTicketManagementDetailPage() {
     (r) => String(r).toUpperCase() === ROLES.MANAGER || String(r).toUpperCase() === ROLES.ADMIN,
   );
 
+  const currentThreshold = Number(data?.refund_approval_threshold) || APPROVAL_THRESHOLD;
+
   const order = (data?.orders || []).find((item) => item.id === ticket.order_id);
   const allOrderItems = data?.order_items || [];
   const allVariants = data?.product_variants || [];
@@ -265,7 +267,7 @@ export default function SupportTicketManagementDetailPage() {
                 <div className="small text-secondary">Số tiền hoàn (dự kiến/đã duyệt)</div>
                 <div className="fs-4 fw-bold text-success">{formatMoney(calculatedRefund)}</div>
                 <div className="small text-muted">
-                  {calculatedRefund >= APPROVAL_THRESHOLD ? 'Cần Quản lý duyệt' : 'Nhân viên có quyền duyệt'}
+                  {calculatedRefund >= currentThreshold ? 'Cần Quản lý duyệt' : 'Nhân viên có quyền duyệt'}
                 </div>
               </div>
             )}
@@ -533,13 +535,13 @@ export default function SupportTicketManagementDetailPage() {
             <Card className="border-0 shadow-sm mb-4 border-top border-4 border-primary">
               <Card.Header className="bg-white py-3 border-bottom">
                 <h2 className="h6 fw-bold mb-0 text-primary">
-                  🛡️ BƯỚC 3: QUẢN LÝ PHÊ DUYỆT HOÀN TIỀN (&ge; 3.000.000đ)
+                  🛡️ BƯỚC 3: QUẢN LÝ PHÊ DUYỆT HOÀN TIỀN (&ge; {formatMoney(currentThreshold)})
                 </h2>
               </Card.Header>
               <Card.Body className="p-4">
                 <div className="alert alert-warning mb-3 small">
                   <strong>Hạn mức duyệt:</strong> Số tiền hoàn là{' '}
-                  <strong>{formatMoney(calculatedRefund)}</strong> (&ge; 3.000.000đ).
+                  <strong>{formatMoney(calculatedRefund)}</strong> (&ge; {formatMoney(currentThreshold)}).
                   Chỉ tài khoản quyền <strong>Quản lý (Manager)</strong> mới có quyền phê duyệt chuyển tiền.
                 </div>
 

@@ -61,60 +61,82 @@ public class PaymentServiceImpl implements PaymentService {
             throw new IllegalArgumentException("Số tiền thanh toán phải lớn hơn 0.");
         }
 
-        // Tạo phiên Payment ban đầu
-        Payment payment = Payment.builder()
-                .orderId(order.getId())
-                .method("qr")
-                .gateway("payos")
-                .status("pending")
-                .amount(payAmount)
-                .build();
+        // Kiểm tra xem đơn hàng đã có phiên thanh toán pending chưa để tái sử dụng, tránh tạo bản ghi trùng lặp
+        Optional<Payment> existingPendingOpt = paymentRepository.findFirstByOrderIdAndStatusOrderByCreatedAtDesc(order.getId(), "pending");
+        Payment payment;
+        boolean hasActiveLink = false;
+        if (existingPendingOpt.isPresent()) {
+            payment = existingPendingOpt.get();
+            payment.setMethod("qr");
+            payment.setGateway("payos");
+            payment.setAmount(payAmount);
+            if (payment.getQrCodeUrl() != null && payment.getCheckoutUrl() != null
+                    && payment.getCreatedAt() != null
+                    && payment.getCreatedAt().isAfter(LocalDateTime.now().minusMinutes(14))) {
+                hasActiveLink = true;
+            }
+        } else {
+            payment = Payment.builder()
+                    .orderId(order.getId())
+                    .method("qr")
+                    .gateway("payos")
+                    .status("pending")
+                    .amount(payAmount)
+                    .build();
+        }
         payment = paymentRepository.save(payment);
 
         // Sinh mã orderCode số nguyên dương duy nhất cho payOS (sử dụng 100000 + paymentId để chuẩn đẹp)
         long payosOrderCode = 100000L + payment.getId();
-        payment.setGatewayTxnRef(String.valueOf(payosOrderCode));
+        if (payment.getGatewayTxnRef() == null || payment.getGatewayTxnRef().isBlank()) {
+            payment.setGatewayTxnRef(String.valueOf(payosOrderCode));
+        }
 
         String paymentCode = formatPaymentCode(payment.getId(), payment.getCreatedAt());
-        String description = request.getDescription() != null && !request.getDescription().isBlank()
-                ? request.getDescription()
-                : "Thanh toan #" + order.getOrderCode();
+        String checkoutUrl = payment.getCheckoutUrl();
+        String qrCodeUrl = payment.getQrCodeUrl();
 
-        // Gọi PayOS API để tạo link thanh toán VietQR
-        Map<String, String> payosResult = payOSService.createPaymentLink(
-                payosOrderCode,
-                payAmount,
-                description,
-                request.getBuyerName() != null ? request.getBuyerName() : order.getReceiverName(),
-                request.getBuyerEmail(),
-                request.getBuyerPhone() != null ? request.getBuyerPhone() : order.getReceiverPhone(),
-                request.getReturnUrl(),
-                request.getCancelUrl()
-        );
+        if (!hasActiveLink) {
+            String description = request.getDescription() != null && !request.getDescription().isBlank()
+                    ? request.getDescription()
+                    : "Thanh toan #" + order.getOrderCode();
 
-        String checkoutUrl = payosResult.get("checkoutUrl");
-        String qrCodeUrl = payosResult.get("qrCodeUrl");
-        payment.setQrCodeUrl(qrCodeUrl);
-        payment.setCheckoutUrl(checkoutUrl);
-        payment = paymentRepository.save(payment);
-
-        // Ghi log giao dịch gửi request
-        try {
-            Map<String, Object> logPayload = Map.of(
-                    "request", request,
-                    "payosOrderCode", payosOrderCode,
-                    "paymentCode", paymentCode,
-                    "payosResult", payosResult
+            // Gọi PayOS API để tạo link thanh toán VietQR
+            Map<String, String> payosResult = payOSService.createPaymentLink(
+                    payosOrderCode,
+                    payAmount,
+                    description,
+                    request.getBuyerName() != null ? request.getBuyerName() : order.getReceiverName(),
+                    request.getBuyerEmail(),
+                    request.getBuyerPhone() != null ? request.getBuyerPhone() : order.getReceiverPhone(),
+                    request.getReturnUrl(),
+                    request.getCancelUrl()
             );
-            PaymentTransaction transaction = PaymentTransaction.builder()
-                    .paymentId(payment.getId())
-                    .direction("request")
-                    .payload(objectMapper.writeValueAsString(logPayload))
-                    .httpStatus(200)
-                    .build();
-            paymentTransactionRepository.save(transaction);
-        } catch (Exception e) {
-            log.warn("Không thể ghi log giao dịch request: {}", e.getMessage());
+
+            checkoutUrl = payosResult.get("checkoutUrl");
+            qrCodeUrl = payosResult.get("qrCodeUrl");
+            payment.setQrCodeUrl(qrCodeUrl);
+            payment.setCheckoutUrl(checkoutUrl);
+            payment = paymentRepository.save(payment);
+
+            // Ghi log giao dịch gửi request
+            try {
+                Map<String, Object> logPayload = Map.of(
+                        "request", request,
+                        "payosOrderCode", payosOrderCode,
+                        "paymentCode", paymentCode,
+                        "payosResult", payosResult
+                );
+                PaymentTransaction transaction = PaymentTransaction.builder()
+                        .paymentId(payment.getId())
+                        .direction("request")
+                        .payload(objectMapper.writeValueAsString(logPayload))
+                        .httpStatus(200)
+                        .build();
+                paymentTransactionRepository.save(transaction);
+            } catch (Exception e) {
+                log.warn("Không thể ghi log giao dịch request: {}", e.getMessage());
+            }
         }
 
         LocalDateTime expiresAt = payment.getCreatedAt() != null

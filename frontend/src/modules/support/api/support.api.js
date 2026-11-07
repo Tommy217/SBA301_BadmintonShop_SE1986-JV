@@ -48,4 +48,10 @@ export const supportApi = {
       reject_reason: rejectReason,
       note,
     }),
+
+  updateThreshold: (threshold) =>
+    sendShopAction({
+      type: 'update_refund_threshold',
+      threshold,
+    }),
 };

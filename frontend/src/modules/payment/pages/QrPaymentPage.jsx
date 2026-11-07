@@ -5,7 +5,7 @@ import usePayment from '@/modules/payment/hooks/usePayment';
 import '@/modules/payment/QrPaymentPage.css';
 
 export default function QrPaymentPage() {
-  const model = usePayment();
+  const model = usePayment({ enablePolling: true });
   const navigate = useNavigate();
   if (model.loading)
     return (

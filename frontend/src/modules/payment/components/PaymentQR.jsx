@@ -61,7 +61,7 @@ function PaymentQR({ payment, onCheckResult, onChooseAnotherMethod }) {
           {!isPlaceholder && (
             <div className="qr-payment-waiting" role="status">
               <span className="spinner-border spinner-border-sm" aria-hidden="true" />
-              <span>Hệ thống đang chờ xác nhận giao dịch...</span>
+              <span>Hệ thống đang chờ xác nhận giao dịch (tự động cập nhật mỗi 3s)...</span>
             </div>
           )}
 

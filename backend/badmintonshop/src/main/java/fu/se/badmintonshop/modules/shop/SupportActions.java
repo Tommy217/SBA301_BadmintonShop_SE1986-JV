@@ -21,7 +21,17 @@ class SupportActions {
     private final ObjectMapper mapper = new ObjectMapper().setPropertyNamingStrategy(PropertyNamingStrategies.SNAKE_CASE)
             .disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES);
 
+    SupportTicketService getTickets() {
+        return tickets;
+    }
+
     void execute(String type, Map<String, Object> action, AuthService.User user) {
+        if ("update_refund_threshold".equals(type)) {
+            require(user != null && user.roles().stream().anyMatch(Set.of("MANAGER", "ADMIN")::contains), HttpStatus.FORBIDDEN, "Chỉ quản lý được thiết lập ngưỡng phê duyệt hoàn tiền.");
+            java.math.BigDecimal newThreshold = new java.math.BigDecimal(String.valueOf(action.get("threshold")));
+            tickets.updateApprovalThreshold(newThreshold, user.id());
+            return;
+        }
         if ("create_support_ticket".equals(type)) {
             var request = request(action, CreateTicketRequest.class);
             request.setUserId(user.id());

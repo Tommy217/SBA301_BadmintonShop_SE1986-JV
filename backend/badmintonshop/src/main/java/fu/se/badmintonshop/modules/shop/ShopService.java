@@ -61,6 +61,7 @@ public class ShopService {
             result.put(entry.getKey(), rows("SELECT x.* FROM " + entry.getValue() + " x JOIN support_tickets t ON t.id=x.ticket_id JOIN orders o ON o.id=t.order_id" + orderWhere + " ORDER BY x.id", scope));
         }
         // van don doc qua API cua module delivery (/api/manager/shipments, /api/my/shipments)
+        result.put("refund_approval_threshold", support.getTickets().getApprovalThreshold());
         return result;
     }
 

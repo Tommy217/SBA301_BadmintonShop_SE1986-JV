@@ -6,7 +6,7 @@ import usePayment from '@/modules/payment/hooks/usePayment';
 import '@/modules/payment/PaymentResultPage.css';
 
 export default function PaymentResultPage() {
-  const model = usePayment();
+  const model = usePayment({ enablePolling: true });
   const navigate = useNavigate();
   if (model.loading)
     return (

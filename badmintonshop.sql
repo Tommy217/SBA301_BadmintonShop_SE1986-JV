@@ -447,6 +447,18 @@ CREATE TABLE refunds (                              -- Refund Processing / Refun
   FOREIGN KEY (requested_by) REFERENCES users(id)
 );
 
+CREATE TABLE system_settings (
+  setting_key   VARCHAR(100) PRIMARY KEY,
+  setting_value NVARCHAR(500) NOT NULL,
+  description   NVARCHAR(255) NULL,
+  updated_at    DATETIME2(0) NOT NULL DEFAULT SYSDATETIME(),
+  updated_by    BIGINT NULL,
+  FOREIGN KEY (updated_by) REFERENCES users(id)
+);
+
+INSERT INTO system_settings (setting_key, setting_value, description)
+VALUES ('refund_approval_threshold', '3000000', N'Ngưỡng hoàn tiền yêu cầu Quản lý phê duyệt (VND)');
+
 -- =====================================================================
 -- 8. SHIPPING & DELIVERY
 -- =====================================================================

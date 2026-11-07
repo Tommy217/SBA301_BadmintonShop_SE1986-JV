@@ -110,6 +110,40 @@ class PaymentServiceImplTest {
     }
 
     @Test
+    void testCreatePayment_ReusesExistingPendingPayment() {
+        Payment existingPayment = Payment.builder()
+                .id(201L)
+                .orderId(105L)
+                .method("qr")
+                .status("pending")
+                .amount(new BigDecimal("1500000"))
+                .build();
+
+        when(orderRepository.findById(105L)).thenReturn(Optional.of(testOrder));
+        when(paymentRepository.findFirstByOrderIdAndStatusOrderByCreatedAtDesc(105L, "pending"))
+                .thenReturn(Optional.of(existingPayment));
+        when(paymentRepository.save(any(Payment.class))).thenReturn(existingPayment);
+        when(payOSService.createPaymentLink(anyLong(), any(), anyString(), any(), any(), any(), any(), any()))
+                .thenReturn(Map.of(
+                        "checkoutUrl", "https://pay.payos.vn/web/test",
+                        "qrCodeUrl", "https://img.vietqr.io/image/test.png",
+                        "paymentLinkId", "link-105"
+                ));
+
+        CreatePaymentRequest request = CreatePaymentRequest.builder()
+                .orderId(105L)
+                .amount(new BigDecimal("1500000"))
+                .build();
+
+        CreatePaymentResponse response = paymentService.createPayment(request);
+
+        assertNotNull(response);
+        assertEquals(201L, response.getPaymentId());
+        assertEquals("pending", response.getStatus());
+        verify(paymentRepository, atLeastOnce()).save(existingPayment);
+    }
+
+    @Test
     void testCreatePayment_OrderNotFound() {
         when(orderRepository.findById(999L)).thenReturn(Optional.empty());
 

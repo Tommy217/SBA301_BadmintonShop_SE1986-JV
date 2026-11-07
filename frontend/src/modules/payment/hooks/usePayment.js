@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router';
 import { paymentMethods } from '@/modules/payment/constants';
 import { paymentApi } from '../api/payment.api';
 
-export default function usePayment() {
+export default function usePayment(options = {}) {
   const [params] = useSearchParams();
   const orderId = params.get('order');
   const [snapshot, setSnapshot] = useState(null);
@@ -13,18 +13,62 @@ export default function usePayment() {
   const [isOrderExpanded, setIsOrderExpanded] = useState(true);
   const navigate = useNavigate();
   const lock = useRef(false);
+
+  const fetchShopSnapshot = async () => {
+    try {
+      const data = await paymentApi.getShopData();
+      setSnapshot({ orderId, data });
+      return data;
+    } catch (err) {
+      if (err.name !== 'CanceledError') {
+        setError('Không tải được đơn hàng. Hãy kiểm tra server và tải lại trang.');
+      }
+      return null;
+    }
+  };
+
   useEffect(() => {
     if (!orderId) return;
-    const controller = new AbortController();
-    paymentApi
-      .getShopData({ signal: controller.signal })
-      .then((data) => setSnapshot({ orderId, data }))
-      .catch((err) => {
-        if (err.name !== 'CanceledError')
-          setError('Không tải được đơn hàng. Hãy kiểm tra server và tải lại trang.');
-      });
-    return () => controller.abort();
-  }, [orderId]);
+    let isMounted = true;
+
+    fetchShopSnapshot();
+
+    if (!options.enablePolling) {
+      return () => {
+        isMounted = false;
+      };
+    }
+
+    const intervalId = setInterval(async () => {
+      if (!isMounted) return;
+      try {
+        const data = await paymentApi.getShopData();
+        if (!isMounted) return;
+        setSnapshot({ orderId, data });
+
+        const currentOrder = data?.orders?.find((o) => o.id === orderId);
+        const currentPayment = data?.payments?.filter((p) => p.order_id === orderId).at(-1);
+
+        if (currentOrder?.payment_status === 'paid' || currentPayment?.status === 'paid') {
+          clearInterval(intervalId);
+          navigate('/payments/result?order=' + encodeURIComponent(orderId), { replace: true });
+        } else if (
+          currentOrder?.status === 'cancelled' ||
+          currentPayment?.status === 'expired' ||
+          currentPayment?.status === 'failed'
+        ) {
+          clearInterval(intervalId);
+        }
+      } catch {
+        // silent polling failure
+      }
+    }, 3000);
+
+    return () => {
+      isMounted = false;
+      clearInterval(intervalId);
+    };
+  }, [orderId, options.enablePolling, navigate]);
   const data = snapshot?.orderId === orderId ? snapshot.data : null;
   const order = data?.orders.find((o) => o.id === orderId);
   const record = data?.payments.filter((p) => p.order_id === orderId).at(-1);
