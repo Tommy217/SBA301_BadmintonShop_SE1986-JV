@@ -278,9 +278,84 @@ public class PaymentServiceImpl implements PaymentService {
         paymentRepository.save(payment);
 
         Long payosOrderCode = providerOrderCode(payment);
-        if (payosOrderCode != null) payOSService.cancelPaymentLink(payosOrderCode, reason);
+        if (payosOrderCode != null) {
+            try {
+                payOSService.cancelPaymentLink(payosOrderCode, reason);
+            } catch (Exception e) {
+                log.warn("Không thể hủy link payOS cho orderCode {}: {}", payosOrderCode, e.getMessage());
+            }
+        }
+
+        // Đồng bộ trạng thái đơn hàng: Hủy đơn và hoàn trả tồn kho nếu đơn hàng chưa trả tiền
+        Order order = orderRepository.findById(payment.getOrderId()).orElse(null);
+        if (order != null && "unpaid".equalsIgnoreCase(order.getPaymentStatus()) && !"cancelled".equalsIgnoreCase(order.getStatus())) {
+            order.setStatus("cancelled");
+            order.setCancelledAt(LocalDateTime.now());
+            order.setCancelReason(reason != null && !reason.isBlank() ? reason : "Khách hàng hủy thanh toán");
+            orderRepository.save(order);
+
+            if (jdbcTemplate != null) {
+                try {
+                    List<Map<String, Object>> items = jdbcTemplate.queryForList(
+                            "SELECT variant_id, quantity FROM order_items WHERE order_id = ?", payment.getOrderId());
+                    for (Map<String, Object> item : items) {
+                        Long variantId = ((Number) item.get("variant_id")).longValue();
+                        int quantity = ((Number) item.get("quantity")).intValue();
+                        jdbcTemplate.update("UPDATE product_variants SET stock_quantity = stock_quantity + ? WHERE id = ?", quantity, variantId);
+                    }
+                    jdbcTemplate.update(
+                            "INSERT INTO order_status_history(order_id, from_status, to_status, note, created_at) VALUES (?, ?, ?, ?, SYSDATETIME())",
+                            payment.getOrderId(), "pending", "cancelled", "Khách hàng hủy thanh toán: " + reason);
+                } catch (Exception e) {
+                    log.warn("Không thể hoàn trả tồn kho hoặc ghi lịch sử đơn hàng khi hủy thanh toán: {}", e.getMessage());
+                }
+            }
+        }
 
         return toDetailResponse(payment);
+    }
+
+    @Override
+    @Transactional
+    public PaymentDetailResponse cancelPaymentByOrderId(Long orderId, String reason) {
+        List<Payment> list = paymentRepository.findByOrderIdOrderByCreatedAtDesc(orderId);
+        Payment pendingPayment = list.stream()
+                .filter(p -> "pending".equalsIgnoreCase(p.getStatus()))
+                .findFirst()
+                .orElse(null);
+
+        if (pendingPayment != null) {
+            return cancelPayment(pendingPayment.getId(), reason);
+        }
+
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy đơn hàng ID: " + orderId));
+        if ("paid".equalsIgnoreCase(order.getPaymentStatus())) {
+            throw new IllegalStateException("Không thể hủy thanh toán đơn hàng đã thanh toán thành công.");
+        }
+        order.setStatus("cancelled");
+        order.setCancelledAt(LocalDateTime.now());
+        order.setCancelReason(reason != null && !reason.isBlank() ? reason : "Khách hàng hủy thanh toán");
+        orderRepository.save(order);
+
+        if (jdbcTemplate != null) {
+            try {
+                List<Map<String, Object>> items = jdbcTemplate.queryForList(
+                        "SELECT variant_id, quantity FROM order_items WHERE order_id = ?", orderId);
+                for (Map<String, Object> item : items) {
+                    Long variantId = ((Number) item.get("variant_id")).longValue();
+                    int quantity = ((Number) item.get("quantity")).intValue();
+                    jdbcTemplate.update("UPDATE product_variants SET stock_quantity = stock_quantity + ? WHERE id = ?", quantity, variantId);
+                }
+                jdbcTemplate.update(
+                        "INSERT INTO order_status_history(order_id, from_status, to_status, note, created_at) VALUES (?, ?, ?, ?, SYSDATETIME())",
+                        orderId, "pending", "cancelled", "Khách hàng hủy thanh toán: " + reason);
+            } catch (Exception e) {
+                log.warn("Không thể hoàn trả tồn kho khi hủy đơn hàng: {}", e.getMessage());
+            }
+        }
+
+        return list.isEmpty() ? null : toDetailResponse(list.get(0));
     }
 
     @Override

@@ -18,15 +18,15 @@ function PaymentStatus({ payment, status, onRetry, onHome, showRetry }) {
       <div className="payment-result-details">
         <div>
           <span>Mã đơn hàng</span>
-          <strong>{payment.orderCode || '—'}</strong>
+          <strong>{payment?.orderCode || '—'}</strong>
         </div>
         <div>
           <span>Phương thức thanh toán</span>
-          <strong>{paymentMethodNames[payment.paymentMethod]}</strong>
+          <strong>{paymentMethodNames[payment?.paymentMethod] || 'VietQR qua payOS'}</strong>
         </div>
         <div>
           <span>Số tiền giao dịch</span>
-          <strong>{formatMoney(payment.total)}</strong>
+          <strong>{formatMoney(payment?.total || 0)}</strong>
         </div>
         <div>
           <span>Trạng thái</span>

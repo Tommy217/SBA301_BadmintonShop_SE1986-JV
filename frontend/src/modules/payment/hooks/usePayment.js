@@ -48,8 +48,8 @@ export default function usePayment(options = {}) {
         if (!isMounted) return;
         setSnapshot({ orderId, data });
 
-        const currentOrder = data?.orders?.find((o) => o.id === orderId);
-        const currentPayment = data?.payments?.filter((p) => p.order_id === orderId).at(-1);
+        const currentOrder = data?.orders?.find((o) => String(o.id) === String(orderId));
+        const currentPayment = data?.payments?.filter((p) => String(p.order_id) === String(orderId)).at(-1);
 
         if (currentOrder?.payment_status === 'paid' || currentPayment?.status === 'paid') {
           clearInterval(intervalId);
@@ -72,11 +72,11 @@ export default function usePayment(options = {}) {
       clearInterval(intervalId);
     };
   }, [orderId, options.enablePolling, navigate]);
-  const data = snapshot?.orderId === orderId ? snapshot.data : null;
-  const order = data?.orders.find((o) => o.id === orderId);
-  const record = data?.payments.filter((p) => p.order_id === orderId).at(-1);
+  const data = snapshot && String(snapshot.orderId) === String(orderId) ? snapshot.data : null;
+  const order = data?.orders.find((o) => String(o.id) === String(orderId));
+  const record = data?.payments.filter((p) => String(p.order_id) === String(orderId)).at(-1);
   const orderItems = (data?.order_items || [])
-    .filter((i) => i.order_id === orderId)
+    .filter((i) => String(i.order_id) === String(orderId))
     .map((i) => ({
       id: i.id,
       name: i.product_name,
@@ -84,7 +84,7 @@ export default function usePayment(options = {}) {
       quantity: i.quantity,
       price: i.unit_price,
     }));
-  const available = !!order && !!record && record.method !== 'cod' && order.status !== 'cancelled';
+  const available = !!order && !!record && record.method !== 'cod';
   const payment = available
     ? {
         orderId,
@@ -97,7 +97,7 @@ export default function usePayment(options = {}) {
     : null;
   async function startPayment(event) {
     event.preventDefault();
-    if (lock.current || !available) return;
+    if (lock.current || !available || order?.status === 'cancelled') return;
     lock.current = true;
     setBusy(true);
     setError('');

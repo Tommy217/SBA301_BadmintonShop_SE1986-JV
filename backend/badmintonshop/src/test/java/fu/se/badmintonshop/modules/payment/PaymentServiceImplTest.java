@@ -23,6 +23,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -252,6 +253,45 @@ class PaymentServiceImplTest {
         assertEquals(105L, response.getOrderId());
         assertEquals("ORD-105", response.getOrderCode());
         assertEquals("pending", response.getStatus());
+    }
+
+    @Test
+    void testCancelPayment_Success() {
+        when(paymentRepository.findById(201L)).thenReturn(Optional.of(testPayment));
+        when(orderRepository.findById(105L)).thenReturn(Optional.of(testOrder));
+
+        PaymentDetailResponse response = paymentService.cancelPayment(201L, "Đổi ý không mua nữa");
+
+        assertNotNull(response);
+        assertEquals("cancelled", testPayment.getStatus());
+        assertEquals("cancelled", testOrder.getStatus());
+        assertEquals("Đổi ý không mua nữa", testOrder.getCancelReason());
+        verify(paymentRepository).save(testPayment);
+        verify(orderRepository).save(testOrder);
+        verify(payOSService).cancelPaymentLink(eq(100201L), eq("Đổi ý không mua nữa"));
+    }
+
+    @Test
+    void testCancelPayment_AlreadyPaid_ThrowsException() {
+        testPayment.setStatus("paid");
+        when(paymentRepository.findById(201L)).thenReturn(Optional.of(testPayment));
+
+        assertThrows(IllegalStateException.class, () ->
+                paymentService.cancelPayment(201L, "Hủy"));
+    }
+
+    @Test
+    void testCancelPaymentByOrderId_Success() {
+        when(paymentRepository.findByOrderIdOrderByCreatedAtDesc(105L)).thenReturn(List.of(testPayment));
+        when(paymentRepository.findById(201L)).thenReturn(Optional.of(testPayment));
+        when(orderRepository.findById(105L)).thenReturn(Optional.of(testOrder));
+
+        PaymentDetailResponse response = paymentService.cancelPaymentByOrderId(105L, "Khách hàng hủy");
+
+        assertNotNull(response);
+        assertEquals("cancelled", testPayment.getStatus());
+        assertEquals("cancelled", testOrder.getStatus());
+        verify(paymentRepository).save(testPayment);
     }
 }
 

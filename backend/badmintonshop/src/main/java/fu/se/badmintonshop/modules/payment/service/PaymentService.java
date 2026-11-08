@@ -21,6 +21,8 @@ public interface PaymentService {
 
     PaymentDetailResponse cancelPayment(Long paymentId, String reason);
 
+    PaymentDetailResponse cancelPaymentByOrderId(Long orderId, String reason);
+
     void handlePayOSWebhook(PayOSWebhookRequest webhookRequest);
 
     void confirmWebhook(String webhookUrl);

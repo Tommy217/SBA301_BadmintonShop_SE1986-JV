@@ -27,6 +27,12 @@ export const transactionStatuses = {
     className: 'payment-result-failed',
     icon: '!',
   },
+  cancelled: {
+    title: 'Giao dịch đã bị hủy',
+    description: 'Phiên thanh toán đã được hủy theo yêu cầu của bạn.',
+    className: 'payment-result-failed',
+    icon: '✕',
+  },
   pending: {
     title: 'Đang chờ thanh toán',
     description: 'Giao dịch chưa được xác nhận. Vui lòng kiểm tra lại sau.',

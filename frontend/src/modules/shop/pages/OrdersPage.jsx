@@ -7,6 +7,7 @@ import Icon from '@/shared/components/Icon';
 import { carriers, deliveryStatuses } from '@/modules/delivery/constants';
 import { useMyShipments } from '@/modules/delivery/hooks/useDelivery';
 import { payments } from '@/modules/management/constants';
+import { paymentApi } from '@/modules/payment/api/payment.api';
 import useOrderUpdates from '../hooks/useOrderUpdates';
 import { getOrderStatus } from '../utils/orderStatus';
 import { productImage, productImageFallback } from '../utils/productImages';
@@ -23,7 +24,7 @@ const tabs = [
 ];
 
 export default function OrdersPage() {
-  const { data } = useShop();
+  const { data, act, refresh } = useShop();
   const { state } = useLocation();
   const [activeTab, setActiveTab] = useState('all');
   const [page, setPage] = useState(1);
@@ -35,6 +36,15 @@ export default function OrdersPage() {
   const currentPage = Math.min(page, totalPages);
   const pageOrders = visibleOrders.slice((currentPage - 1) * 5, currentPage * 5);
 
+  const handleCancelPaymentOrder = async (orderId) => {
+    if (!window.confirm('Bạn có chắc chắn muốn hủy phiên thanh toán và hủy đơn hàng này không?')) return;
+    try {
+      await act(() => paymentApi.cancelPayment({ order_id: orderId, reason: 'Khách hàng chủ động hủy thanh toán' }));
+    } catch (e) {
+      alert(e.message || 'Không thể hủy thanh toán.');
+    }
+  };
+
   return <section className="customer-orders">
     <header className="orders-heading"><div><span className="orders-eyebrow">MUA SẮM CỦA BẠN</span><h1>Đơn hàng của tôi</h1><p>Theo dõi đơn hàng và những món đồ bạn yêu thích.</p></div><Link to="/products" className="orders-shop-link">Tiếp tục mua sắm <span aria-hidden="true">↗</span></Link></header>
     {state?.placed && <Alert variant="success">Đặt hàng thành công! Trạng thái mới nhất sẽ được cập nhật tại đây.</Alert>}
@@ -43,6 +53,7 @@ export default function OrdersPage() {
       {!visibleOrders.length && <div className="orders-empty"><span className="orders-empty-icon"><Icon name="bag" size={32} /></span><h2>{orders.length ? 'Chưa có đơn hàng ở mục này' : 'Bạn chưa có đơn hàng nào'}</h2><p>Khám phá trang bị cho trận cầu tiếp theo của bạn.</p><Link className="order-action order-action-primary" to="/products">Khám phá sản phẩm</Link></div>}
       {pageOrders.map((order) => {
         const status = getOrderStatus(order.status);
+        const closed = ['cancelled', 'returned'].includes(order.status);
         const delivery = (shipments || []).find((d) => String(d.order_id) === String(order.id));
         const carrier = carriers[delivery?.carrier];
         const deliveryStatus = deliveryStatuses[delivery?.status];
@@ -54,8 +65,10 @@ export default function OrdersPage() {
         const nonCancelledCount = orderTickets.filter((t) => t.status !== 'CANCELLED').length;
         const canCreateTicket = order.payment_status === 'paid' && !closed && !activeTicket && !isRefunded && !hasInspectionFailed && nonCancelledCount < 2;
         const payment = (data.payments || []).filter((p) => String(p.order_id) === String(order.id)).at(-1);
+        const hasQrCode = Boolean(
+          payment && (payment.qr_code_url || payment.qrCodeUrl || payment.checkout_url || payment.checkoutUrl || payment.gateway_txn_ref || payment.gatewayTxnRef)
+        );
         const items = data.order_items.filter((item) => String(item.order_id) === String(order.id));
-        const closed = ['cancelled', 'returned'].includes(order.status);
         const trackingUrl = '/orders/' + encodeURIComponent(order.id) + '/tracking';
         return <article className="order-tile" key={order.id}>
           <header className="order-tile-header"><div className="order-store"><Icon name="bag" size={18} /><strong>Badminton Shop</strong><span className="order-code">#{order.order_code}</span></div><span className="order-status" data-status={order.status}>{status.label}</span></header>
@@ -81,7 +94,22 @@ export default function OrdersPage() {
                 <Link className="order-action" to={'/support-tickets/' + encodeURIComponent(latestTicket.id)}>Xem phiếu hỗ trợ</Link>
               ) : null}
               <Link className="order-action" to={trackingUrl}>Chi tiết đơn hàng</Link>
-              {order.payment_status === 'unpaid' && !closed && payment?.method !== 'cod' && <Link className="order-action order-action-primary" to={'/payments?order=' + encodeURIComponent(order.id)}>Thanh toán ngay</Link>}
+              {order.payment_status === 'unpaid' && !closed && payment?.method !== 'cod' && (
+                <>
+                  <Link
+                    className="order-action"
+                    to={'/payments/result?order=' + encodeURIComponent(order.id)}
+                  >
+                    Kiểm tra kết quả thanh toán
+                  </Link>
+                  <Link
+                    className="order-action order-action-primary"
+                    to={(hasQrCode ? '/payments/qr?order=' : '/payments?order=') + encodeURIComponent(order.id)}
+                  >
+                    Tiếp tục thanh toán
+                  </Link>
+                </>
+              )}
             </div></div>
             <details className="order-address"><summary>Thông tin giao hàng <span>· {formatDateTime(order.created_at)}</span></summary><p><strong>{order.receiver_name}</strong> · {order.receiver_phone}<br />{order.shipping_address}</p>{order.note && <p>Ghi chú: {order.note}</p>}</details>
           </div>

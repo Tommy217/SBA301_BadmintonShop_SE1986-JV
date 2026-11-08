@@ -155,7 +155,7 @@ sequenceDiagram
     participant PayOS as Cổng thanh toán payOS
     participant DB as SQL Server (badminton_shop)
 
-    loop Định kỳ mỗi 3 giây hoặc khi khách bấm "Kiểm tra kết quả"
+    loop Định kỳ mỗi 3 giây tại màn hình QR hoặc khi khách bấm "Kiểm tra kết quả giao dịch" tại Danh sách đơn hàng
         FE->>Ctrl: GET /api/payments/order/{orderId}/sync
         Ctrl->>Svc: syncPaymentByOrder(orderId)
         Svc->>DB: Tìm phiên thanh toán mới nhất của orderId
@@ -232,6 +232,53 @@ sequenceDiagram
 
 ---
 
+### 4.6. Luồng 6: Khách hàng chủ động Hủy phiên thanh toán (Cancel Payment Flow)
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Customer as Khách hàng
+    participant FE as Frontend (QrPaymentPage / OrdersPage)
+    participant API as payment.api.js
+    participant Ctrl as PaymentController / ShopController
+    participant Svc as PaymentServiceImpl
+    participant PayOS as Cổng thanh toán payOS
+    participant DB as SQL Server (badminton_shop)
+
+    Customer->>FE: Bấm nút "Hủy thanh toán" trên màn hình QR hoặc Danh sách đơn
+    FE->>Customer: Mở modal xác nhận hủy (chọn lý do hủy)
+    Customer->>FE: Xác nhận hủy thanh toán
+    FE->>API: cancelPayment({ order_id, reason }) hoặc cancelPaymentByOrder(orderId, reason)
+    API->>Ctrl: POST /api/shop/actions { type: 'cancel_payment', order_id, reason }<br/>(hoặc POST /api/payments/order/{orderId}/cancel)
+    Ctrl->>Svc: cancelPaymentByOrderId(orderId, reason)
+    Note over Svc: 1. Kiểm tra đơn hàng thuộc quyền sở hữu<br/>2. Không thể hủy nếu đơn đã thanh toán ('paid')
+    Svc->>DB: UPDATE payments SET status = 'cancelled', cancelled_at = NOW() WHERE order_id = orderId AND status = 'pending'
+    Svc->>PayOS: POST /v2/payment-requests/{orderCode}/cancel (Lý do hủy)
+    Svc->>DB: UPDATE orders SET status = 'cancelled', cancelled_at = NOW(), cancel_reason = reason
+    Note over Svc: Tự động hoàn trả tồn kho vào product_variants & ghi log order_status_history
+    Svc-->>Ctrl: Trả về PaymentDetailResponse (status: 'cancelled')
+    Ctrl-->>FE: HTTP 200 {"code": 200, "message": "Hủy phiên thanh toán thành công"}
+    FE->>Customer: Điều hướng sang trang Kết quả giao dịch (Báo Giao dịch đã bị hủy) hoặc cập nhật danh sách đơn
+```
+
+---
+
+### 4.7. Phân biệt trạng thái thanh toán trên Danh sách đơn hàng (Orders List UX)
+
+1. **Tại Màn hình Bước 2 (`/payments/qr`):**
+   * Đã gỡ bỏ nút thủ công *"Kiểm tra kết quả giao dịch"*.
+   * Hệ thống tự động kiểm tra và chuyển hướng ngay khi giao dịch hoàn tất nhờ cơ chế Active Polling 3s và Webhook payOS.
+   * Cung cấp các thao tác: *Mở trang thanh toán payOS*, *Quay lại chọn phương thức*, *Hủy thanh toán*.
+
+2. **Tại Danh sách đơn hàng (`/orders`):**
+   * Đối với đơn hàng chưa thanh toán (`unpaid`), giao diện hiển thị 2 nút thanh toán rõ ràng:
+     1. **"Kiểm tra kết quả thanh toán":** Gọi API đối soát `GET /api/payments/order/{orderId}/sync` và điều hướng người dùng tới trang Kết quả giao dịch (`/payments/result?order={id}`).
+     2. **"Tiếp tục thanh toán":**
+        * **Đơn đã tạo mã QR (`hasQrCode = true`):** Trỏ thẳng vào màn hình QR `/payments/qr?order={id}`, hiển thị lại chính xác mã VietQR cũ đã lưu trong cơ sở dữ liệu mà **không tạo mới**.
+        * **Đơn chưa tạo mã QR (`hasQrCode = false`):** Trỏ vào màn hình chọn phương thức `/payments?order={id}` để tiến hành tạo mã QR.
+
+---
+
 ## 5. BẢNG TRẠNG THÁI & MÃ LỖI THANH TOÁN
 
 ### 5.1. Bảng đồng bộ trạng thái thanh toán và đơn hàng
@@ -250,7 +297,7 @@ sequenceDiagram
 
 | Method | Endpoint | Quyền hạn | Mục đích nghiệp vụ |
 | :--- | :--- | :--- | :--- |
-| `POST` | `/api/shop/actions` | `CUSTOMER` (Chính chủ) | Khởi tạo phiên thanh toán qua action `{ "type": "start_payment", "order_id": 105 }` |
+| `POST` | `/api/shop/actions` | `CUSTOMER` (Chính chủ) | Khởi tạo phiên thanh toán (`start_payment`) hoặc hủy thanh toán (`cancel_payment`) |
 | `POST` | `/api/payments/create` | `CUSTOMER` (Chính chủ) | Tạo phiên thanh toán payOS VietQR độc lập |
 | `GET` | `/api/payments/{id}` | `CUSTOMER` (Chính chủ) | Tra cứu thông tin thanh toán theo Payment ID |
 | `GET` | `/api/payments/{id}/sync` | `CUSTOMER` (Chính chủ) | Kích hoạt Backend đối soát trực tiếp với API payOS theo Payment ID |
@@ -258,7 +305,8 @@ sequenceDiagram
 | `GET` | `/api/payments/order/{orderId}/sync` | `CUSTOMER` (Chính chủ) | Kích hoạt Backend đối soát trực tiếp với API payOS theo Order ID |
 | `GET` | `/api/payments/by-code/{code}` | `CUSTOMER` (Chính chủ) | Tra cứu theo mã nội bộ `PAY-yyyyMMdd-XXXXX` |
 | `GET` | `/api/payments/by-payos-code/{code}` | `CUSTOMER` (Chính chủ) | Tra cứu theo mã số nguyên payOS (`payosOrderCode`) |
-| `POST` | `/api/payments/{id}/cancel` | `CUSTOMER` (Chính chủ) | Hủy phiên thanh toán đang chờ |
+| `POST` | `/api/payments/{id}/cancel` | `CUSTOMER` (Chính chủ) | Hủy phiên thanh toán đang chờ theo Payment ID |
+| `POST` | `/api/payments/order/{orderId}/cancel` | `CUSTOMER` (Chính chủ) | Hủy phiên thanh toán đang chờ theo Order ID |
 | `POST` | `/api/payments/payos/webhook` | Public | Cổng payOS bắn Webhook thông báo kết quả (Xác thực chữ ký HMAC-SHA256) |
 | `POST` | `/api/payments/payos/confirm-webhook` | `ADMIN` | Gửi yêu cầu xác thực Webhook URL tới cổng payOS khi deploy |
 | `GET` | `/api/payments/settings/timeout` | `MANAGER`, `ADMIN` | Xem thời gian tự động hủy mã QR payment hiện tại (mặc định 15 phút) |

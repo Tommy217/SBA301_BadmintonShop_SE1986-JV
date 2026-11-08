@@ -101,6 +101,7 @@ public class ShopService {
                 updateOrder(action, user.id());
             }
             case "start_payment" -> startPayment(action, user);
+            case "cancel_payment" -> cancelPayment(action, user);
             default -> support.execute(type, action, user);
         }
     }
@@ -279,6 +280,16 @@ public class ShopService {
                 .cancelUrl(frontendUrl.replaceAll("/+$", "") + "/payments?order=" + orderId).build();
         var payment = payments.createPayment(request);
         jdbc.update("UPDATE payments SET checkout_url=? WHERE id=?", payment.getCheckoutUrl(), payment.getPaymentId());
+    }
+
+    private void cancelPayment(Map<String, Object> a, AuthService.User user) {
+        long orderId = id(a.get("order_id"));
+        jdbc.update("UPDATE orders SET updated_at=updated_at WHERE id=? AND user_id=?", orderId, user.id());
+        var order = one("SELECT * FROM orders WHERE id=? AND user_id=?", orderId, user.id());
+        require(!"paid".equals(order.get("payment_status")), HttpStatus.CONFLICT, "Đơn hàng đã thanh toán thành công.");
+        String reason = bounded(a, "reason", 0, 300);
+        if (reason.isBlank()) reason = "Khách hàng chủ động hủy thanh toán";
+        payments.cancelPaymentByOrderId(orderId, reason);
     }
 
     private Map<String, Object> variant(long variantId) {

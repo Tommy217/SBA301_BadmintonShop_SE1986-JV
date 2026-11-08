@@ -81,16 +81,30 @@ public class PaymentController {
     }
 
     /**
-     * 6. Hủy phiên thanh toán
+     * 6. Hủy phiên thanh toán theo Payment ID
      */
     @PostMapping("/{id}/cancel")
     public ResponseEntity<ApiResponse<PaymentDetailResponse>> cancelPayment(
             @PathVariable Long id,
             @RequestBody(required = false) CancelPaymentRequest request
     ) {
-        String reason = request != null ? request.getCancellationReason() : "Hủy bởi khách hàng";
+        String reason = request != null && request.getCancellationReason() != null ? request.getCancellationReason() : "Hủy bởi khách hàng";
         paymentAccess.payment(id);
         PaymentDetailResponse response = paymentService.cancelPayment(id, reason);
+        return ResponseEntity.ok(ApiResponse.success("Hủy phiên thanh toán thành công", response));
+    }
+
+    /**
+     * Hủy phiên thanh toán theo Order ID
+     */
+    @PostMapping("/order/{orderId}/cancel")
+    public ResponseEntity<ApiResponse<PaymentDetailResponse>> cancelPaymentByOrderId(
+            @PathVariable Long orderId,
+            @RequestBody(required = false) CancelPaymentRequest request
+    ) {
+        paymentAccess.order(orderId);
+        String reason = request != null && request.getCancellationReason() != null ? request.getCancellationReason() : "Hủy bởi khách hàng";
+        PaymentDetailResponse response = paymentService.cancelPaymentByOrderId(orderId, reason);
         return ResponseEntity.ok(ApiResponse.success("Hủy phiên thanh toán thành công", response));
     }
 

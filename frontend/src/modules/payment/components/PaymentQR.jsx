@@ -1,8 +1,13 @@
-import { Button, Container } from 'react-bootstrap';
+import { useState } from 'react';
+import { Button, Container, Form, Modal } from 'react-bootstrap';
 import { getPaymentQrImageUrl } from '@/modules/payment/utils/paymentQr';
 import { formatMoney } from '@/shared/utils/format';
 
-function PaymentQR({ payment, onCheckResult, onChooseAnotherMethod }) {
+function PaymentQR({ payment, onChooseAnotherMethod, onCancelPayment }) {
+  const [showCancelModal, setShowCancelModal] = useState(false);
+  const [cancelReason, setCancelReason] = useState('Khách hàng đổi ý / Hủy thanh toán');
+  const [cancelling, setCancelling] = useState(false);
+
   const qrImageUrl = getPaymentQrImageUrl(payment);
   const isPlaceholder = !qrImageUrl;
   const instructions = isPlaceholder
@@ -10,6 +15,17 @@ function PaymentQR({ payment, onCheckResult, onChooseAnotherMethod }) {
     : payment.paymentMethod === 'momo'
       ? 'Sử dụng ứng dụng MoMo để quét mã QR.'
       : 'Sử dụng ứng dụng MB Bank hoặc ứng dụng ngân hàng hỗ trợ quét QR.';
+
+  const handleConfirmCancel = async () => {
+    if (!onCancelPayment) return;
+    setCancelling(true);
+    try {
+      await onCancelPayment(cancelReason);
+      setShowCancelModal(false);
+    } finally {
+      setCancelling(false);
+    }
+  };
 
   return (
     <main className="qr-payment-page">
@@ -76,15 +92,54 @@ function PaymentQR({ payment, onCheckResult, onChooseAnotherMethod }) {
                 Mở trang thanh toán payOS
               </Button>
             )}
-            <Button variant="primary" onClick={onCheckResult} disabled={isPlaceholder}>
-              Kiểm tra kết quả giao dịch
-            </Button>
             <Button className="app-back-button" variant="outline-secondary" onClick={onChooseAnotherMethod}>
               Quay lại chọn phương thức
             </Button>
+            {onCancelPayment && (
+              <Button variant="outline-danger" onClick={() => setShowCancelModal(true)}>
+                Hủy thanh toán
+              </Button>
+            )}
           </div>
         </section>
       </Container>
+
+      {/* MODAL XÁC NHẬN HỦY THANH TOÁN */}
+      <Modal show={showCancelModal} onHide={() => !cancelling && setShowCancelModal(false)} centered>
+        <Modal.Header closeButton={!cancelling}>
+          <Modal.Title className="h5 fw-bold text-danger">Xác nhận hủy thanh toán</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <p className="mb-3">
+            Bạn có chắc chắn muốn hủy phiên thanh toán cho đơn hàng <strong>#{payment.orderCode}</strong>?
+          </p>
+          <div className="alert alert-warning small py-2">
+            Mã QR thanh toán payOS sẽ bị đóng ngay lập tức và đơn hàng sẽ chuyển sang trạng thái đã hủy.
+          </div>
+          <Form.Group controlId="cancel-reason" className="mt-3">
+            <Form.Label className="small fw-semibold">Lý do hủy (tùy chọn):</Form.Label>
+            <Form.Select
+              value={cancelReason}
+              onChange={(e) => setCancelReason(e.target.value)}
+              disabled={cancelling}
+            >
+              <option value="Khách hàng đổi ý / Hủy thanh toán">Tôi đổi ý, không muốn mua nữa</option>
+              <option value="Muốn chọn sản phẩm khác">Muốn đổi sang mẫu hoặc số lượng khác</option>
+              <option value="Muốn thay đổi địa chỉ nhận hàng">Cần thay đổi thông tin nhận hàng</option>
+              <option value="Gặp sự cố khi quét mã QR">Gặp sự cố khi quét mã thanh toán</option>
+              <option value="Lý do khác">Lý do khác</option>
+            </Form.Select>
+          </Form.Group>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setShowCancelModal(false)} disabled={cancelling}>
+            Đóng
+          </Button>
+          <Button variant="danger" onClick={handleConfirmCancel} disabled={cancelling}>
+            {cancelling ? 'Đang hủy...' : 'Xác nhận hủy thanh toán'}
+          </Button>
+        </Modal.Footer>
+      </Modal>
     </main>
   );
 }

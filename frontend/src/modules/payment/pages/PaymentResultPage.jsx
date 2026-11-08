@@ -5,6 +5,7 @@ import PaymentStatus from '@/modules/payment/components/PaymentStatus';
 import { getTransactionStatus } from '@/modules/payment/utils/paymentMapper';
 import usePayment from '@/modules/payment/hooks/usePayment';
 import { useShop } from '@/app/providers/shop/ShopContext';
+import { paymentApi } from '@/modules/payment/api/payment.api';
 import '@/modules/payment/PaymentResultPage.css';
 
 export default function PaymentResultPage() {
@@ -13,8 +14,11 @@ export default function PaymentResultPage() {
   const navigate = useNavigate();
 
   useEffect(() => {
+    if (model.orderId) {
+      paymentApi.syncPaymentByOrder(model.orderId).catch(() => {});
+    }
     refresh?.();
-  }, [refresh]);
+  }, [model.orderId, refresh]);
   if (model.loading)
     return (
       <Container className="py-5 text-center">
@@ -33,20 +37,27 @@ export default function PaymentResultPage() {
   const statusKey =
     model.order.payment_status === 'paid'
       ? 'success'
-      : model.record.status === 'failed'
-        ? 'failed'
-        : 'pending';
+      : model.order.status === 'cancelled' || model.record?.status === 'cancelled'
+        ? 'cancelled'
+        : model.record?.status === 'failed'
+          ? 'failed'
+          : 'pending';
   return (
     <main className="payment-result-page">
       <Container>
         <PaymentStatus
           payment={model.payment}
           status={getTransactionStatus(statusKey)}
-          showRetry={statusKey === 'failed'}
+          showRetry={['failed', 'cancelled'].includes(statusKey)}
           onRetry={() => navigate('/payments?order=' + encodeURIComponent(model.orderId))}
           onHome={() => navigate('/')}
         />
-        <div className="text-center mt-3">
+        <div className="text-center mt-3 d-flex justify-content-center gap-2">
+          {statusKey === 'pending' && (
+            <Button as={Link} to={'/payments/qr?order=' + encodeURIComponent(model.orderId)} variant="primary">
+              Quay lại quét mã QR
+            </Button>
+          )}
           <Button as={Link} to="/orders" variant="outline-primary">
             Xem đơn hàng của tôi
           </Button>

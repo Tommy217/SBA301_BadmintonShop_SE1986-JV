@@ -52,7 +52,7 @@
 .order-payment-dot { flex-shrink: 0; width: 5px; height: 5px; border-radius: 50%; background: #ed8e59; }
 .order-payment-dot.is-paid { background: #65a28b; }
 .order-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
-.shop-app .order-action, .order-action { display: inline-flex; justify-content: center; align-items: center; min-height: 37px; padding: 9px 16px; border: 1px solid #eae3e8; border-radius: 8px; background: #fff; color: #62555f; font-size: 12px; font-weight: 500; text-decoration: none; text-align: center; }
+.shop-app .order-action, .order-action { display: inline-flex; justify-content: center; align-items: center; min-height: 37px; padding: 9px 16px; border: 1px solid #eae3e8; border-radius: 8px; background: #fff; color: #62555f; font-size: 12px; font-weight: 500; text-decoration: none; text-align: center; cursor: pointer; font-family: inherit; }
 .shop-app .order-action:hover { background: #faf6f8; border-color: #decbd5; color: #4a3d47; }
 .shop-app .order-action-primary, .order-action-primary { background: #e7355d; border-color: #e7355d; color: #fff; font-weight: 600; }
 .shop-app .order-action-primary:hover { background: #da2b51; border-color: #da2b51; color: #fff; }
