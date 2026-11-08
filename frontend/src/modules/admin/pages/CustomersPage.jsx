@@ -223,7 +223,7 @@ export default function CustomersPage() {
           <Table responsive hover className="mb-0 align-middle">
             <thead style={{ backgroundColor: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
               <tr style={{ color: '#475569', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                <th style={{ padding: '14px 18px' }}># ID</th>
+                <th style={{ padding: '14px 18px', width: '70px' }}>STT</th>
                 <th style={{ padding: '14px 18px' }}>Họ và tên</th>
                 <th style={{ padding: '14px 18px' }}>Email</th>
                 <th style={{ padding: '14px 18px' }}>Trạng thái</th>
@@ -232,12 +232,14 @@ export default function CustomersPage() {
               </tr>
             </thead>
             <tbody>
-              {paginated.map((u) => {
+              {paginated.map((u, index) => {
                 const isLocked = u.status === 'locked' || Boolean(u.locked);
 
                 return (
                   <tr key={u.id}>
-                    <td style={{ padding: '14px 18px', color: '#64748b', fontWeight: '500' }}>#{u.id}</td>
+                    <td style={{ padding: '14px 18px', color: '#64748b', fontWeight: '500' }}>
+                      {startIndex + index + 1}
+                    </td>
                     <td style={{ padding: '14px 18px' }}>
                       <div className="fw-semibold text-dark">{u.fullName || 'Khách hàng'}</div>
                     </td>
