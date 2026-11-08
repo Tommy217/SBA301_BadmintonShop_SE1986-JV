@@ -225,26 +225,26 @@ export default function OrderPage() {
                   <Icon name="card" />
                   Hình thức thanh toán
                 </h2>
-                <Form.Check
-                  type="radio"
-                  name="paymentMethod"
-                  id="prepaid"
-                  className="payment-choice is-chosen my-3"
-                  label={
-                    <span className="payment-choice-copy">
-                      <Icon name="card" />
-                      <span>
-                        <strong>VietQR qua payOS</strong>
-                        <small>
-                          Quét mã VietQR chuyển khoản nhanh bằng ứng dụng ngân hàng bất kỳ
-                        </small>
-                      </span>
+                <label className="checkout-payment-option my-3" htmlFor="prepaid">
+                  <input
+                    type="radio"
+                    name="paymentMethod"
+                    id="prepaid"
+                    className="checkout-payment-radio"
+                    checked
+                    disabled={busy}
+                    readOnly
+                  />
+                  <span className="payment-choice-copy">
+                    <Icon name="card" />
+                    <span>
+                      <strong>VietQR qua payOS</strong>
+                      <small>
+                        Quét mã VietQR chuyển khoản nhanh bằng ứng dụng ngân hàng bất kỳ
+                      </small>
                     </span>
-                  }
-                  checked
-                  disabled={busy}
-                  readOnly
-                />
+                  </span>
+                </label>
                 <Alert variant="info" className="small mt-3 mb-0">
                   Sau khi xác nhận đơn hàng, chọn tiếp tục thanh toán để nhận mã VietQR.
                 </Alert>

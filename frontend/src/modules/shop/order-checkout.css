@@ -1,9 +1,10 @@
 .order-page {
   --checkout-ink: #24394d;
   --checkout-accent: #246baf;
-  max-width: 1180px;
-  margin-inline: auto;
-  padding-block: 28px 64px;
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  padding-block: 0 36px;
   color: var(--checkout-ink);
 }
 .order-page .checkout-heading {
@@ -167,14 +168,37 @@
   border-color: #7ba9d9;
   box-shadow: 0 0 0 3px #246baf14;
 }
-.order-page .payment-choice.is-chosen {
+.order-page .checkout-payment-option {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr);
+  align-items: center;
+  gap: 14px;
+  width: 100%;
   padding: 18px;
-  border-color: #abc8e5;
+  border: 1px solid #abc8e5;
   background: #f4f8fe;
   border-radius: 12px;
 }
 .order-page .payment-choice-copy > svg {
   flex-shrink: 0;
+}
+.order-page .checkout-payment-radio {
+  appearance: none;
+  box-sizing: border-box;
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  place-self: center;
+  border: 5px solid var(--checkout-accent);
+  border-radius: 50%;
+  background: #fff;
+}
+.order-page .checkout-payment-radio:focus-visible {
+  outline: 3px solid #83b2df;
+  outline-offset: 3px;
+}
+.order-page .checkout-payment-radio:disabled {
+  opacity: 0.55;
 }
 .order-page .alert-info {
   padding: 14px 16px;
@@ -281,7 +305,7 @@
 }
 @media (max-width: 767px) {
   .order-page {
-    padding-block: 12px 36px;
+    padding-block: 0 36px;
   }
   .order-page .checkout-heading {
     margin-bottom: 22px;
