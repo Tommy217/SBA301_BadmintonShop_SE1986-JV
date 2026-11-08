@@ -22,7 +22,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.jdbc.core.JdbcTemplate;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -45,9 +44,6 @@ public class PaymentServiceImpl implements PaymentService {
     private final PayOSService payOSService;
     private final SystemSettingRepository systemSettingRepository;
     private final ShipmentRepository shipmentRepository;
-    private final JdbcTemplate jdbcTemplate;
-    @jakarta.persistence.PersistenceContext
-    private jakarta.persistence.EntityManager entityManager;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     public static final int DEFAULT_PAYMENT_TIMEOUT_MINUTES = 15;
@@ -223,11 +219,9 @@ public class PaymentServiceImpl implements PaymentService {
         }
         paymentRepository.save(payment);
 
-        Order order = orderRepository.findById(payment.getOrderId()).orElse(null);
+        Order order = orderRepository.findByIdWithLock(payment.getOrderId())
+                .orElseGet(() -> orderRepository.findById(payment.getOrderId()).orElse(null));
         if (order != null) {
-            // PaymentAccess may have loaded this entity before another request cancelled it.
-            if (jdbcTemplate != null) jdbcTemplate.update("UPDATE orders SET updated_at=updated_at WHERE id=?", order.getId());
-            if (entityManager != null) entityManager.refresh(order);
             order.setPaymentStatus("paid");
             // A late provider callback must not reopen a cancelled order or restart fulfillment.
             if ("pending".equalsIgnoreCase(order.getStatus())) order.setStatus("confirmed");
@@ -327,10 +321,9 @@ public class PaymentServiceImpl implements PaymentService {
     }
 
     private Order checkPaymentOrderCancellation(Long orderId) {
-        if (jdbcTemplate != null) jdbcTemplate.update("UPDATE orders SET updated_at=updated_at WHERE id=?", orderId);
-        Order order = orderRepository.findById(orderId)
-                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy đơn hàng."));
-        if (entityManager != null) entityManager.refresh(order);
+        Order order = orderRepository.findByIdWithLock(orderId)
+                .orElseGet(() -> orderRepository.findById(orderId)
+                        .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy đơn hàng.")));
         if ("cancelled".equalsIgnoreCase(order.getStatus())) return order;
         if (!java.util.Set.of("pending", "confirmed", "preparing").contains(order.getStatus()))
             throw new IllegalStateException("Đơn đã chuyển sang giao hàng hoặc hoàn tất, không thể tự hủy.");
