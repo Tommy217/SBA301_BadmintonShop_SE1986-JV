@@ -4,7 +4,10 @@ import Icon from '@/shared/components/Icon';
 import QuantityControl from '@/shared/components/QuantityControl';
 import '@/modules/shop/shop.css';
 import '@/modules/shop/order-checkout.css';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { useAuth } from '@/app/providers/auth/AuthContext';
+import { httpClient } from '@/shared/api/httpClient';
+import VoucherPicker from '../components/VoucherPicker';
 import { Alert, Button, Card, Col, Form, Row } from 'react-bootstrap';
 import { Link, useNavigate, useSearchParams } from 'react-router';
 import { useShop } from '@/app/providers/shop/ShopContext';
@@ -23,7 +26,35 @@ export default function OrderPage() {
         ?.stock_quantity || 1;
     return Number.isSafeInteger(requested) && requested > 0 ? Math.min(requested, stock) : 1;
   });
-  const [voucherCode, setVoucherCode] = useState('');
+  const { user } = useAuth();
+  const userId = user?.id;
+  const [wallet, setWallet] = useState(null);
+  const [walletError, setWalletError] = useState('');
+  const [walletAttempt, setWalletAttempt] = useState(0);
+  useEffect(() => {
+    let active = true;
+    const controller = new AbortController();
+    httpClient
+      .get('/shop/vouchers', { signal: controller.signal })
+      .then((result) => {
+        if (active) {
+          setWallet({ ...result, userId });
+          setWalletError('');
+        }
+      })
+      .catch((error) => {
+        if (active && error.name !== 'CanceledError') setWalletError(error.message);
+      });
+    return () => {
+      active = false;
+      controller.abort();
+    };
+  }, [userId, walletAttempt]);
+  const voucherData = {
+    ...data,
+    vouchers: wallet?.userId === userId ? wallet.vouchers : [],
+    voucher_usages: wallet?.userId === userId ? wallet.voucher_usages : [],
+  };
   const [appliedCode, setAppliedCode] = useState('');
   const [voucherError, setVoucherError] = useState('');
   const [paymentMethod] = useState('prepaid');
@@ -53,17 +84,16 @@ export default function OrderPage() {
   let discount = 0,
     calculationError = '';
   try {
-    discount = calculateVoucher(data, appliedCode, items, data.carts[0]?.user_id).discount;
+    discount = calculateVoucher(voucherData, appliedCode, items, userId).discount;
   } catch (e) {
     calculationError = e.message;
   }
-  function applyVoucher() {
+  function applyVoucher(code) {
     try {
-      calculateVoucher(data, voucherCode, items, data.carts[0]?.user_id);
-      setAppliedCode(voucherCode.trim());
+      calculateVoucher(voucherData, code, items, userId);
+      setAppliedCode(code);
       setVoucherError('');
     } catch (e) {
-      setAppliedCode('');
       setVoucherError(e.message);
     }
   }
@@ -277,38 +307,27 @@ export default function OrderPage() {
                   <span>Phí vận chuyển</span>
                   <span>{formatMoney(shipping)}</span>
                 </div>
-                <Form.Group className="my-3" controlId="checkout-voucher">
-                  <Form.Label>Mã giảm giá</Form.Label>
-                  <div className="d-flex gap-2">
-                    <Form.Control
-                      placeholder="Nhập mã voucher"
-                      value={voucherCode}
-                      onChange={(e) => setVoucherCode(e.target.value.toUpperCase())}
-                    />
-                    <Button type="button" variant="outline-primary" onClick={applyVoucher}>
-                      Áp dụng
-                    </Button>
-                  </div>
-                  {(voucherError || calculationError) && (
-                    <p className="text-danger small mt-2">{voucherError || calculationError}</p>
-                  )}
-                  {appliedCode && !calculationError && (
-                    <p className="text-success small mt-2">
-                      Đã áp dụng {appliedCode}{' '}
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="link"
-                        onClick={() => {
-                          setAppliedCode('');
-                          setVoucherCode('');
-                        }}
-                      >
-                        Bỏ mã
-                      </Button>
-                    </p>
-                  )}
-                </Form.Group>
+                <VoucherPicker
+                  data={voucherData}
+                  items={items}
+                  userId={userId}
+                  appliedCode={appliedCode}
+                  onSelect={applyVoucher}
+                  onRemove={() => {
+                    setAppliedCode('');
+                    setVoucherError('');
+                  }}
+                  loading={!wallet && !walletError}
+                  error={walletError}
+                  onRetry={() => {
+                    setWalletError('');
+                    setWalletAttempt((n) => n + 1);
+                  }}
+                  disabled={busy}
+                />
+                {(voucherError || calculationError) && (
+                  <p className="text-danger small">{voucherError || calculationError}</p>
+                )}
                 <div className="summary-row">
                   <span>Giảm giá</span>
                   <span>−{formatMoney(discount)}</span>

@@ -1,3 +1,4 @@
+import VoucherRecipients from './VoucherRecipients';
 import { Alert, Badge, Button, Nav } from 'react-bootstrap';
 import { useSearchParams } from 'react-router';
 import { useCatalog } from './CatalogContext';
@@ -46,7 +47,8 @@ export default function VoucherManagementPage() {
           <div className="eyebrow">QUẢN LÝ VOUCHER</div>
           <h1>{voucher.name}</h1>
           <p>
-            {voucher.code} · {optionLabels[voucher.applies_to]}
+            {voucher.code} · {optionLabels[voucher.applies_to]} ·{' '}
+            {optionLabels[voucher.audience || 'public']}
           </p>
         </div>
         <Button variant="outline-primary" onClick={() => setParams({})}>
@@ -70,6 +72,7 @@ export default function VoucherManagementPage() {
           </p>
         </div>
       </div>
+      {voucher.audience === 'private' && <VoucherRecipients key={id} voucherId={id} />}
       <Nav variant="tabs" className="manager-entity-tabs" aria-label="Các phần quản lý voucher">
         {Object.entries(voucherSections).map(([key, label]) => (
           <Nav.Item key={key}>

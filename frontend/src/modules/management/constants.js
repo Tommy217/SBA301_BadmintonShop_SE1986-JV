@@ -115,6 +115,7 @@ export const catalogs = {
     title: 'Voucher',
     fields: [
       f('code', 'Mã voucher'),
+      f('audience', 'Đối tượng sử dụng', 'select', ['public', 'private']),
       f('name', 'Tên voucher'),
       f('description', 'Mô tả', 'textarea'),
       f('discount_type', 'Loại giảm', 'select', ['percent', 'fixed']),

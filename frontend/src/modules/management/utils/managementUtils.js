@@ -28,6 +28,8 @@ export const requiredFields = {
   voucher_scopes: ['voucher_id', 'scope_type', 'scope_id'],
 };
 export const optionLabels = {
+  public: 'Mã dùng chung',
+  private: 'Mã riêng được cấp',
   racket: 'Vợt cầu lông',
   shoes: 'Giày cầu lông',
   apparel: 'Trang phục',

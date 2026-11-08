@@ -9,7 +9,7 @@ export const catalogListFields = {
   shoe_specs: ['gender', 'sole_type', 'foot_width'],
   apparel_specs: ['gender', 'apparel_kind', 'material'],
   product_price_history: ['variant_id', 'old_price', 'new_price', 'changed_at'],
-  vouchers: ['code', 'name', 'discount_value', 'is_active'],
+  vouchers: ['code', 'name', 'audience', 'discount_value', 'is_active'],
   voucher_scopes: ['scope_type', 'scope_id'],
   voucher_usages: ['order_id', 'discount_amount', 'used_at'],
 };
