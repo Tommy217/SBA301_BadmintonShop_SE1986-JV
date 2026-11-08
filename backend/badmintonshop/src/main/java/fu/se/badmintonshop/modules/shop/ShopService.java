@@ -80,6 +80,14 @@ public class ShopService {
         return result;
     }
 
+    @Transactional(readOnly = true)
+    public Map<String, Object> voucherWallet(AuthService.User user) {
+        require(user != null, HttpStatus.UNAUTHORIZED, "Vui lòng đăng nhập.");
+        return Map.of(
+                "vouchers", rows("SELECT v.* FROM vouchers v WHERE v.audience='public' OR EXISTS (SELECT 1 FROM user_vouchers uv WHERE uv.voucher_id=v.id AND uv.user_id=?) ORDER BY v.ends_at,v.id", user.id()),
+                "voucher_usages", rows("SELECT * FROM voucher_usages WHERE user_id=?", user.id()));
+    }
+
     @Transactional
     public void execute(Map<String, Object> action, AuthService.User user) {
         require(user != null, HttpStatus.UNAUTHORIZED, "Vui lòng đăng nhập.");
@@ -199,6 +207,8 @@ public class ShopService {
         // The write locks this voucher until commit, also serializing per-user usage checks.
         require(jdbc.update("UPDATE vouchers SET used_count=used_count+1 WHERE UPPER(code)=? AND is_active=1 AND starts_at<=? AND ends_at>=? AND (usage_limit IS NULL OR used_count<usage_limit)", code.toUpperCase(Locale.ROOT), now(), now()) == 1,
                 HttpStatus.CONFLICT, "Voucher không hợp lệ, hết hạn hoặc hết lượt sử dụng.");
+        require(jdbc.queryForObject("SELECT COUNT(*) FROM vouchers v WHERE (v.audience='public' OR EXISTS (SELECT 1 FROM user_vouchers uv WHERE uv.voucher_id=v.id AND uv.user_id=?)) AND UPPER(v.code)=?", Long.class, userId, code.toUpperCase(Locale.ROOT)) > 0,
+                HttpStatus.FORBIDDEN, "Mã giảm giá chưa được cấp cho tài khoản của bạn.");
         var voucher = one("SELECT * FROM vouchers WHERE UPPER(code)=?", code.toUpperCase(Locale.ROOT));
         long voucherId = id(voucher.get("id"));
         require(jdbc.queryForObject("SELECT COUNT(*) FROM voucher_usages WHERE voucher_id=? AND user_id=?", Long.class, voucherId, userId) < number(voucher.get("per_user_limit")), HttpStatus.CONFLICT, "Bạn đã dùng hết lượt voucher.");

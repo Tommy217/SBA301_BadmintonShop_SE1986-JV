@@ -23,6 +23,11 @@ public class ShopController {
         return shop.customerSnapshot(identity(authentication));
     }
 
+    @GetMapping("/vouchers")
+    public Map<String, Object> voucherWallet(Authentication authentication) {
+        return shop.voucherWallet(identity(authentication));
+    }
+
     @PostMapping
     public Map<String, Object> action(@RequestBody Map<String, Object> request, Authentication authentication) {
         shop.execute(request, identity(authentication));

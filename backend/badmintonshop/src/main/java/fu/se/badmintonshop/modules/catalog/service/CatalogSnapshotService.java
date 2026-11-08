@@ -27,7 +27,7 @@ public class CatalogSnapshotService {
         result.put("racket_specs", products.listRacketSpecs());
         result.put("shoe_specs", products.listShoeSpecs());
         result.put("apparel_specs", products.listApparelSpecs());
-        result.put("vouchers", vouchers.listVouchers());
+        result.put("vouchers", vouchers.listVouchers().stream().filter(v -> management || "public".equals(v.getAudience())).toList());
         result.put("voucher_scopes", vouchers.listScopes());
         result.put("product_price_history", management ? products.listPriceHistory() : List.of());
         result.put("voucher_usages", management ? vouchers.listUsages() : List.of());
