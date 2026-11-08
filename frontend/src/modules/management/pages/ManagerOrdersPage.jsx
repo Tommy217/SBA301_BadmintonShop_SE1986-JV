@@ -28,7 +28,7 @@ export default function ManagerOrdersPage() {
     .filter(
       (o) =>
         (!status || o.status === status) &&
-        (!payment || o.payment_status === payment) &&
+        (!payment || (payment === 'pending_refund' ? o.status === 'cancelled' && o.payment_status === 'paid' : o.payment_status === payment)) &&
         (!channel || o.channel === channel) &&
         (!from || localDate(o.created_at) >= from) &&
         (!to || localDate(o.created_at) <= to) &&
@@ -160,6 +160,7 @@ export default function ManagerOrdersPage() {
             }}
           >
             <option value="">Tất cả thanh toán</option>
+            <option value="pending_refund">Đơn đã hủy · Chờ hoàn tiền</option>
             {Object.entries(payments).map(([k, v]) => (
               <option key={k} value={k}>
                 {v}
@@ -235,7 +236,7 @@ export default function ManagerOrdersPage() {
                   <td>
                     <strong>{formatMoney(o.total_amount)}</strong>
                     <small className="d-block text-secondary">
-                      {payments[o.payment_status] || o.payment_status}
+                      {o.status === 'cancelled' && o.payment_status === 'paid' ? 'Chờ hoàn tiền' : payments[o.payment_status] || o.payment_status}
                     </small>
                   </td>
                   <td>

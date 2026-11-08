@@ -59,7 +59,10 @@ public class ShopService {
         Object[] scope = staff ? new Object[]{} : new Object[]{user.id()};
         result.put("carts", rows("SELECT * FROM carts WHERE user_id=?", user.id()));
         result.put("cart_items", rows("SELECT i.* FROM cart_items i JOIN carts c ON c.id=i.cart_id WHERE c.user_id=? ORDER BY i.id", user.id()));
-        result.put("orders", rows("SELECT o.* FROM orders o" + orderWhere + " ORDER BY o.id", scope));
+        result.put("orders", rows("SELECT o.*, CASE WHEN o.status IN ('pending','confirmed','preparing') "
+                + "AND o.payment_status IN ('unpaid','paid') AND NOT EXISTS (SELECT 1 FROM shipments s WHERE s.order_id=o.id AND s.status NOT IN ('cancelled','rejected')) "
+                + "AND NOT EXISTS (SELECT 1 FROM support_tickets t WHERE t.order_id=o.id AND t.status IN ('PENDING','open','under_review','AWAITING_RETURN','PENDING_APPROVAL','PENDING_TRANSFER','REFUNDED')) "
+                + "THEN CAST(1 AS BIT) ELSE CAST(0 AS BIT) END AS can_cancel FROM orders o" + orderWhere + " ORDER BY o.id", scope));
         result.put("order_items", rows("SELECT i.* FROM order_items i JOIN orders o ON o.id=i.order_id" + orderWhere + " ORDER BY i.id", scope));
         result.put("payments", rows("SELECT p.* FROM payments p JOIN orders o ON o.id=p.order_id" + orderWhere + " ORDER BY p.id", scope));
         result.put("order_status_history", rows("SELECT h.* FROM order_status_history h JOIN orders o ON o.id=h.order_id" + orderWhere + " ORDER BY h.id", scope));
@@ -102,6 +105,7 @@ public class ShopService {
             }
             case "start_payment" -> startPayment(action, user);
             case "cancel_payment" -> cancelPayment(action, user);
+            case "cancel_order" -> cancelOrder(action, user);
             default -> support.execute(type, action, user);
         }
     }
@@ -280,6 +284,28 @@ public class ShopService {
                 .cancelUrl(frontendUrl.replaceAll("/+$", "") + "/payments?order=" + orderId).build();
         var payment = payments.createPayment(request);
         jdbc.update("UPDATE payments SET checkout_url=? WHERE id=?", payment.getCheckoutUrl(), payment.getPaymentId());
+    }
+
+    private void cancelOrder(Map<String, Object> a, AuthService.User user) {
+        long orderId = id(a.get("order_id"));
+        String reason = bounded(a, "reason", 1, 300);
+        // Serialize against shipment creation, management updates and repeat cancellations.
+        jdbc.update("UPDATE orders SET updated_at=updated_at WHERE id=? AND user_id=?", orderId, user.id());
+        var order = one("SELECT * FROM orders WHERE id=? AND user_id=?", orderId, user.id());
+        String status = Objects.toString(order.get("status"));
+        if ("cancelled".equals(status)) return;
+        require(Set.of("pending", "confirmed", "preparing").contains(status), HttpStatus.CONFLICT,
+                "Đơn đã chuyển sang giao hàng hoặc hoàn tất, không thể tự hủy.");
+        String paymentStatus = Objects.toString(order.get("payment_status"));
+        require(Set.of("unpaid", "paid").contains(paymentStatus), HttpStatus.CONFLICT, "Đơn đang được xử lý hoàn tiền, không thể hủy.");
+        require(jdbc.queryForObject("SELECT COUNT(*) FROM shipments WHERE order_id=? AND status NOT IN ('cancelled','rejected')", Long.class, orderId) == 0,
+                HttpStatus.CONFLICT, "Đơn đã có vận đơn còn hiệu lực. Vui lòng liên hệ hỗ trợ để xử lý.");
+        require(jdbc.queryForObject("SELECT COUNT(*) FROM support_tickets WHERE order_id=? AND status IN ('PENDING','open','under_review','AWAITING_RETURN','PENDING_APPROVAL','PENDING_TRANSFER','REFUNDED')", Long.class, orderId) == 0,
+                HttpStatus.CONFLICT, "Đơn đã có yêu cầu hỗ trợ hoặc hoàn tiền. Vui lòng theo dõi phiếu hỗ trợ hiện tại.");
+        payments.closePendingPaymentLinks(orderId, reason);
+        // Paid orders retain 'paid' until staff records an actual refund; no money is refunded here.
+        updateOrder(Map.of("id", orderId, "expected_status", status, "expected_payment_status", paymentStatus,
+                "status", "cancelled", "payment_status", paymentStatus, "note", reason), user.id());
     }
 
     private void cancelPayment(Map<String, Object> a, AuthService.User user) {

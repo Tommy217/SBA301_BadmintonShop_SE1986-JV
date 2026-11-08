@@ -10,6 +10,7 @@ import { toDelivery } from '@/modules/delivery/api/delivery.mapper';
 import { formatDateTime, formatMoney } from '@/shared/utils/format';
 import '@/modules/delivery/delivery.css';
 import { deliveryApi } from '@/modules/delivery/api/delivery.api';
+import CancelOrderAction from '@/modules/shop/components/CancelOrderAction';
 
 export default function OrderTrackingPage() {
   const { orderId } = useParams();
@@ -19,7 +20,11 @@ export default function OrderTrackingPage() {
   const [error, setError] = useState('');
 
   const order = (data.orders || []).find((item) => String(item.id) === orderId);
-  const { data: delivery, setData: setDelivery, reload: reloadShipment } = useOrderShipment(orderId, Boolean(order));
+  const {
+    data: delivery,
+    setData: setDelivery,
+    reload: reloadShipment,
+  } = useOrderShipment(orderId, Boolean(order));
   useOrderUpdates(reloadShipment);
   const orderItems = (data.order_items || []).filter((item) => String(item.order_id) === orderId);
 
@@ -92,8 +97,13 @@ export default function OrderTrackingPage() {
       <div className="delivery-heading d-flex flex-wrap align-items-start justify-content-between gap-3 mb-4">
         <div>
           <div className="delivery-title-row d-flex flex-wrap align-items-center gap-2 mb-1">
-            <h1 className="h3 fw-bold mb-0">Đơn hàng #{order.order_code}</h1>
-            <Badge bg={getOrderStatus(order.status).variant} text={order.status === 'pending' ? 'dark' : undefined}>{getOrderStatus(order.status).label}</Badge>
+            <h1 className="h3 fw-bold mb-0">Chi tiết đơn hàng #{order.order_code}</h1>
+            <Badge
+              bg={getOrderStatus(order.status).variant}
+              text={order.status === 'pending' ? 'dark' : undefined}
+            >
+              {getOrderStatus(order.status).label}
+            </Badge>
             {carrier && (
               <span
                 className="carrier-badge-pill"
@@ -110,15 +120,18 @@ export default function OrderTrackingPage() {
             {delivery ? (
               <>
                 Mã vận đơn:{' '}
-                <strong className="font-monospace text-dark">{delivery.tracking_number || 'Đang chờ cấp mã'}</strong> ·
-                Cập nhật: {formatDateTime(delivery.last_synced_at)}
+                <strong className="font-monospace text-dark">
+                  {delivery.tracking_number || 'Đang chờ cấp mã'}
+                </strong>{' '}
+                · Cập nhật: {formatDateTime(delivery.last_synced_at)}
               </>
             ) : (
               getOrderStatus(order.status).description
             )}
           </p>
         </div>
-        <div className="d-flex gap-2">
+        <div className="d-flex flex-wrap gap-2">
+          <CancelOrderAction order={order} onCancelled={reloadShipment} />
           <Button className="app-back-button" as={Link} to="/orders" variant="outline-secondary">
             ← Danh sách đơn hàng
           </Button>
@@ -137,87 +150,104 @@ export default function OrderTrackingPage() {
         </Alert>
       )}
 
-      {/* Stepper 4 bước trực quan */}
-      <Card className="border-0 shadow-sm mb-4">
-        <Card.Body className="p-4">
-          <div className="d-flex justify-content-between align-items-center mb-3">
-            <span className="fw-bold text-dark">Tiến trình vận chuyển</span>
-            <Badge
-              bg={statusInfo.variant}
-              text={statusInfo.variant === 'warning' ? 'dark' : undefined}
-              className="px-3 py-2"
-            >
-              {statusInfo.label}
-            </Badge>
-          </div>
-
-          <div className="tracking-stepper">
-            <div
-              className="stepper-progress"
-              style={{
-                width: `${Math.min(100, Math.max(0, ((currentStep - 1) / 3) * 100))}%`,
-              }}
-            />
-
-            {/* Bước 1 */}
-            <div
-              className={`stepper-step ${currentStep >= 1 ? (currentStep > 1 ? 'completed' : 'active') : ''}`}
-            >
-              <div className="stepper-circle">{currentStep > 1 ? '✓' : '1'}</div>
-              <div className="stepper-label">Đặt hàng thành công</div>
-              <div className="stepper-date">{formatDateTime(order.created_at)}</div>
-            </div>
-
-            {/* Bước 2 */}
-            <div
-              className={`stepper-step ${currentStep >= 2 ? (currentStep > 2 ? 'completed' : 'active') : ''}`}
-            >
-              <div className="stepper-circle">{currentStep > 2 ? '✓' : '2'}</div>
-              <div className="stepper-label">ĐVVC đã nhận hàng</div>
-              <div className="stepper-date">
-                {delivery?.shipped_at
-                  ? formatDateTime(delivery.shipped_at)
-                  : currentStep >= 2
-                    ? 'Đang xử lý'
-                    : 'Chờ lấy'}
-              </div>
-            </div>
-
-            {/* Bước 3 */}
-            <div
-              className={`stepper-step ${currentStep >= 3 ? (currentStep > 3 ? 'completed' : 'active') : ''}`}
-            >
-              <div className="stepper-circle">{currentStep > 3 ? '✓' : '3'}</div>
-              <div className="stepper-label">Đang giao hàng</div>
-              <div className="stepper-date">
-                {delivery?.status === 'out_for_delivery'
-                  ? 'Đang phát'
-                  : currentStep > 3
-                    ? 'Đã qua'
-                    : 'Dự kiến'}
-              </div>
-            </div>
-
-            {/* Bước 4 */}
-            <div className={`stepper-step ${currentStep === 4 ? 'completed' : ''}`}>
-              <div className="stepper-circle">{currentStep === 4 ? '✓' : '4'}</div>
-              <div className="stepper-label">Đã nhận hàng</div>
-              <div className="stepper-date">
-                {delivery?.delivered_at ? formatDateTime(delivery.delivered_at) : 'Chưa hoàn tất'}
-              </div>
-            </div>
-          </div>
-
-          {delivery?.carrier_status_text && (
-            <div className="carrier-info-box mt-3 text-center">
-              <span className="small text-secondary d-block">
-                Trạng thái mới nhất từ {carrier?.shortName}:
-              </span>
-              <strong className="text-primary fs-6">{delivery.carrier_status_text}</strong>
-            </div>
+      {order.status === 'cancelled' && (
+        <Alert variant="secondary">
+          <strong>Đơn hàng đã hủy.</strong>
+          {order.cancel_reason && <p className="mb-1 mt-2">Lý do: {order.cancel_reason}</p>}
+          {order.payment_status === 'paid' && (
+            <p className="mb-0">
+              Chờ cửa hàng xử lý hoàn tiền. Trạng thái sẽ được cập nhật sau khi hoàn tiền thực tế.
+            </p>
           )}
-        </Card.Body>
-      </Card>
+          {order.payment_status === 'refunded' && (
+            <p className="mb-0">Cửa hàng đã ghi nhận hoàn tiền cho đơn hàng này.</p>
+          )}
+        </Alert>
+      )}
+
+      {/* Stepper 4 bước trực quan */}
+      {order.status !== 'cancelled' && (
+        <Card className="border-0 shadow-sm mb-4">
+          <Card.Body className="p-4">
+            <div className="d-flex justify-content-between align-items-center mb-3">
+              <span className="fw-bold text-dark">Tiến trình vận chuyển</span>
+              <Badge
+                bg={statusInfo.variant}
+                text={statusInfo.variant === 'warning' ? 'dark' : undefined}
+                className="px-3 py-2"
+              >
+                {statusInfo.label}
+              </Badge>
+            </div>
+
+            <div className="tracking-stepper">
+              <div
+                className="stepper-progress"
+                style={{
+                  width: `${Math.min(100, Math.max(0, ((currentStep - 1) / 3) * 100))}%`,
+                }}
+              />
+
+              {/* Bước 1 */}
+              <div
+                className={`stepper-step ${currentStep >= 1 ? (currentStep > 1 ? 'completed' : 'active') : ''}`}
+              >
+                <div className="stepper-circle">{currentStep > 1 ? '✓' : '1'}</div>
+                <div className="stepper-label">Đặt hàng thành công</div>
+                <div className="stepper-date">{formatDateTime(order.created_at)}</div>
+              </div>
+
+              {/* Bước 2 */}
+              <div
+                className={`stepper-step ${currentStep >= 2 ? (currentStep > 2 ? 'completed' : 'active') : ''}`}
+              >
+                <div className="stepper-circle">{currentStep > 2 ? '✓' : '2'}</div>
+                <div className="stepper-label">ĐVVC đã nhận hàng</div>
+                <div className="stepper-date">
+                  {delivery?.shipped_at
+                    ? formatDateTime(delivery.shipped_at)
+                    : currentStep >= 2
+                      ? 'Đang xử lý'
+                      : 'Chờ lấy'}
+                </div>
+              </div>
+
+              {/* Bước 3 */}
+              <div
+                className={`stepper-step ${currentStep >= 3 ? (currentStep > 3 ? 'completed' : 'active') : ''}`}
+              >
+                <div className="stepper-circle">{currentStep > 3 ? '✓' : '3'}</div>
+                <div className="stepper-label">Đang giao hàng</div>
+                <div className="stepper-date">
+                  {delivery?.status === 'out_for_delivery'
+                    ? 'Đang phát'
+                    : currentStep > 3
+                      ? 'Đã qua'
+                      : 'Dự kiến'}
+                </div>
+              </div>
+
+              {/* Bước 4 */}
+              <div className={`stepper-step ${currentStep === 4 ? 'completed' : ''}`}>
+                <div className="stepper-circle">{currentStep === 4 ? '✓' : '4'}</div>
+                <div className="stepper-label">Đã nhận hàng</div>
+                <div className="stepper-date">
+                  {delivery?.delivered_at ? formatDateTime(delivery.delivered_at) : 'Chưa hoàn tất'}
+                </div>
+              </div>
+            </div>
+
+            {delivery?.carrier_status_text && (
+              <div className="carrier-info-box mt-3 text-center">
+                <span className="small text-secondary d-block">
+                  Trạng thái mới nhất từ {carrier?.shortName}:
+                </span>
+                <strong className="text-primary fs-6">{delivery.carrier_status_text}</strong>
+              </div>
+            )}
+          </Card.Body>
+        </Card>
+      )}
 
       <Row className="g-4">
         {/* Cột trái: Timeline hành trình bưu cục chi tiết */}
@@ -257,10 +287,14 @@ export default function OrderTrackingPage() {
 
               {!delivery ? (
                 <div className="p-4 text-center text-secondary">
-                  <p className="mb-2">Kiện hàng của bạn đang được đóng gói tại shop.</p>
+                  <p className="mb-2">
+                    {order.status === 'cancelled'
+                      ? 'Đơn đã hủy, không tiếp tục giao hàng.'
+                      : 'Kiện hàng của bạn đang được đóng gói tại shop.'}
+                  </p>
                   <small>
-                    Ngay sau khi bàn giao cho đối tác vận chuyển, mã vận đơn và lộ trình sẽ hiển thị
-                    tại đây.
+                    {order.status !== 'cancelled' &&
+                      'Ngay sau khi bàn giao cho đối tác vận chuyển, mã vận đơn và lộ trình sẽ hiển thị tại đây.'}
                   </small>
                 </div>
               ) : trackingLogs.length === 0 ? (
@@ -487,20 +521,28 @@ export default function OrderTrackingPage() {
 
               <div className="d-flex justify-content-between mb-2">
                 <span className="small text-secondary">Hình thức thanh toán:</span>
-                <span className="small fw-semibold">
-                  Thanh toán trực tuyến (payOS VietQR)
-                </span>
+                <span className="small fw-semibold">Thanh toán trực tuyến (payOS VietQR)</span>
               </div>
 
               <div className="d-flex justify-content-between align-items-center pt-2 border-top mt-2">
                 <div>
                   <span className="fw-bold d-block">Trạng thái thanh toán:</span>
                   <small className="text-secondary">
-                    {order.payment_status === 'paid' ? 'Đã thanh toán đủ' : 'Chờ quét mã VietQR'}
+                    {order.status === 'cancelled' && order.payment_status === 'paid'
+                      ? 'Đã thanh toán · Chờ hoàn tiền'
+                      : order.payment_status === 'refunded'
+                        ? 'Đã hoàn tiền'
+                        : order.payment_status === 'paid'
+                          ? 'Đã thanh toán đủ'
+                          : order.status === 'cancelled'
+                            ? 'Không cần thanh toán'
+                            : 'Chờ quét mã VietQR'}
                   </small>
                 </div>
-                <span className={`fs-5 fw-bold ${order.payment_status === 'paid' ? 'text-success' : 'text-danger'}`}>
-                  {order.payment_status === 'paid' ? 'ĐÃ THANH TOÁN' : formatMoney(order.total_amount)}
+                <span
+                  className={`fs-5 fw-bold ${order.payment_status === 'paid' ? 'text-success' : 'text-danger'}`}
+                >
+                  {formatMoney(order.total_amount)}
                 </span>
               </div>
             </Card.Body>

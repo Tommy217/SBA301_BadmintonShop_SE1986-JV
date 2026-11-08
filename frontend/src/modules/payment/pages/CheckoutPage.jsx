@@ -1,5 +1,5 @@
 import { Alert, Button, Card, Col, Container, Row, Spinner } from 'react-bootstrap';
-import { Link } from 'react-router';
+import { Link, useLocation } from 'react-router';
 import PaymentSummary from '@/modules/payment/components/PaymentSummary';
 import usePayment from '@/modules/payment/hooks/usePayment';
 import PaymentPage from './PaymentPage';
@@ -8,6 +8,7 @@ import Icon from '@/shared/components/Icon';
 
 function CheckoutPage() {
   const payment = usePayment();
+  const { state } = useLocation();
 
   if (payment.loading)
     return (
@@ -60,6 +61,12 @@ function CheckoutPage() {
         </ol>
 
         {payment.error && <Alert variant="danger">{payment.error}</Alert>}
+        {state?.paymentCancelled && (
+          <Alert variant="info">
+            Đã hủy phiên thanh toán. Đơn hàng vẫn được giữ lại. Nhấn “Tiếp tục thanh toán” để tạo mã
+            QR mới.
+          </Alert>
+        )}
         <Row className="g-4 align-items-start">
           <Col lg={7}>
             <PaymentPage

@@ -1,13 +1,14 @@
 import { useState } from 'react';
-import { Button, Container, Form, Modal } from 'react-bootstrap';
+import { Alert, Button, Container, Form, Modal } from 'react-bootstrap';
 import { getPaymentQrImageUrl } from '@/modules/payment/utils/paymentQr';
 import { formatMoney } from '@/shared/utils/format';
 import Icon from '@/shared/components/Icon';
 
 function PaymentQR({ payment, onChooseAnotherMethod, onCancelPayment }) {
   const [showCancelModal, setShowCancelModal] = useState(false);
-  const [cancelReason, setCancelReason] = useState('Khách hàng đổi ý / Hủy thanh toán');
+  const [cancelReason, setCancelReason] = useState('Tôi muốn thanh toán sau');
   const [cancelling, setCancelling] = useState(false);
+  const [cancelError, setCancelError] = useState('');
 
   const qrImageUrl = getPaymentQrImageUrl(payment);
   const isPlaceholder = !qrImageUrl;
@@ -20,9 +21,12 @@ function PaymentQR({ payment, onChooseAnotherMethod, onCancelPayment }) {
   const handleConfirmCancel = async () => {
     if (!onCancelPayment) return;
     setCancelling(true);
+    setCancelError('');
     try {
       await onCancelPayment(cancelReason);
       setShowCancelModal(false);
+    } catch (error) {
+      setCancelError(error.message || 'Không thể hủy phiên thanh toán. Vui lòng thử lại.');
     } finally {
       setCancelling(false);
     }
@@ -135,7 +139,13 @@ function PaymentQR({ payment, onChooseAnotherMethod, onCancelPayment }) {
                 </Button>
               )}
               {onCancelPayment && (
-                <Button variant="outline-danger" onClick={() => setShowCancelModal(true)}>
+                <Button
+                  variant="outline-danger"
+                  onClick={() => {
+                    setCancelError('');
+                    setShowCancelModal(true);
+                  }}
+                >
                   Hủy thanh toán
                 </Button>
               )}
@@ -155,13 +165,18 @@ function PaymentQR({ payment, onChooseAnotherMethod, onCancelPayment }) {
           <Modal.Title className="h5 fw-bold text-danger">Xác nhận hủy thanh toán</Modal.Title>
         </Modal.Header>
         <Modal.Body>
+          {cancelError && (
+            <Alert variant="danger" role="alert">
+              {cancelError}
+            </Alert>
+          )}
           <p className="mb-3">
             Bạn có chắc chắn muốn hủy phiên thanh toán cho đơn hàng{' '}
             <strong>#{payment.orderCode}</strong>?
           </p>
           <div className="alert alert-warning small py-2">
-            Mã QR thanh toán payOS sẽ bị đóng ngay lập tức và đơn hàng sẽ chuyển sang trạng thái đã
-            hủy.
+            Chỉ hủy phiên thanh toán và đóng mã QR hiện tại. Đơn hàng vẫn được giữ lại; bạn có thể
+            tạo mã mới để thanh toán sau.
           </div>
           <Form.Group controlId="cancel-reason" className="mt-3">
             <Form.Label className="small fw-semibold">Lý do hủy (tùy chọn):</Form.Label>
@@ -170,13 +185,8 @@ function PaymentQR({ payment, onChooseAnotherMethod, onCancelPayment }) {
               onChange={(e) => setCancelReason(e.target.value)}
               disabled={cancelling}
             >
-              <option value="Khách hàng đổi ý / Hủy thanh toán">
-                Tôi đổi ý, không muốn mua nữa
-              </option>
-              <option value="Muốn chọn sản phẩm khác">Muốn đổi sang mẫu hoặc số lượng khác</option>
-              <option value="Muốn thay đổi địa chỉ nhận hàng">
-                Cần thay đổi thông tin nhận hàng
-              </option>
+              <option value="Tôi muốn thanh toán sau">Tôi muốn thanh toán sau</option>
+              <option value="Tôi muốn tạo mã QR mới">Tôi muốn tạo mã QR mới</option>
               <option value="Gặp sự cố khi quét mã QR">Gặp sự cố khi quét mã thanh toán</option>
               <option value="Lý do khác">Lý do khác</option>
             </Form.Select>
