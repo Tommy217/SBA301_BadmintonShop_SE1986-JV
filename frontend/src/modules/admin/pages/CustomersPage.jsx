@@ -258,7 +258,7 @@ export default function CustomersPage() {
                         variant={isLocked ? 'outline-success' : 'outline-danger'}
                         onClick={() => handleToggleStatus(u)}
                       >
-                        {isLocked ? 'Mở khóa' : 'Khóa tài khoản'}
+                        {isLocked ? 'Mở khóa' : 'Khóa'}
                       </Button>
                     </td>
                   </tr>
