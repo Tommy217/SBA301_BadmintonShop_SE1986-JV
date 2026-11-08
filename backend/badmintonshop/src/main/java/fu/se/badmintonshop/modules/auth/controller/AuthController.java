@@ -1,7 +1,9 @@
 package fu.se.badmintonshop.modules.auth.controller;
 
+import fu.se.badmintonshop.modules.auth.dto.request.ForgotPasswordRequest;
 import fu.se.badmintonshop.modules.auth.dto.request.LoginRequest;
 import fu.se.badmintonshop.modules.auth.dto.request.RegisterRequest;
+import fu.se.badmintonshop.modules.auth.dto.request.ResetPasswordRequest;
 import fu.se.badmintonshop.modules.auth.dto.response.AuthResponse;
 import fu.se.badmintonshop.modules.auth.dto.response.UserResponse;
 import fu.se.badmintonshop.modules.auth.security.CustomUserDetails;
@@ -18,6 +20,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.Duration;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -59,6 +62,18 @@ public class AuthController {
         return ResponseEntity.ok()
             .header(HttpHeaders.SET_COOKIE, cleanCookie.toString())
             .build();
+    }
+
+    @PostMapping("/forgot-password")
+    public ResponseEntity<Map<String, String>> forgotPassword(@Valid @RequestBody ForgotPasswordRequest request) {
+        authService.forgotPassword(request);
+        return ResponseEntity.ok(Map.of("message", "Hướng dẫn đặt lại mật khẩu đã được gửi đến hộp thư của bạn."));
+    }
+
+    @PostMapping("/reset-password")
+    public ResponseEntity<Map<String, String>> resetPassword(@Valid @RequestBody ResetPasswordRequest request) {
+        authService.resetPassword(request);
+        return ResponseEntity.ok(Map.of("message", "Đặt lại mật khẩu thành công. Vui lòng đăng nhập với mật khẩu mới."));
     }
 
     private ResponseCookie createAuthCookie(String token, long maxAgeSeconds) {

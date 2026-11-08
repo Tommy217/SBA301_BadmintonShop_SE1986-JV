@@ -1,6 +1,6 @@
 package fu.se.badmintonshop.modules.cart.controller;
 
-import fu.se.badmintonshop.modules.auth.service.AuthService;
+import fu.se.badmintonshop.modules.auth.security.CustomUserDetails;
 import fu.se.badmintonshop.modules.cart.dto.request.*;
 import fu.se.badmintonshop.modules.cart.dto.response.CartSnapshotResponse;
 import fu.se.badmintonshop.modules.cart.exception.CartException;
@@ -64,13 +64,13 @@ public class CartController {
         return updatedSnapshot(user);
     }
 
-    private AuthService.User user(Authentication authentication) {
+    private CustomUserDetails user(Authentication authentication) {
         var user = CurrentUser.from(authentication);
         if (user == null) throw new CartException(HttpStatus.UNAUTHORIZED, "Vui lòng đăng nhập.");
         return user;
     }
 
-    private OrderSnapshotResponse updatedSnapshot(AuthService.User user) {
+    private OrderSnapshotResponse updatedSnapshot(CustomUserDetails user) {
         var result = new LinkedHashMap<>(orders.snapshot(user));
         result.putAll(carts.snapshot(user.id()));
         return SnapshotResponseMapper.order(result);

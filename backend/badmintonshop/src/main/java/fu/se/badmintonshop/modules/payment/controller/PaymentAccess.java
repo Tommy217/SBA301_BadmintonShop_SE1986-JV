@@ -1,7 +1,6 @@
 package fu.se.badmintonshop.modules.payment.controller;
 
 import fu.se.badmintonshop.modules.auth.security.CustomUserDetails;
-import fu.se.badmintonshop.modules.auth.service.AuthService;
 import fu.se.badmintonshop.modules.order.repository.OrderRepository;
 import fu.se.badmintonshop.modules.payment.repository.PaymentRepository;
 import lombok.RequiredArgsConstructor;
@@ -19,8 +18,7 @@ public class PaymentAccess {
     public void order(Long orderId) {
         var authentication = SecurityContextHolder.getContext().getAuthentication();
         Object principal = authentication == null ? null : authentication.getPrincipal();
-        Long userId = principal instanceof CustomUserDetails user ? user.getId()
-                : principal instanceof AuthService.User user ? user.id() : null;
+        Long userId = principal instanceof CustomUserDetails user ? user.getId() : null;
         if (userId == null) throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Vui lòng đăng nhập.");
         var order = orders.findById(orderId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy đơn hàng."));
@@ -34,3 +32,4 @@ public class PaymentAccess {
         order(payment.getOrderId());
     }
 }
+

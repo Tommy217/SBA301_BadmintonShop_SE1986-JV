@@ -5,6 +5,8 @@ export const authApi = {
   logout: () => httpClient.post('/auth/logout'),
   login: (credentials) => httpClient.post('/auth/login', credentials),
   register: (data) => httpClient.post('/auth/register', data),
+  forgotPassword: (data) => httpClient.post('/auth/forgot-password', data),
+  resetPassword: (data) => httpClient.post('/auth/reset-password', data),
 };
 
 export const profileApi = {

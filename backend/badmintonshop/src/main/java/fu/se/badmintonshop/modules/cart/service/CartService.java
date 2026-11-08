@@ -3,7 +3,7 @@ package fu.se.badmintonshop.modules.cart.service;
 import java.util.Map;
 
 import fu.se.badmintonshop.modules.cart.dto.request.*;
-import fu.se.badmintonshop.modules.auth.service.AuthService;
+
 
 public interface CartService {
     Map<String, Object> snapshot(Long userId);

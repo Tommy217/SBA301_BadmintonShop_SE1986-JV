@@ -3,7 +3,7 @@ package fu.se.badmintonshop.modules.order.service.impl;
 import static fu.se.badmintonshop.modules.common.mapper.SnapshotMapper.*;
 import static fu.se.badmintonshop.modules.common.service.CommerceValidation.*;
 
-import fu.se.badmintonshop.modules.auth.service.AuthService;
+import fu.se.badmintonshop.modules.auth.security.CustomUserDetails;
 import fu.se.badmintonshop.modules.cart.repository.CartItemRepository;
 import fu.se.badmintonshop.modules.catalog.entity.*;
 import fu.se.badmintonshop.modules.catalog.repository.ProductRepository;
@@ -93,16 +93,16 @@ public class OrderServiceImpl implements OrderService {
                     Set.of());
 
     @Transactional
-    public Map<String, Object> snapshot(AuthService.User user) {
+    public Map<String, Object> snapshot(CustomUserDetails user) {
         return snapshot(user, management(user));
     }
 
     @Transactional
-    public Map<String, Object> customerSnapshot(AuthService.User user) {
+    public Map<String, Object> customerSnapshot(CustomUserDetails user) {
         return snapshot(user, false);
     }
 
-    private Map<String, Object> snapshot(AuthService.User user, boolean staff) {
+    private Map<String, Object> snapshot(CustomUserDetails user, boolean staff) {
         if (user != null) {
             try {
                 payments.syncPendingPayments();
@@ -192,7 +192,7 @@ public class OrderServiceImpl implements OrderService {
     }
 
     @Transactional(readOnly = true)
-    public Map<String, Object> voucherWallet(AuthService.User user) {
+    public Map<String, Object> voucherWallet(CustomUserDetails user) {
         require(user != null, HttpStatus.UNAUTHORIZED, "Vui lòng đăng nhập.");
         return Map.of(
                 "vouchers", snapshots(voucherRepository.findWallet(user.id())),
@@ -200,7 +200,7 @@ public class OrderServiceImpl implements OrderService {
     }
 
     @Transactional
-    public void execute(Map<String, Object> action, AuthService.User user) {
+    public void execute(Map<String, Object> action, CustomUserDetails user) {
         require(user != null, HttpStatus.UNAUTHORIZED, "Vui lòng đăng nhập.");
         String type = text(action, "type");
         switch (type) {
@@ -506,7 +506,7 @@ public class OrderServiceImpl implements OrderService {
         history(orderId, old, next, actor, note);
     }
 
-    private void startPayment(Map<String, Object> a, AuthService.User user) {
+    private void startPayment(Map<String, Object> a, CustomUserDetails user) {
         long orderId = id(a.get("order_id"));
         locks.lockOrder(orderId);
         var order =
@@ -540,7 +540,7 @@ public class OrderServiceImpl implements OrderService {
         paymentRepository.updateCheckoutUrl(payment.getCheckoutUrl(), payment.getPaymentId());
     }
 
-    private void cancelOrder(Map<String, Object> a, AuthService.User user) {
+    private void cancelOrder(Map<String, Object> a, CustomUserDetails user) {
         long orderId = id(a.get("order_id"));
         String reason = bounded(a, "reason", 1, 300);
         // Serialize against shipment creation, management updates and repeat cancellations.
@@ -589,7 +589,7 @@ public class OrderServiceImpl implements OrderService {
                 user.id());
     }
 
-    private void cancelPayment(Map<String, Object> a, AuthService.User user) {
+    private void cancelPayment(Map<String, Object> a, CustomUserDetails user) {
         long orderId = id(a.get("order_id"));
         locks.lockOrder(orderId);
         var order =
@@ -659,7 +659,7 @@ public class OrderServiceImpl implements OrderService {
 
     @Override
     @Transactional
-    public void checkout(CheckoutRequest request, AuthService.User user) {
+    public void checkout(CheckoutRequest request, CustomUserDetails user) {
         Map<String, Object> action = new LinkedHashMap<>();
         if (request.getSource() != null) action.put("source", request.getSource());
         if (request.getVariantId() != null) action.put("variant_id", request.getVariantId());
@@ -681,7 +681,7 @@ public class OrderServiceImpl implements OrderService {
 
     @Override
     @Transactional
-    public void cancelOrder(long id, CancelOrderRequest request, AuthService.User user) {
+    public void cancelOrder(long id, CancelOrderRequest request, CustomUserDetails user) {
         Map<String, Object> action = new LinkedHashMap<>();
         if (request.getReason() != null) action.put("reason", request.getReason());
         action.put("type", "cancel_order");
@@ -692,7 +692,7 @@ public class OrderServiceImpl implements OrderService {
 
     @Override
     @Transactional
-    public void updateStatus(long id, UpdateOrderStatusRequest request, AuthService.User user) {
+    public void updateStatus(long id, UpdateOrderStatusRequest request, CustomUserDetails user) {
         Map<String, Object> action = new LinkedHashMap<>();
         if (request.getExpectedStatus() != null)
             action.put("expected_status", request.getExpectedStatus());
@@ -710,7 +710,7 @@ public class OrderServiceImpl implements OrderService {
 
     @Override
     @Transactional
-    public void startPayment(long id, StartOrderPaymentRequest request, AuthService.User user) {
+    public void startPayment(long id, StartOrderPaymentRequest request, CustomUserDetails user) {
         Map<String, Object> action = new LinkedHashMap<>();
         if (request.getGateway() != null) action.put("gateway", request.getGateway());
         action.put("type", "start_payment");
@@ -721,7 +721,7 @@ public class OrderServiceImpl implements OrderService {
 
     @Override
     @Transactional
-    public void cancelPayment(long id, CancelOrderRequest request, AuthService.User user) {
+    public void cancelPayment(long id, CancelOrderRequest request, CustomUserDetails user) {
         Map<String, Object> action = new LinkedHashMap<>();
         if (request.getReason() != null) action.put("reason", request.getReason());
         action.put("type", "cancel_payment");

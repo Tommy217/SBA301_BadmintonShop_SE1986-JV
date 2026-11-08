@@ -1,7 +1,7 @@
 package fu.se.badmintonshop.modules.supportticket.service;
 
 import com.fasterxml.jackson.databind.*;
-import fu.se.badmintonshop.modules.auth.service.AuthService;
+import fu.se.badmintonshop.modules.auth.security.CustomUserDetails;
 import fu.se.badmintonshop.modules.payment.service.PaymentService;
 import fu.se.badmintonshop.modules.supportticket.dto.*;
 import fu.se.badmintonshop.modules.supportticket.service.SupportTicketService;
@@ -34,7 +34,7 @@ public class SupportActions {
     }
 
     @Transactional
-    public void execute(String type, Map<String, Object> action, AuthService.User user) {
+    public void execute(String type, Map<String, Object> action, CustomUserDetails user) {
         require(user != null, HttpStatus.UNAUTHORIZED, "Vui lòng đăng nhập.");
         if ("update_refund_threshold".equals(type)) {
             require(

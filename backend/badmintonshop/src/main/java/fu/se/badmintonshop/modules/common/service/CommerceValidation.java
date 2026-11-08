@@ -1,6 +1,6 @@
 package fu.se.badmintonshop.modules.common.service;
 
-import fu.se.badmintonshop.modules.auth.service.AuthService;
+import fu.se.badmintonshop.modules.auth.security.CustomUserDetails;
 import org.springframework.http.HttpStatus;
 import fu.se.badmintonshop.modules.common.exception.BusinessException;
 import java.util.*;
@@ -15,7 +15,7 @@ public final class CommerceValidation {
                 HttpStatus.NOT_FOUND, "Không tìm thấy dữ liệu hoặc bạn không có quyền truy cập.");
     }
 
-    public static boolean management(AuthService.User user) {
+    public static boolean management(CustomUserDetails user) {
         return user != null && Set.of("STAFF", "MANAGER", "ADMIN").contains(user.role());
     }
 
