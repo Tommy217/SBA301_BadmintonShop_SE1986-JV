@@ -47,9 +47,9 @@
 .shop-layout {
   display: flex;
   flex: 1;
-  max-width: 1600px;
+  max-width: none;
   width: 100%;
-  margin: auto;
+  margin: 0;
 }
 .shop-sidebar {
   width: 235px;
@@ -85,6 +85,12 @@
   padding: 32px;
   min-width: 0;
   flex: 1;
+}
+.shop-main.payment-content {
+  padding: 20px 24px;
+}
+@media (max-width: 575px) {
+  .shop-main.payment-content { padding: 16px 14px; }
 }
 .shop-hero {
   border: 1px solid #d6eaf8;

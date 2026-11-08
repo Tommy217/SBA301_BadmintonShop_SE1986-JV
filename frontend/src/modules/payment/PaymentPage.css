@@ -11,7 +11,6 @@
   color: var(--pay-ink);
 }
 .payment-container { padding: 0; }
-.shop-main.payment-content { padding: 20px 24px; }
 .payment-heading { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 20px; }
 .payment-heading h1 { color: var(--pay-ink); font-size: clamp(28px, 3vw, 34px); letter-spacing: -.9px; }
 .payment-heading p:last-child { font-size: 13px; line-height: 1.7; }
@@ -98,7 +97,6 @@
 .payment-page .review-caption { font-size: 10px; line-height: 1.7; }
 .payment-page :is(a, button):focus-visible { outline: 2px solid var(--pay-accent); outline-offset: 3px; }
 @media (max-width: 575.98px) {
-  .shop-main.payment-content { padding: 16px 14px; }
   .payment-heading { align-items: flex-start; }
   .payment-heading h1 { font-size: 28px; }
   .payment-order-reference { width: 100%; }

@@ -20,7 +20,13 @@ export default function PublicLayout() {
         <PublicHeader />
         <div className="shop-layout">
           <PublicSidebar />
-          <main className={pathname === '/payments' ? 'shop-main payment-content' : 'shop-main'}>
+          <main
+            className={
+              ['/payments', '/payments/qr'].includes(pathname)
+                ? 'shop-main payment-content'
+                : 'shop-main'
+            }
+          >
             <Outlet />
           </main>
         </div>
