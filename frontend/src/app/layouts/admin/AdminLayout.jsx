@@ -2,38 +2,20 @@ import { Outlet } from 'react-router';
 import AdminFooter from './AdminFooter';
 import AdminHeader from './AdminHeader';
 import AdminSidebar from './AdminSidebar';
-
-const styles = {
-  layout: {
-    display: 'flex',
-    minHeight: '100vh',
-    width: '100%',
-    backgroundColor: '#f8fafc',
-  },
-  main: {
-    display: 'flex',
-    flexDirection: 'column',
-    flex: 1,
-    minWidth: 0,
-  },
-  content: {
-    flex: 1,
-    padding: '28px 36px',
-    overflowY: 'auto',
-  },
-};
+import '@/shared/styles/app.css';
+import '@/modules/management/management.css';
 
 export default function AdminLayout() {
   return (
-    <div style={styles.layout}>
-      <AdminSidebar />
-      <div style={styles.main}>
-        <AdminHeader />
-        <main style={styles.content}>
+    <div className="shop-app management-app">
+      <AdminHeader />
+      <div className="shop-layout">
+        <AdminSidebar />
+        <main className="shop-main management-content">
           <Outlet />
         </main>
-        <AdminFooter />
       </div>
+      <AdminFooter />
     </div>
   );
 }

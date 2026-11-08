@@ -3,7 +3,7 @@ import { Table, Badge, Button, Form, Alert, Spinner } from 'react-bootstrap';
 import { useAuth } from '@/app/providers/auth/AuthContext';
 import { employeeApi } from '@/modules/admin/api/admin.api';
 import EmployeeModal from '@/modules/admin/components/EmployeeModal';
-import { ManagerPagination } from '@/shared/components/ManagerControls';
+import { ManagerSearch, ManagerPagination } from '@/shared/components/ManagerControls';
 import { ROLES } from '@/shared/constants/roles';
 
 export default function EmployeesPage() {
@@ -130,81 +130,17 @@ export default function EmployeesPage() {
     return <Badge bg={config.bg}>{config.label}</Badge>;
   };
 
-  const styles = {
-    header: {
-      display: 'flex',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      marginBottom: '24px',
-    },
-    title: {
-      fontSize: '24px',
-      fontWeight: '700',
-      color: '#0f172a',
-      marginBottom: '4px',
-    },
-    subtitle: {
-      fontSize: '14px',
-      color: '#64748b',
-    },
-    statGrid: {
-      display: 'grid',
-      gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))',
-      gap: '16px',
-      marginBottom: '24px',
-    },
-    statCard: {
-      backgroundColor: '#ffffff',
-      border: '1px solid #e2e8f0',
-      borderRadius: '10px',
-      padding: '16px 20px',
-      boxShadow: '0 1px 2px rgba(0, 0, 0, 0.04)',
-    },
-    statNum: {
-      fontSize: '26px',
-      fontWeight: '700',
-      color: '#1e293b',
-      lineHeight: 1.2,
-    },
-    statLabel: {
-      fontSize: '13px',
-      color: '#64748b',
-      marginTop: '4px',
-    },
-    filterCard: {
-      backgroundColor: '#ffffff',
-      border: '1px solid #e2e8f0',
-      borderRadius: '10px',
-      padding: '18px 20px',
-      marginBottom: '20px',
-    },
-    tableCard: {
-      backgroundColor: '#ffffff',
-      border: '1px solid #e2e8f0',
-      borderRadius: '10px',
-      overflow: 'hidden',
-      boxShadow: '0 1px 3px rgba(0, 0, 0, 0.05)',
-    },
-  };
-
   return (
-    <div>
+    <section className="manager-page">
+      <div className="eyebrow">HỆ THỐNG QUẢN TRỊ</div>
+
       {/* Header */}
-      <div style={styles.header}>
+      <div className="manager-title">
         <div>
-          <h1 style={styles.title}>Quản lý nhân viên nội bộ</h1>
-          <div style={styles.subtitle}>Quản lý thông tin tài khoản Quản trị viên, Quản lý và Nhân viên</div>
+          <h1>Quản lý nhân viên nội bộ</h1>
+          <p>Quản lý thông tin tài khoản Quản trị viên, Quản lý và Nhân viên.</p>
         </div>
-        <Button
-          variant="primary"
-          onClick={handleCreate}
-          style={{
-            backgroundColor: '#2563eb',
-            borderColor: '#2563eb',
-            padding: '10px 18px',
-            fontWeight: 600,
-          }}
-        >
+        <Button variant="primary" onClick={handleCreate}>
           + Thêm nhân viên
         </Button>
       </div>
@@ -222,78 +158,71 @@ export default function EmployeesPage() {
       )}
 
       {/* Stats */}
-      <div style={styles.statGrid}>
-        <div style={styles.statCard}>
-          <div style={styles.statNum}>{stats.total}</div>
-          <div style={styles.statLabel}>Tổng số nhân sự</div>
+      <div className="manager-stats" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))' }}>
+        <div className="manager-panel">
+          <span className="text-secondary">Tổng số nhân sự</span>
+          <strong>{stats.total}</strong>
         </div>
-        <div style={styles.statCard}>
-          <div style={{ ...styles.statNum, color: '#dc2626' }}>{stats.admins}</div>
-          <div style={styles.statLabel}>Quản trị viên (ADMIN)</div>
+        <div className="manager-panel">
+          <span className="text-secondary">Quản trị viên</span>
+          <strong className="text-danger">{stats.admins}</strong>
         </div>
-        <div style={styles.statCard}>
-          <div style={{ ...styles.statNum, color: '#2563eb' }}>{stats.managers}</div>
-          <div style={styles.statLabel}>Quản lý (MANAGER)</div>
+        <div className="manager-panel">
+          <span className="text-secondary">Quản lý</span>
+          <strong style={{ color: '#2386c8' }}>{stats.managers}</strong>
         </div>
-        <div style={styles.statCard}>
-          <div style={{ ...styles.statNum, color: '#0891b2' }}>{stats.staff}</div>
-          <div style={styles.statLabel}>Nhân viên (STAFF)</div>
+        <div className="manager-panel">
+          <span className="text-secondary">Nhân viên</span>
+          <strong style={{ color: '#0ea5e9' }}>{stats.staff}</strong>
         </div>
-        <div style={styles.statCard}>
-          <div style={{ ...styles.statNum, color: stats.locked > 0 ? '#ef4444' : '#10b981' }}>
+        <div className="manager-panel">
+          <span className="text-secondary">Tài khoản bị khóa</span>
+          <strong className={stats.locked > 0 ? 'text-danger' : 'text-success'}>
             {stats.locked}
-          </div>
-          <div style={styles.statLabel}>Tài khoản bị khóa</div>
+          </strong>
         </div>
       </div>
 
-      {/* Filters */}
-      <div style={styles.filterCard}>
-        <div className="d-flex flex-wrap gap-3 align-items-center justify-content-between">
-          <div style={{ minWidth: '260px', flex: '1 1 300px' }}>
-            <Form.Control
-              type="text"
-              placeholder="🔍 Tìm theo họ tên, email..."
-              value={search}
-              onChange={(e) => {
-                setSearch(e.target.value);
-                setCurrentPage(1);
-              }}
-            />
-          </div>
-          <div className="d-flex gap-3 flex-wrap">
-            <Form.Select
-              value={roleFilter}
-              onChange={(e) => {
-                setRoleFilter(e.target.value);
-                setCurrentPage(1);
-              }}
-              style={{ width: '180px' }}
-            >
-              <option value="ALL">Tất cả vai trò</option>
-              <option value={ROLES.ADMIN}>Quản trị viên</option>
-              <option value={ROLES.MANAGER}>Quản lý</option>
-              <option value={ROLES.STAFF}>Nhân viên</option>
-            </Form.Select>
+      {/* Filters & Table Panel */}
+      <div className="manager-panel">
+        <div className="manager-filters">
+          <ManagerSearch
+            placeholder="Tìm theo họ tên, email…"
+            label="Tìm nhân viên"
+            value={search}
+            onChange={(val) => {
+              setSearch(val);
+              setCurrentPage(1);
+            }}
+          />
+          <Form.Select
+            value={roleFilter}
+            onChange={(e) => {
+              setRoleFilter(e.target.value);
+              setCurrentPage(1);
+            }}
+            style={{ maxWidth: '200px' }}
+          >
+            <option value="ALL">Tất cả vai trò</option>
+            <option value={ROLES.ADMIN}>Quản trị viên</option>
+            <option value={ROLES.MANAGER}>Quản lý</option>
+            <option value={ROLES.STAFF}>Nhân viên</option>
+          </Form.Select>
 
-            <Form.Select
-              value={statusFilter}
-              onChange={(e) => {
-                setStatusFilter(e.target.value);
-                setCurrentPage(1);
-              }}
-              style={{ width: '170px' }}
-            >
-              <option value="ALL">Tất cả trạng thái</option>
-              <option value="active">Đang hoạt động</option>
-              <option value="locked">Đã bị khóa</option>
-            </Form.Select>
-          </div>
+          <Form.Select
+            value={statusFilter}
+            onChange={(e) => {
+              setStatusFilter(e.target.value);
+              setCurrentPage(1);
+            }}
+            style={{ maxWidth: '190px' }}
+          >
+            <option value="ALL">Tất cả trạng thái</option>
+            <option value="active">Đang hoạt động</option>
+            <option value="locked">Đã bị khóa</option>
+          </Form.Select>
         </div>
-      </div>
 
-      {/* Table */}
-      <div style={styles.tableCard}>
         {loading ? (
           <div className="text-center py-5">
             <Spinner animation="border" variant="primary" />
@@ -304,16 +233,16 @@ export default function EmployeesPage() {
             Không tìm thấy nhân viên nào phù hợp với điều kiện tìm kiếm.
           </div>
         ) : (
-          <Table responsive hover className="mb-0 align-middle">
-            <thead style={{ backgroundColor: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
-              <tr style={{ color: '#475569', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                <th style={{ padding: '14px 18px', width: '70px' }}>STT</th>
-                <th style={{ padding: '14px 18px' }}>Nhân viên</th>
-                <th style={{ padding: '14px 18px' }}>Email</th>
-                <th style={{ padding: '14px 18px' }}>Vai trò</th>
-                <th style={{ padding: '14px 18px' }}>Trạng thái</th>
-                <th style={{ padding: '14px 18px' }}>Ngày tạo</th>
-                <th style={{ padding: '14px 18px', textAlign: 'right' }}>Thao tác</th>
+          <Table responsive hover className="manager-table mb-0 align-middle">
+            <thead>
+              <tr>
+                <th style={{ width: '60px' }}>STT</th>
+                <th>Nhân viên</th>
+                <th>Email</th>
+                <th>Vai trò</th>
+                <th>Trạng thái</th>
+                <th>Ngày tạo</th>
+                <th style={{ textAlign: 'right' }}>Thao tác</th>
               </tr>
             </thead>
             <tbody>
@@ -323,10 +252,10 @@ export default function EmployeesPage() {
 
                 return (
                   <tr key={u.id}>
-                    <td style={{ padding: '14px 18px', color: '#64748b', fontWeight: '500' }}>
+                    <td className="text-secondary fw-semibold">
                       {startIndex + index + 1}
                     </td>
-                    <td style={{ padding: '14px 18px' }}>
+                    <td>
                       <div className="fw-semibold text-dark">
                         {u.fullName || 'Chưa đặt tên'}
                         {isSelf && (
@@ -336,17 +265,17 @@ export default function EmployeesPage() {
                         )}
                       </div>
                     </td>
-                    <td style={{ padding: '14px 18px', color: '#334155' }}>{u.email}</td>
-                    <td style={{ padding: '14px 18px' }}>{roleBadge(u.role)}</td>
-                    <td style={{ padding: '14px 18px' }}>
+                    <td>{u.email}</td>
+                    <td>{roleBadge(u.role)}</td>
+                    <td>
                       <Badge bg={isLocked ? 'danger' : 'success'}>
                         {isLocked ? 'Đã khóa' : 'Hoạt động'}
                       </Badge>
                     </td>
-                    <td style={{ padding: '14px 18px', color: '#64748b', fontSize: '13px' }}>
+                    <td className="text-secondary">
                       {u.createdAt ? new Date(u.createdAt).toLocaleDateString('vi-VN') : '—'}
                     </td>
-                    <td style={{ padding: '14px 18px', textAlign: 'right' }}>
+                    <td style={{ textAlign: 'right' }}>
                       <div className="d-flex justify-content-end gap-2">
                         <Button
                           size="sm"
@@ -372,15 +301,15 @@ export default function EmployeesPage() {
             </tbody>
           </Table>
         )}
-      </div>
 
-      {/* Pagination Controls */}
-      <ManagerPagination
-        total={filtered.length}
-        page={validPage}
-        pageSize={pageSize}
-        onChange={setCurrentPage}
-      />
+        {/* Pagination Controls */}
+        <ManagerPagination
+          total={filtered.length}
+          page={validPage}
+          pageSize={pageSize}
+          onChange={setCurrentPage}
+        />
+      </div>
 
       {/* Modal */}
       <EmployeeModal
@@ -390,7 +319,7 @@ export default function EmployeesPage() {
         user={selectedUser}
         currentAdminId={currentAdmin?.id}
       />
-    </div>
+    </section>
   );
 }
 

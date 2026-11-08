@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Table, Badge, Button, Form, Alert, Spinner } from 'react-bootstrap';
 import { customerApi } from '@/modules/admin/api/admin.api';
-import { ManagerPagination } from '@/shared/components/ManagerControls';
+import { ManagerSearch, ManagerPagination } from '@/shared/components/ManagerControls';
 
 export default function CustomersPage() {
   const [customers, setCustomers] = useState([]);
@@ -80,70 +80,15 @@ export default function CustomersPage() {
     }
   };
 
-  const styles = {
-    header: {
-      display: 'flex',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      marginBottom: '24px',
-    },
-    title: {
-      fontSize: '24px',
-      fontWeight: '700',
-      color: '#0f172a',
-      marginBottom: '4px',
-    },
-    subtitle: {
-      fontSize: '14px',
-      color: '#64748b',
-    },
-    statGrid: {
-      display: 'grid',
-      gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-      gap: '16px',
-      marginBottom: '24px',
-    },
-    statCard: {
-      backgroundColor: '#ffffff',
-      border: '1px solid #e2e8f0',
-      borderRadius: '10px',
-      padding: '16px 20px',
-      boxShadow: '0 1px 2px rgba(0, 0, 0, 0.04)',
-    },
-    statNum: {
-      fontSize: '26px',
-      fontWeight: '700',
-      color: '#1e293b',
-      lineHeight: 1.2,
-    },
-    statLabel: {
-      fontSize: '13px',
-      color: '#64748b',
-      marginTop: '4px',
-    },
-    filterCard: {
-      backgroundColor: '#ffffff',
-      border: '1px solid #e2e8f0',
-      borderRadius: '10px',
-      padding: '18px 20px',
-      marginBottom: '20px',
-    },
-    tableCard: {
-      backgroundColor: '#ffffff',
-      border: '1px solid #e2e8f0',
-      borderRadius: '10px',
-      overflow: 'hidden',
-      boxShadow: '0 1px 3px rgba(0, 0, 0, 0.05)',
-    },
-  };
-
   return (
-    <div>
+    <section className="manager-page">
+      <div className="eyebrow">HỆ THỐNG QUẢN TRỊ</div>
+
       {/* Header */}
-      <div style={styles.header}>
+      <div className="manager-title">
         <div>
-          <h1 style={styles.title}>Quản lý tài khoản khách hàng</h1>
-          <div style={styles.subtitle}>Danh sách và trạng thái tài khoản khách hàng thành viên</div>
+          <h1>Quản lý tài khoản khách hàng</h1>
+          <p>Danh sách và trạng thái tài khoản khách hàng thành viên.</p>
         </div>
       </div>
 
@@ -160,56 +105,49 @@ export default function CustomersPage() {
       )}
 
       {/* Stats */}
-      <div style={styles.statGrid}>
-        <div style={styles.statCard}>
-          <div style={styles.statNum}>{stats.total}</div>
-          <div style={styles.statLabel}>Tổng số khách hàng</div>
+      <div className="manager-stats" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))' }}>
+        <div className="manager-panel">
+          <span className="text-secondary">Tổng số khách hàng</span>
+          <strong>{stats.total}</strong>
         </div>
-        <div style={styles.statCard}>
-          <div style={{ ...styles.statNum, color: '#10b981' }}>{stats.active}</div>
-          <div style={styles.statLabel}>Khách hàng đang hoạt động</div>
+        <div className="manager-panel">
+          <span className="text-secondary">Khách hàng đang hoạt động</span>
+          <strong className="text-success">{stats.active}</strong>
         </div>
-        <div style={styles.statCard}>
-          <div style={{ ...styles.statNum, color: stats.locked > 0 ? '#ef4444' : '#64748b' }}>
+        <div className="manager-panel">
+          <span className="text-secondary">Tài khoản bị khóa</span>
+          <strong className={stats.locked > 0 ? 'text-danger' : 'text-secondary'}>
             {stats.locked}
-          </div>
-          <div style={styles.statLabel}>Tài khoản bị khóa</div>
+          </strong>
         </div>
       </div>
 
-      {/* Filters */}
-      <div style={styles.filterCard}>
-        <div className="d-flex flex-wrap gap-3 align-items-center justify-content-between">
-          <div style={{ minWidth: '280px', flex: '1 1 320px' }}>
-            <Form.Control
-              type="text"
-              placeholder="🔍 Tìm theo họ tên, email khách hàng..."
-              value={search}
-              onChange={(e) => {
-                setSearch(e.target.value);
-                setCurrentPage(1);
-              }}
-            />
-          </div>
-          <div className="d-flex gap-3">
-            <Form.Select
-              value={statusFilter}
-              onChange={(e) => {
-                setStatusFilter(e.target.value);
-                setCurrentPage(1);
-              }}
-              style={{ width: '180px' }}
-            >
-              <option value="ALL">Tất cả trạng thái</option>
-              <option value="active">Đang hoạt động</option>
-              <option value="locked">Đã bị khóa</option>
-            </Form.Select>
-          </div>
+      {/* Filters & Table Panel */}
+      <div className="manager-panel">
+        <div className="manager-filters">
+          <ManagerSearch
+            placeholder="Tìm theo họ tên, email khách hàng…"
+            label="Tìm khách hàng"
+            value={search}
+            onChange={(val) => {
+              setSearch(val);
+              setCurrentPage(1);
+            }}
+          />
+          <Form.Select
+            value={statusFilter}
+            onChange={(e) => {
+              setStatusFilter(e.target.value);
+              setCurrentPage(1);
+            }}
+            style={{ maxWidth: '200px' }}
+          >
+            <option value="ALL">Tất cả trạng thái</option>
+            <option value="active">Đang hoạt động</option>
+            <option value="locked">Đã bị khóa</option>
+          </Form.Select>
         </div>
-      </div>
 
-      {/* Table */}
-      <div style={styles.tableCard}>
         {loading ? (
           <div className="text-center py-5">
             <Spinner animation="border" variant="primary" />
@@ -220,15 +158,15 @@ export default function CustomersPage() {
             Không tìm thấy khách hàng nào phù hợp với điều kiện tìm kiếm.
           </div>
         ) : (
-          <Table responsive hover className="mb-0 align-middle">
-            <thead style={{ backgroundColor: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
-              <tr style={{ color: '#475569', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                <th style={{ padding: '14px 18px', width: '70px' }}>STT</th>
-                <th style={{ padding: '14px 18px' }}>Họ và tên</th>
-                <th style={{ padding: '14px 18px' }}>Email</th>
-                <th style={{ padding: '14px 18px' }}>Trạng thái</th>
-                <th style={{ padding: '14px 18px' }}>Ngày đăng ký</th>
-                <th style={{ padding: '14px 18px', textAlign: 'right' }}>Thao tác</th>
+          <Table responsive hover className="manager-table mb-0 align-middle">
+            <thead>
+              <tr>
+                <th style={{ width: '60px' }}>STT</th>
+                <th>Họ và tên</th>
+                <th>Email</th>
+                <th>Trạng thái</th>
+                <th>Ngày đăng ký</th>
+                <th style={{ textAlign: 'right' }}>Thao tác</th>
               </tr>
             </thead>
             <tbody>
@@ -237,22 +175,22 @@ export default function CustomersPage() {
 
                 return (
                   <tr key={u.id}>
-                    <td style={{ padding: '14px 18px', color: '#64748b', fontWeight: '500' }}>
+                    <td className="text-secondary fw-semibold">
                       {startIndex + index + 1}
                     </td>
-                    <td style={{ padding: '14px 18px' }}>
+                    <td>
                       <div className="fw-semibold text-dark">{u.fullName || 'Khách hàng'}</div>
                     </td>
-                    <td style={{ padding: '14px 18px', color: '#334155' }}>{u.email}</td>
-                    <td style={{ padding: '14px 18px' }}>
+                    <td>{u.email}</td>
+                    <td>
                       <Badge bg={isLocked ? 'danger' : 'success'}>
                         {isLocked ? 'Đã khóa' : 'Hoạt động'}
                       </Badge>
                     </td>
-                    <td style={{ padding: '14px 18px', color: '#64748b', fontSize: '13px' }}>
+                    <td className="text-secondary">
                       {u.createdAt ? new Date(u.createdAt).toLocaleDateString('vi-VN') : '—'}
                     </td>
-                    <td style={{ padding: '14px 18px', textAlign: 'right' }}>
+                    <td style={{ textAlign: 'right' }}>
                       <Button
                         size="sm"
                         variant={isLocked ? 'outline-success' : 'outline-danger'}
@@ -267,16 +205,16 @@ export default function CustomersPage() {
             </tbody>
           </Table>
         )}
-      </div>
 
-      {/* Pagination Controls */}
-      <ManagerPagination
-        total={filtered.length}
-        page={validPage}
-        pageSize={pageSize}
-        onChange={setCurrentPage}
-      />
-    </div>
+        {/* Pagination Controls */}
+        <ManagerPagination
+          total={filtered.length}
+          page={validPage}
+          pageSize={pageSize}
+          onChange={setCurrentPage}
+        />
+      </div>
+    </section>
   );
 }
 
