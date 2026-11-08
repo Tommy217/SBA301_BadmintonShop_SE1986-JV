@@ -33,7 +33,7 @@ export default function MySupportTicketsPage() {
 
   return (
     <>
-      <div className="eyebrow">HỖ TRỢ KHÁCH HÀNG (UC15)</div>
+      <div className="eyebrow">HỖ TRỢ KHÁCH HÀNG</div>
       <div className="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
         <div>
           <h1 className="h2 fw-bold mb-1">Phiếu Trả hàng & Hoàn tiền</h1>

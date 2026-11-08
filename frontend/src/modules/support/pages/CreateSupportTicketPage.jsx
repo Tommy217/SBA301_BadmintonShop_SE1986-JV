@@ -212,7 +212,7 @@ export default function CreateSupportTicketPage() {
 
   return (
     <>
-      <div className="eyebrow">HỖ TRỢ KHÁCH HÀNG (UC15)</div>
+      <div className="eyebrow">HỖ TRỢ KHÁCH HÀNG</div>
       <div className="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
         <div>
           <h1 className="h2 fw-bold mb-1">Tạo yêu cầu Trả hàng & Hoàn tiền</h1>

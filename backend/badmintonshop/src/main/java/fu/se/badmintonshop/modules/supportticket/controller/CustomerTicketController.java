@@ -22,7 +22,7 @@ public class CustomerTicketController {
     private final SupportTicketService ticketService;
 
     /**
-     * Khách hàng tạo phiếu yêu cầu Đổi hàng hoặc Hoàn tiền (UC15).
+     * Khách hàng tạo phiếu yêu cầu Đổi hàng hoặc Hoàn tiền.
      */
     @PostMapping
     public ResponseEntity<ApiResponse<TicketResponse>> createTicket(

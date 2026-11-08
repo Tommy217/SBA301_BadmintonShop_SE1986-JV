@@ -20,7 +20,7 @@ export default function SupportTicketDetailPage() {
   if (!ticket) {
     return (
       <>
-        <div className="eyebrow">HỖ TRỢ KHÁCH HÀNG (UC15)</div>
+        <div className="eyebrow">HỖ TRỢ KHÁCH HÀNG</div>
         <h1 className="h2 fw-bold mb-2">Không tìm thấy phiếu hỗ trợ</h1>
         <p className="text-secondary mb-4">
           Phiếu hỗ trợ không tồn tại hoặc không thuộc tài khoản của bạn.
@@ -71,7 +71,7 @@ export default function SupportTicketDetailPage() {
 
   return (
     <>
-      <div className="eyebrow">HỖ TRỢ KHÁCH HÀNG (UC15)</div>
+      <div className="eyebrow">HỖ TRỢ KHÁCH HÀNG</div>
       <div className="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
         <div>
           <h1 className="h2 fw-bold mb-1">Chi tiết phiếu {ticket.ticket_code}</h1>

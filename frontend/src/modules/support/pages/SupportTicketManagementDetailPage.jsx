@@ -223,7 +223,7 @@ export default function SupportTicketManagementDetailPage() {
 
   return (
     <section className="manager-page manager-support-page">
-      <div className="eyebrow">QUẢN LÝ VẬN HÀNH (UC15)</div>
+      <div className="eyebrow">QUẢN LÝ VẬN HÀNH</div>
       <div className="manager-title mb-4">
         <div>
           <h1 className="h2 fw-bold mb-1">Xử lý phiếu {ticket.ticket_code}</h1>

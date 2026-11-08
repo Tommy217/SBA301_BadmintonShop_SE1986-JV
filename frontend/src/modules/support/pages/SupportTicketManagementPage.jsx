@@ -74,12 +74,12 @@ export default function SupportTicketManagementPage() {
 
   return (
     <section className="manager-page manager-support-page">
-      <div className="eyebrow">QUẢN LÝ VẬN HÀNH (UC15)</div>
+      <div className="eyebrow">QUẢN LÝ VẬN HÀNH</div>
       <div className="manager-title mb-4">
         <div>
           <h1 className="h2 fw-bold mb-1">Quản lý Trả hàng & Hoàn tiền</h1>
           <p className="text-secondary mb-0">
-            Hàng đợi tiếp nhận, thẩm định sản phẩm và quy trình hoàn tiền theo chuẩn UC15.
+            Hàng đợi tiếp nhận, thẩm định sản phẩm và quy trình hoàn tiền.
           </p>
         </div>
         <div className="d-flex align-items-center gap-2 flex-wrap">

@@ -255,7 +255,7 @@ export function mutate(db, action, liveCatalog = null) {
   } else if (action.type === 'create_support_ticket') {
     const order = db.orders.find((item) => item.id === action.order_id);
     const ticketType = String(action.ticket_type || '');
-    const isUc15 = ticketType === 'REFUND';
+    const isRefund = ticketType === 'REFUND';
     const reason = String(action.reason || '').trim();
     const description = String(action.description || '').trim();
     check(order, 'Không tìm thấy đơn hàng.');
@@ -276,7 +276,7 @@ export function mutate(db, action, liveCatalog = null) {
       user_id: order.user_id,
       order_id: order.id,
       ticket_type: ticketType,
-      status: isUc15 ? 'PENDING' : 'open',
+      status: isRefund ? 'PENDING' : 'open',
       reason,
       description,
       refund_qr_url: action.refund_qr_url || null,
@@ -307,7 +307,7 @@ export function mutate(db, action, liveCatalog = null) {
         });
       });
     }
-    if (isUc15) {
+    if (isRefund) {
       if (!Array.isArray(db.ticket_status_history)) db.ticket_status_history = [];
       db.ticket_status_history.push({
         id: randomUUID(),

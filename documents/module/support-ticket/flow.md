@@ -1,6 +1,6 @@
-# LUỒNG HOẠT ĐỘNG MODULE HỖ TRỢ ĐỔI TRẢ (SUPPORT TICKET - UC15: RETURNS & REFUNDS)
+# LUỒNG HOẠT ĐỘNG MODULE HỖ TRỢ ĐỔI TRẢ (SUPPORT TICKET: RETURNS & REFUNDS)
 > **Dự án:** Badminton Shop Management System (SBA301_BadmintonShop_SE1986-JV)  
-> **Phân hệ:** Support Ticket / Returns & Refunds (UC15: Khiếu nại, Trả hàng & Hoàn tiền)  
+> **Phân hệ:** Support Ticket / Returns & Refunds (Khiếu nại, Trả hàng & Hoàn tiền)  
 > **Công nghệ:** Java 21, Spring Boot 3, Spring Data JPA, Spring Security, SQL Server, React (Vite)  
 > **Chuẩn kiến trúc:** RESTful Zero `/v1/` (`/api/support-tickets`, `/api/staff/support-tickets`, `/api/manager/support-tickets`)
 

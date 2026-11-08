@@ -12,7 +12,7 @@ Hệ thống được thiết kế theo kiến trúc module hóa (Modular Archit
 | :--- | :--- | :--- :---: | :--- |
 | **Auth & Access Control** | [**`module/auth/plan.md`**](module/auth/plan.md) | **Kế hoạch triển khai** | Kiến trúc Clean Architecture, JJWT 0.12.x, JPA Entities, Phân quyền RBAC, Quản lý Profile & Sổ địa chỉ. |
 | **Payment Module** | [**`module/payment/flow.md`**](module/payment/flow.md) | **Đã hoàn thành** | Luồng thanh toán trực tuyến payOS (VietQR 24/7), Đối soát kép (Dual Verification: Webhook & Polling Sync), tích hợp đổi trả. |
-| **Support Ticket (UC15)** | [**`module/support-ticket/flow.md`**](module/support-ticket/flow.md) | **Đã hoàn thành** | Quy trình đổi trả & hoàn tiền thủ công quét QR, thẩm định hàng, phân quyền duyệt < 3M vs >= 3M (UC15). |
+| **Support Ticket** | [**`module/support-ticket/flow.md`**](module/support-ticket/flow.md) | **Đã hoàn thành** | Quy trình đổi trả & hoàn tiền thủ công quét QR, thẩm định hàng, phân quyền duyệt < 3M vs >= 3M. |
 | **Order Module** | `module/order/` | Đang phát triển | Luồng quản lý giỏ hàng, đặt hàng, hủy đơn, chuyển trạng thái đơn hàng. |
 | **Catalog & Products** | `module/catalog/` | Đang phát triển | Quản lý sản phẩm (vợt, giày, áo quần), biến thể, hình ảnh và voucher. |
 | **Inventory Module** | `module/inventory/` | Đang phát triển | Quản lý kho, nhập hàng, kiểm kê, cảnh báo tồn kho thấp. |
@@ -29,7 +29,7 @@ Hệ thống được thiết kế theo kiến trúc module hóa (Modular Archit
 ## 3. HƯỚNG DẪN TRUY CẬP TÀI LIỆU PAYMENT & SUPPORT TICKET
 Tài liệu luồng hoạt động, sơ đồ tuần tự và đặc tả API chi tiết cho 2 module được tổ chức tách biệt tại:
 * 👉 **[documents/module/payment/flow.md](module/payment/flow.md)**: Luồng hoạt động chi tiết Module Payment (payOS VietQR, Đối soát kép Dual Verification).
-* 👉 **[documents/module/support-ticket/flow.md](module/support-ticket/flow.md)**: Luồng hoạt động chi tiết Module Support Ticket (UC15: Khiếu nại, Trả hàng & Hoàn tiền).
+* 👉 **[documents/module/support-ticket/flow.md](module/support-ticket/flow.md)**: Luồng hoạt động chi tiết Module Support Ticket (Khiếu nại, Trả hàng & Hoàn tiền).
 
 ---
 
