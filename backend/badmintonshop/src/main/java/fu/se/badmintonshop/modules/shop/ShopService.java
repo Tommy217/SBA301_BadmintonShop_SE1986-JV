@@ -1,6 +1,6 @@
 package fu.se.badmintonshop.modules.shop;
 
-import fu.se.badmintonshop.modules.auth.service.AuthService;
+import fu.se.badmintonshop.modules.auth.security.CustomUserDetails;
 import fu.se.badmintonshop.modules.payment.dto.request.CreatePaymentRequest;
 import fu.se.badmintonshop.modules.payment.service.PaymentService;
 import lombok.RequiredArgsConstructor;
@@ -32,16 +32,16 @@ public class ShopService {
             "cancelled", Set.of(), "returned", Set.of());
 
     @Transactional
-    public Map<String, Object> snapshot(AuthService.User user) {
+    public Map<String, Object> snapshot(CustomUserDetails user) {
         return snapshot(user, management(user));
     }
 
     @Transactional
-    public Map<String, Object> customerSnapshot(AuthService.User user) {
+    public Map<String, Object> customerSnapshot(CustomUserDetails user) {
         return snapshot(user, false);
     }
 
-    private Map<String, Object> snapshot(AuthService.User user, boolean staff) {
+    private Map<String, Object> snapshot(CustomUserDetails user, boolean staff) {
         if (user != null) {
             try {
                 payments.syncPendingPayments();
@@ -85,7 +85,7 @@ public class ShopService {
     }
 
     @Transactional(readOnly = true)
-    public Map<String, Object> voucherWallet(AuthService.User user) {
+    public Map<String, Object> voucherWallet(CustomUserDetails user) {
         require(user != null, HttpStatus.UNAUTHORIZED, "Vui lòng đăng nhập.");
         return Map.of(
                 "vouchers", rows("SELECT v.* FROM vouchers v WHERE v.audience='public' OR EXISTS (SELECT 1 FROM user_vouchers uv WHERE uv.voucher_id=v.id AND uv.user_id=?) ORDER BY v.ends_at,v.id", user.id()),
@@ -93,7 +93,7 @@ public class ShopService {
     }
 
     @Transactional
-    public void execute(Map<String, Object> action, AuthService.User user) {
+    public void execute(Map<String, Object> action, CustomUserDetails user) {
         require(user != null, HttpStatus.UNAUTHORIZED, "Vui lòng đăng nhập.");
         String type = text(action, "type");
         switch (type) {
@@ -272,7 +272,7 @@ public class ShopService {
         history(orderId, old, next, actor, note);
     }
 
-    private void startPayment(Map<String, Object> a, AuthService.User user) {
+    private void startPayment(Map<String, Object> a, CustomUserDetails user) {
         long orderId = id(a.get("order_id"));
         jdbc.update("UPDATE orders SET updated_at=updated_at WHERE id=? AND user_id=?", orderId, user.id());
         var order = one("SELECT * FROM orders WHERE id=? AND user_id=?", orderId, user.id());
@@ -286,7 +286,7 @@ public class ShopService {
         jdbc.update("UPDATE payments SET checkout_url=? WHERE id=?", payment.getCheckoutUrl(), payment.getPaymentId());
     }
 
-    private void cancelOrder(Map<String, Object> a, AuthService.User user) {
+    private void cancelOrder(Map<String, Object> a, CustomUserDetails user) {
         long orderId = id(a.get("order_id"));
         String reason = bounded(a, "reason", 1, 300);
         // Serialize against shipment creation, management updates and repeat cancellations.
@@ -308,7 +308,7 @@ public class ShopService {
                 "status", "cancelled", "payment_status", paymentStatus, "note", reason), user.id());
     }
 
-    private void cancelPayment(Map<String, Object> a, AuthService.User user) {
+    private void cancelPayment(Map<String, Object> a, CustomUserDetails user) {
         long orderId = id(a.get("order_id"));
         jdbc.update("UPDATE orders SET updated_at=updated_at WHERE id=? AND user_id=?", orderId, user.id());
         var order = one("SELECT * FROM orders WHERE id=? AND user_id=?", orderId, user.id());
@@ -362,7 +362,7 @@ public class ShopService {
         return Objects.requireNonNull(keys.getKey()).longValue();
     }
 
-    public static boolean management(AuthService.User user) { return user != null && Set.of("STAFF", "MANAGER", "ADMIN").contains(user.role()); }
+    public static boolean management(CustomUserDetails user) { return user != null && Set.of("STAFF", "MANAGER", "ADMIN").contains(user.role()); }
     public static long id(Object value) {
         try { long id = Long.parseLong(Objects.toString(value, "")); if (id > 0) return id; } catch (NumberFormatException ignored) { }
         throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Mã dữ liệu không hợp lệ.");

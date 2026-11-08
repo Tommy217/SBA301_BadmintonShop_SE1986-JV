@@ -305,7 +305,12 @@ export default function LoginPage() {
                       />
                     </Form.Group>
                     <Form.Group className="mb-4" controlId="loginPassword">
-                      <Form.Label className="fw-semibold small text-dark mb-2">Mật khẩu</Form.Label>
+                      <div className="d-flex justify-content-between align-items-center mb-2">
+                        <Form.Label className="fw-semibold small text-dark mb-0">Mật khẩu</Form.Label>
+                        <Link to="/forgot-password" className="small text-decoration-none text-primary">
+                          Quên mật khẩu?
+                        </Link>
+                      </div>
                       <div style={styles.passwordField}>
                         <Form.Control
                           type={showPassword ? 'text' : 'password'}

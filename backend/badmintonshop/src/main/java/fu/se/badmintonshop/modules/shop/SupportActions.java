@@ -1,7 +1,7 @@
 package fu.se.badmintonshop.modules.shop;
 
 import com.fasterxml.jackson.databind.*;
-import fu.se.badmintonshop.modules.auth.service.AuthService;
+import fu.se.badmintonshop.modules.auth.security.CustomUserDetails;
 import fu.se.badmintonshop.modules.payment.service.PaymentService;
 import fu.se.badmintonshop.modules.supportticket.dto.*;
 import fu.se.badmintonshop.modules.supportticket.service.SupportTicketService;
@@ -27,7 +27,7 @@ class SupportActions {
         return tickets;
     }
 
-    void execute(String type, Map<String, Object> action, AuthService.User user) {
+    void execute(String type, Map<String, Object> action, CustomUserDetails user) {
         if ("update_refund_threshold".equals(type)) {
             require(user != null && Set.of("MANAGER", "ADMIN").contains(user.role()), HttpStatus.FORBIDDEN, "Chỉ quản lý được thiết lập ngưỡng phê duyệt hoàn tiền.");
             java.math.BigDecimal newThreshold = new java.math.BigDecimal(String.valueOf(action.get("threshold")));

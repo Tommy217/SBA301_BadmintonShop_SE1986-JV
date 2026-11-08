@@ -2,6 +2,8 @@ import ProtectedRoute from './ProtectedRoute';
 import PublicLayout from '@/app/layouts/public/PublicLayout';
 import Login from '@/modules/auth/pages/LoginPage';
 import Register from '@/modules/auth/pages/RegisterPage';
+import ForgotPassword from '@/modules/auth/pages/ForgotPasswordPage';
+import ResetPassword from '@/modules/auth/pages/ResetPasswordPage';
 import Checkout from '@/modules/payment/pages/CheckoutPage';
 import QrPayment from '@/modules/payment/pages/QrPaymentPage';
 import PaymentResult from '@/modules/payment/pages/PaymentResultPage';
@@ -20,6 +22,8 @@ import { Navigate } from 'react-router';
 export const publicRoutes = [
   { path: '/login', element: <Login /> },
   { path: '/register', element: <Register /> },
+  { path: '/forgot-password', element: <ForgotPassword /> },
+  { path: '/reset-password', element: <ResetPassword /> },
   {
     path: '/',
     element: <PublicLayout />,

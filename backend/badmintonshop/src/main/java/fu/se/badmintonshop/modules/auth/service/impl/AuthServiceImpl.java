@@ -1,30 +1,38 @@
 package fu.se.badmintonshop.modules.auth.service.impl;
 
+import fu.se.badmintonshop.modules.auth.dto.request.ForgotPasswordRequest;
 import fu.se.badmintonshop.modules.auth.dto.request.LoginRequest;
 import fu.se.badmintonshop.modules.auth.dto.request.RegisterRequest;
+import fu.se.badmintonshop.modules.auth.dto.request.ResetPasswordRequest;
 import fu.se.badmintonshop.modules.auth.dto.response.AuthResponse;
 import fu.se.badmintonshop.modules.auth.dto.response.UserResponse;
+import fu.se.badmintonshop.modules.auth.entity.PasswordResetToken;
 import fu.se.badmintonshop.modules.auth.entity.Role;
+import fu.se.badmintonshop.modules.auth.entity.User;
+import fu.se.badmintonshop.modules.auth.repository.PasswordResetTokenRepository;
 import fu.se.badmintonshop.modules.auth.repository.RoleRepository;
 import fu.se.badmintonshop.modules.auth.repository.UserRepository;
 import fu.se.badmintonshop.modules.auth.security.CustomUserDetails;
 import fu.se.badmintonshop.modules.auth.security.JwtService;
 import fu.se.badmintonshop.modules.auth.service.AuthService;
+import fu.se.badmintonshop.modules.auth.service.EmailService;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
+import org.springframework.web.util.UriComponentsBuilder;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.time.LocalDateTime;
-import java.util.Locale;
-import java.util.Map;
-import java.util.Optional;
+import java.util.HexFormat;
+import java.util.UUID;
 
 @Service
-@Slf4j
 @RequiredArgsConstructor
 public class AuthServiceImpl implements AuthService {
 
@@ -32,12 +40,20 @@ public class AuthServiceImpl implements AuthService {
     private final RoleRepository roleRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
+    private final PasswordResetTokenRepository passwordResetTokenRepository;
+    private final EmailService emailService;
+
+    @Value("${shop.frontend-url:http://localhost:5173}")
+    private String frontendUrl;
+
+    @Value("${app.auth.reset-token-ttl-minutes:15}")
+    private int resetTokenTtlMinutes;
 
     @Override
     @Transactional
     public AuthResponse login(LoginRequest request) {
-        String email = request.getEmail() != null ? request.getEmail().trim().toLowerCase(Locale.ROOT) : "";
-        fu.se.badmintonshop.modules.auth.entity.User user = userRepository.findByEmailIgnoreCase(email)
+        String email = request.getEmail() != null ? request.getEmail().trim().toLowerCase() : "";
+        User user = userRepository.findByEmailIgnoreCase(email)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Email hoặc mật khẩu không đúng."));
 
         if (!passwordEncoder.matches(request.getPassword(), user.getPasswordHash())) {
@@ -55,11 +71,7 @@ public class AuthServiceImpl implements AuthService {
         user.setLastLoginAt(LocalDateTime.now());
         userRepository.save(user);
 
-        if (user.getRole() == null || user.getRole().getCode() == null) {
-            throw new IllegalStateException("User ID " + user.getId() + " has no role assigned in database");
-        }
-
-        String roleCode = user.getRole().getCode().trim().toUpperCase(Locale.ROOT);
+        String roleCode = user.getRole().getCode().trim().toUpperCase();
 
         CustomUserDetails userDetails = new CustomUserDetails(
             user.getId(),
@@ -73,8 +85,6 @@ public class AuthServiceImpl implements AuthService {
 
         String token = jwtService.generateAccessToken(userDetails);
 
-        UserResponse userResponse = toUserResponse(user, roleCode);
-
         return AuthResponse.builder()
             .id(user.getId())
             .email(user.getEmail())
@@ -84,32 +94,14 @@ public class AuthServiceImpl implements AuthService {
             .accessToken(token)
             .tokenType("Bearer")
             .expiresIn(86400L)
-            .user(userResponse)
+            .user(toUserResponse(user, roleCode))
             .build();
-    }
-
-    @Override
-    @Transactional
-    public Map<String, Object> login(String email, String password) {
-        LoginRequest req = LoginRequest.builder()
-            .email(email)
-            .password(password)
-            .build();
-        AuthResponse res = login(req);
-        return Map.of(
-            "id", res.getId(),
-            "email", res.getEmail(),
-            "fullName", res.getFullName(),
-            "role", res.getRole(),
-            "authToken", res.getAuthToken(),
-            "accessToken", res.getAccessToken()
-        );
     }
 
     @Override
     @Transactional
     public AuthResponse register(RegisterRequest request) {
-        String email = request.getEmail() != null ? request.getEmail().trim().toLowerCase(Locale.ROOT) : "";
+        String email = request.getEmail() != null ? request.getEmail().trim().toLowerCase() : "";
         if (email.isBlank()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Email không được để trống.");
         }
@@ -121,7 +113,7 @@ public class AuthServiceImpl implements AuthService {
         Role customerRole = roleRepository.findByCodeIgnoreCase("CUSTOMER")
             .orElseThrow(() -> new IllegalStateException("Critical database error: Role 'CUSTOMER' does not exist in database"));
 
-        fu.se.badmintonshop.modules.auth.entity.User user = fu.se.badmintonshop.modules.auth.entity.User.builder()
+        User user = User.builder()
             .email(email)
             .fullName(request.getFullName().trim())
             .phone(request.getPhone() != null && !request.getPhone().isBlank() ? request.getPhone().trim() : null)
@@ -165,60 +157,91 @@ public class AuthServiceImpl implements AuthService {
         if (userDetails == null || userDetails.getId() == null) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Chưa xác thực.");
         }
-        fu.se.badmintonshop.modules.auth.entity.User user = userRepository.findWithRoleById(userDetails.getId())
+        User user = userRepository.findWithRoleById(userDetails.getId())
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Phiên đăng nhập không còn hợp lệ. Vui lòng đăng nhập lại."));
 
-        if (user.getRole() == null || user.getRole().getCode() == null) {
-            throw new IllegalStateException("User ID " + user.getId() + " has no role assigned");
-        }
-
-        String roleCode = user.getRole().getCode().trim().toUpperCase(Locale.ROOT);
+        String roleCode = user.getRole().getCode().trim().toUpperCase();
         return toUserResponse(user, roleCode);
     }
 
     @Override
-    @Transactional(readOnly = true)
-    public AuthService.User user(long id) {
-        return userRepository.findWithRoleById(id)
-            .map(u -> new AuthService.User(
-                u.getId(),
-                u.getEmail(),
-                u.getFullName(),
-                u.getRoleCode().toUpperCase(Locale.ROOT),
-                u.isActive()
-            ))
-            .orElse(null);
-    }
-
-    @Override
-    @Transactional(readOnly = true)
-    public AuthService.User authenticate(String header) {
-        if (header == null || !header.startsWith("Bearer ")) {
-            return null;
-        }
-        String token = header.substring(7).trim();
-        try {
-            String username = jwtService.extractUsername(token);
-            if (username != null && !username.isBlank()) {
-                Optional<fu.se.badmintonshop.modules.auth.entity.User> optionalUser = userRepository.findByEmailIgnoreCase(username);
-                if (optionalUser.isPresent()) {
-                    fu.se.badmintonshop.modules.auth.entity.User u = optionalUser.get();
-                    if (u.isActive() && !u.isLocked()) {
-                        return user(u.getId());
-                    }
-                }
-            }
-        } catch (Exception ignored) {
-        }
-        return null;
-    }
-
-    @Override
     public void logout(String header) {
-        log.debug("User logged out with header: {}", header != null ? "present" : "null");
+        // Stateless JWT - Cookie and token cleanup handled by AuthController & Client
     }
 
-    private UserResponse toUserResponse(fu.se.badmintonshop.modules.auth.entity.User user, String roleCode) {
+    @Override
+    @Transactional
+    public void forgotPassword(ForgotPasswordRequest request) {
+        String email = request.getEmail() != null ? request.getEmail().trim().toLowerCase() : "";
+        if (email.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Email không được để trống.");
+        }
+
+        User user = userRepository.findByEmailIgnoreCase(email)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Email không tồn tại trong hệ thống."));
+
+        if (user.isLocked()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Tài khoản của bạn đã bị khóa. Vui lòng liên hệ quản trị viên.");
+        }
+
+        String rawToken = UUID.randomUUID().toString();
+        String tokenHash = hashToken(rawToken);
+
+        PasswordResetToken resetToken = PasswordResetToken.builder()
+            .user(user)
+            .tokenHash(tokenHash)
+            .expiresAt(LocalDateTime.now().plusMinutes(resetTokenTtlMinutes))
+            .build();
+
+        passwordResetTokenRepository.save(resetToken);
+
+        String resetUrl = UriComponentsBuilder.fromUriString(frontendUrl != null ? frontendUrl : "http://localhost:5173")
+            .path("/reset-password")
+            .queryParam("token", rawToken)
+            .toUriString();
+
+        emailService.sendPasswordResetEmail(user.getEmail(), user.getFullName(), resetUrl);
+    }
+
+    @Override
+    @Transactional
+    public void resetPassword(ResetPasswordRequest request) {
+        String rawToken = request.getToken() != null ? request.getToken().trim() : "";
+        if (rawToken.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Liên kết đặt lại mật khẩu không hợp lệ.");
+        }
+
+        String tokenHash = hashToken(rawToken);
+        PasswordResetToken resetToken = passwordResetTokenRepository.findByTokenHash(tokenHash)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Liên kết đặt lại mật khẩu không hợp lệ hoặc đã hết hạn."));
+
+        boolean isInvalid = resetToken.getUsedAt() != null || LocalDateTime.now().isAfter(resetToken.getExpiresAt());
+        if (isInvalid) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Liên kết đặt lại mật khẩu không hợp lệ hoặc đã hết hạn.");
+        }
+
+        User user = resetToken.getUser();
+        if (user == null || !user.isActive()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Tài khoản không tồn tại hoặc đã bị vô hiệu hóa.");
+        }
+
+        user.setPasswordHash(passwordEncoder.encode(request.getNewPassword()));
+        userRepository.save(user);
+
+        resetToken.setUsedAt(LocalDateTime.now());
+        passwordResetTokenRepository.save(resetToken);
+    }
+
+    private String hashToken(String rawToken) {
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            return HexFormat.of().formatHex(digest.digest(rawToken.getBytes(StandardCharsets.UTF_8)));
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException("SHA-256 algorithm not available", e);
+        }
+    }
+
+    private UserResponse toUserResponse(User user, String roleCode) {
         return UserResponse.builder()
             .id(user.getId())
             .email(user.getEmail())
