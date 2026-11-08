@@ -615,6 +615,11 @@ public class SupportTicketServiceImpl implements SupportTicketService {
                     "BEGIN " +
                     "INSERT INTO system_settings (setting_key, setting_value, description) " +
                     "VALUES ('refund_approval_threshold', '3000000', N'Ngưỡng hoàn tiền yêu cầu Quản lý phê duyệt (VND)'); " +
+                    "END; " +
+                    "IF NOT EXISTS (SELECT * FROM system_settings WHERE setting_key = 'payment_qr_timeout_minutes') " +
+                    "BEGIN " +
+                    "INSERT INTO system_settings (setting_key, setting_value, description) " +
+                    "VALUES ('payment_qr_timeout_minutes', '15', N'Thời gian hết hạn mã QR thanh toán (phút)'); " +
                     "END;");
         } catch (Exception e) {
             log.warn("Lỗi kiểm tra/tạo bảng system_settings: {}", e.getMessage());

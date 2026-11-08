@@ -10,6 +10,7 @@ import CatalogPage from '@/modules/management/pages/CatalogPage';
 import ManagerOrdersPage from '@/modules/management/pages/ManagerOrdersPage';
 import InvoiceManagementPage from '@/modules/management/pages/InvoiceManagementPage';
 import InventoryManagementPage from '@/modules/management/pages/InventoryManagementPage';
+import SettingsPage from '@/modules/management/pages/SettingsPage';
 
 export const managementRoutes = [
   {
@@ -39,6 +40,10 @@ export const managementRoutes = [
           {
             path: 'deliveries/:deliveryId',
             element: <DeliveryManagementDetailPage />,
+          },
+          {
+            path: 'settings',
+            element: <SettingsPage />,
           },
         ],
       },

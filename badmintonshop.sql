@@ -435,7 +435,8 @@ CREATE TABLE system_settings (
 );
 
 INSERT INTO system_settings (setting_key, setting_value, description)
-VALUES ('refund_approval_threshold', '3000000', N'Ngưỡng hoàn tiền yêu cầu Quản lý phê duyệt (VND)');
+VALUES ('refund_approval_threshold', '3000000', N'Ngưỡng hoàn tiền yêu cầu Quản lý phê duyệt (VND)'),
+       ('payment_qr_timeout_minutes', '15', N'Thời gian hết hạn mã VietQR thanh toán đơn hàng (phút)');
 
 -- =====================================================================
 -- 8. SHIPPING & DELIVERY
@@ -2339,7 +2340,8 @@ BEGIN TRY
  (N'li-ning-shirt-aayu', N'NEW-14-M', N'Đen', N'M', 390000, 253500, 14, 5),
  (N'li-ning-shirt-aayu', N'NEW-14-L', N'Trắng', N'L', 390000, 253500, 23, 5),
  (N'badminton-shop-training-socks', N'NEW-15-M', N'Đen', N'M', 99000, 64350, 14, 5),
- (N'badminton-shop-training-socks', N'NEW-15-L', N'Trắng', N'L', 99000, 64350, 23, 5),
+ (N'badminton-shop-training-socks', N'NEW-15-L', N'Trắng', N'L', 99000, 64350, 23, 5)
+,
  (N'yonex-astrox-100zz', N'NEW-01-3U-G5-C1', N'Đen', N'3U-G5', 3890000, 2528500, 23, 5),
  (N'yonex-astrox-100zz', N'NEW-01-4U-G5-C2', N'Xanh', N'4U-G5', 3890000, 2528500, 14, 5),
  (N'yonex-arcsaber-11-pro', N'NEW-02-3U-G5-C1', N'Đen', N'3U-G5', 4190000, 2723500, 23, 5),

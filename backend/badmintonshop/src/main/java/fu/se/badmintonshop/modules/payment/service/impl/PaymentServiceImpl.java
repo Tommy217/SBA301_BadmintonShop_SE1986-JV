@@ -19,6 +19,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.jdbc.core.JdbcTemplate;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -39,7 +40,10 @@ public class PaymentServiceImpl implements PaymentService {
     private final PaymentTransactionRepository paymentTransactionRepository;
     private final OrderRepository orderRepository;
     private final PayOSService payOSService;
+    private final JdbcTemplate jdbcTemplate;
     private final ObjectMapper objectMapper = new ObjectMapper();
+
+    public static final int DEFAULT_PAYMENT_TIMEOUT_MINUTES = 15;
 
     @Override
     @Transactional
@@ -140,9 +144,10 @@ public class PaymentServiceImpl implements PaymentService {
             }
         }
 
+        int timeoutMinutes = getPaymentTimeoutMinutes();
         LocalDateTime expiresAt = payment.getCreatedAt() != null
-                ? payment.getCreatedAt().plusMinutes(15)
-                : LocalDateTime.now().plusMinutes(15);
+                ? payment.getCreatedAt().plusMinutes(timeoutMinutes)
+                : LocalDateTime.now().plusMinutes(timeoutMinutes);
 
         return CreatePaymentResponse.builder()
                 .paymentId(payment.getId())
@@ -206,7 +211,9 @@ public class PaymentServiceImpl implements PaymentService {
 
         payment.setStatus("paid");
         payment.setPaidAt(LocalDateTime.now());
-        // Keep the provider order code; bank references belong to transaction logs.
+        if (reference != null && !reference.isBlank()) {
+            payment.setGatewayTxnRef(reference);
+        }
         paymentRepository.save(payment);
 
         Order order = orderRepository.findById(payment.getOrderId()).orElse(null);
@@ -282,9 +289,75 @@ public class PaymentServiceImpl implements PaymentService {
     }
 
     @Override
+    public int getPaymentTimeoutMinutes() {
+        if (jdbcTemplate == null) {
+            return DEFAULT_PAYMENT_TIMEOUT_MINUTES;
+        }
+        try {
+            ensureSystemSettingsTable();
+            String val = jdbcTemplate.queryForObject(
+                    "SELECT setting_value FROM system_settings WHERE setting_key = 'payment_qr_timeout_minutes'",
+                    String.class);
+            if (val != null && !val.isBlank()) {
+                return Integer.parseInt(val.trim());
+            }
+        } catch (Exception e) {
+            log.warn("Không thể đọc payment_qr_timeout_minutes từ DB, dùng mặc định 15 phút: {}", e.getMessage());
+        }
+        return DEFAULT_PAYMENT_TIMEOUT_MINUTES;
+    }
+
+    @Override
+    @Transactional
+    public void updatePaymentTimeoutMinutes(int minutes, Long managerId) {
+        if (minutes <= 0 || minutes > 1440) {
+            throw new IllegalArgumentException("Thời gian hết hạn mã QR phải từ 1 đến 1440 phút.");
+        }
+        if (jdbcTemplate == null) {
+            return;
+        }
+        ensureSystemSettingsTable();
+        int updated = jdbcTemplate.update(
+                "UPDATE system_settings SET setting_value = ?, updated_at = SYSDATETIME(), updated_by = ? WHERE setting_key = 'payment_qr_timeout_minutes'",
+                String.valueOf(minutes), managerId);
+        if (updated == 0) {
+            jdbcTemplate.update(
+                    "INSERT INTO system_settings (setting_key, setting_value, description, updated_at, updated_by) VALUES ('payment_qr_timeout_minutes', ?, N'Thời gian hết hạn mã QR thanh toán (phút)', SYSDATETIME(), ?)",
+                    String.valueOf(minutes), managerId);
+        }
+        log.info("Manager ID {} đã cập nhật thời gian hết hạn mã QR thành: {} phút", managerId, minutes);
+    }
+
+    private void ensureSystemSettingsTable() {
+        if (jdbcTemplate == null) {
+            return;
+        }
+        try {
+            jdbcTemplate.execute("IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'system_settings') " +
+                    "BEGIN " +
+                    "CREATE TABLE system_settings (" +
+                    "  setting_key VARCHAR(100) PRIMARY KEY," +
+                    "  setting_value NVARCHAR(500) NOT NULL," +
+                    "  description NVARCHAR(255) NULL," +
+                    "  updated_at DATETIME2(0) NOT NULL DEFAULT SYSDATETIME()," +
+                    "  updated_by BIGINT NULL" +
+                    "); " +
+                    "END; " +
+                    "IF NOT EXISTS (SELECT 1 FROM system_settings WHERE setting_key = 'payment_qr_timeout_minutes') " +
+                    "BEGIN " +
+                    "INSERT INTO system_settings (setting_key, setting_value, description) " +
+                    "VALUES ('payment_qr_timeout_minutes', '15', N'Thời gian hết hạn mã QR thanh toán (phút)'); " +
+                    "END;");
+        } catch (Exception e) {
+            log.warn("Không thể kiểm tra/tạo bảng system_settings: {}", e.getMessage());
+        }
+    }
+
+    @Override
     @Transactional
     public int processExpiredPayments() {
-        LocalDateTime cutoff = LocalDateTime.now().minusMinutes(15);
+        int timeoutMinutes = getPaymentTimeoutMinutes();
+        LocalDateTime cutoff = LocalDateTime.now().minusMinutes(timeoutMinutes);
         List<Payment> expiredList = paymentRepository.findByStatusAndCreatedAtBefore("pending", cutoff);
         int count = 0;
 
@@ -298,7 +371,7 @@ public class PaymentServiceImpl implements PaymentService {
             if (order != null && "unpaid".equalsIgnoreCase(order.getPaymentStatus()) && "pending".equalsIgnoreCase(order.getStatus())) {
                 order.setStatus("cancelled");
                 orderRepository.save(order);
-                log.info("Tự động hủy đơn hàng #{} do quá hạn thanh toán 15 phút.", order.getOrderCode());
+                log.info("Tự động hủy đơn hàng #{} do quá hạn thanh toán {} phút.", order.getOrderCode(), timeoutMinutes);
             }
             count++;
         }
@@ -364,17 +437,36 @@ public class PaymentServiceImpl implements PaymentService {
 
     private Long providerOrderCode(Payment payment) {
         try {
-            return payment.getGatewayTxnRef() == null ? null : Long.valueOf(payment.getGatewayTxnRef());
+            return payment.getGatewayTxnRef() == null
+                    ? (payment.getId() != null ? 100000L + payment.getId() : null)
+                    : Long.valueOf(payment.getGatewayTxnRef());
         } catch (NumberFormatException ignored) {
-            return null;
+            return payment.getId() != null ? 100000L + payment.getId() : null;
         }
     }
 
     private Payment findPaymentByOrderCodeOrReference(Long orderCode, String reference) {
-        if (orderCode == null) return null;
-        return paymentRepository.findByGatewayTxnRef(String.valueOf(orderCode))
-                .filter(p -> "payos".equalsIgnoreCase(p.getGateway()))
-                .orElse(null);
+        if (orderCode != null) {
+            Optional<Payment> optTxn = paymentRepository.findByGatewayTxnRef(String.valueOf(orderCode))
+                    .filter(p -> "payos".equalsIgnoreCase(p.getGateway()));
+            if (optTxn.isPresent()) return optTxn.get();
+
+            if (orderCode > 100000L) {
+                Long paymentId = orderCode - 100000L;
+                Optional<Payment> opt = paymentRepository.findById(paymentId);
+                if (opt.isPresent()) return opt.get();
+            }
+
+            Optional<Payment> optId = paymentRepository.findById(orderCode);
+            if (optId.isPresent()) return optId.get();
+        }
+
+        if (reference != null && !reference.isBlank()) {
+            Optional<Payment> optRef = paymentRepository.findByGatewayTxnRef(reference);
+            if (optRef.isPresent()) return optRef.get();
+        }
+
+        return null;
     }
 
     private PaymentDetailResponse toDetailResponse(Payment payment) {

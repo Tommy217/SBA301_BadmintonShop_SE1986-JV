@@ -54,4 +54,10 @@ export const supportApi = {
       type: 'update_refund_threshold',
       threshold,
     }),
+
+  updatePaymentTimeout: (timeoutMinutes) =>
+    sendShopAction({
+      type: 'update_payment_timeout',
+      timeout_minutes: timeoutMinutes,
+    }),
 };

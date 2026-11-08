@@ -32,5 +32,9 @@ public interface PaymentService {
     PaymentDetailResponse syncPaymentStatusByOrderId(Long orderId);
 
     void syncPendingPayments();
+
+    int getPaymentTimeoutMinutes();
+
+    void updatePaymentTimeoutMinutes(int minutes, Long managerId);
 }
 

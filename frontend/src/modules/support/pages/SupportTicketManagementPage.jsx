@@ -87,18 +87,28 @@ export default function SupportTicketManagementPage() {
             Ngưỡng Quản lý duyệt: {formatMoney(currentThreshold)}
           </Badge>
           {isManager && (
-            <Button
-              variant="outline-primary"
-              size="sm"
-              onClick={() => {
-                setNewThresholdInput(String(currentThreshold));
-                setThresholdError('');
-                setThresholdSuccess('');
-                setShowThresholdModal(true);
-              }}
-            >
-              ⚙️ Đổi ngưỡng duyệt
-            </Button>
+            <>
+              <Button
+                variant="outline-primary"
+                size="sm"
+                onClick={() => {
+                  setNewThresholdInput(String(currentThreshold));
+                  setThresholdError('');
+                  setThresholdSuccess('');
+                  setShowThresholdModal(true);
+                }}
+              >
+                ⚙️ Đổi nhanh ngưỡng
+              </Button>
+              <Button
+                as={Link}
+                to="/management/settings"
+                variant="outline-secondary"
+                size="sm"
+              >
+                Cài đặt hệ thống →
+              </Button>
+            </>
           )}
           <Badge bg="primary" className="fs-6 py-2 px-3">
             Tổng số: {tickets.length} phiếu

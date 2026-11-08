@@ -1,6 +1,8 @@
 import { Nav } from 'react-bootstrap';
 import { NavLink } from 'react-router';
 import Icon from '@/shared/components/Icon';
+import { useAuth } from '@/app/providers/auth/AuthContext';
+import { ROLES } from '@/shared/constants/roles';
 import '@/app/layouts/public/PublicSidebar.css';
 
 const CATALOG_LINKS = [
@@ -21,11 +23,20 @@ const LINKS = [
 ];
 
 export default function ManagementSidebar() {
+  const { user } = useAuth();
+  const role = user?.role?.toUpperCase();
+  const isManager = role === ROLES.MANAGER || role === ROLES.ADMIN;
+
+  const links = [
+    ...LINKS,
+    ...(isManager ? [{ to: '/management/settings', label: 'Cài đặt hệ thống', icon: 'gear' }] : []),
+  ];
+
   return (
     <aside className="shop-sidebar manager-sidebar">
       <div className="eyebrow">QUẢN LÝ CỬA HÀNG</div>
       <Nav className="flex-column gap-2">
-        {LINKS.map(({ to, label, icon }) => (
+        {links.map(({ to, label, icon }) => (
           <Nav.Link as={NavLink} end={to === '/management'} to={to} key={to}>
             <span className="sidebar-icon">
               <Icon name={icon} />

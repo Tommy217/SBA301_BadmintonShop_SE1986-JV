@@ -152,8 +152,10 @@ export default function SupportTicketManagementDetailPage() {
       );
       setSuccessMsg(
         inspectionResult === 'PASSED'
-          ? 'Đã ghi nhận thẩm định ĐẠT. Hệ thống đã cập nhật bước tiếp theo.'
-          : 'Đã ghi nhận thẩm định KHÔNG ĐẠT. Phiếu chuyển sang thất bại.',
+          ? calculatedRefund >= currentThreshold
+            ? 'Đã ghi nhận kiểm tra sản phẩm ĐẠT. Phiếu đã được chuyển lên Quản lý phê duyệt.'
+            : 'Đã check lại sản phẩm ĐẠT và phê duyệt hoàn tiền. Phiếu chuyển sang Chờ chuyển tiền.'
+          : 'Đã ghi nhận kiểm tra sản phẩm KHÔNG ĐẠT. Phiếu chuyển sang thất bại.',
       );
     } catch (e) {
       setError(e.message || 'Lỗi khi ghi nhận biên bản kiểm tra.');
@@ -478,23 +480,41 @@ export default function SupportTicketManagementDetailPage() {
             </Card>
           )}
 
-          {/* BƯỚC 2: THẨM ĐỊNH HÀNG HÓA KHI ĐANG Ở AWAITING_RETURN */}
+          {/* BƯỚC 2: NHẬN HÀNG HOÀN & CHECK LẠI SẢN PHẨM TỪ KHÁCH HÀNG */}
           {ticket.status === 'AWAITING_RETURN' && (
             <Card className="border-0 shadow-sm mb-4 border-top border-4 border-info">
               <Card.Header className="bg-white py-3 border-bottom">
                 <h2 className="h6 fw-bold mb-0 text-info text-dark">
-                  🔍 BƯỚC 2: BIÊN BẢN THẨM ĐỊNH HÀNG HOÀN VỀ
+                  🔍 BƯỚC 2: NHẬN HÀNG HOÀN & CHECK LẠI SẢN PHẨM TỪ KHÁCH
                 </h2>
               </Card.Header>
               <Card.Body className="p-4">
                 <p className="small text-secondary mb-3">
-                  Khi khách gửi kiện hàng về kho, nhân viên mở hộp và ghi nhận biên bản kiểm tra:
+                  Nhân viên nhận kiện hàng hoàn trả từ khách hàng. Mở kiện hàng và tiến hành kiểm tra thực tế tình trạng sản phẩm:
                 </p>
+
+                {/* Danh sách sản phẩm cần kiểm tra */}
+                <div className="p-3 bg-light rounded border mb-3 small">
+                  <div className="fw-semibold text-dark mb-2">Checklist sản phẩm hoàn về:</div>
+                  <ul className="list-unstyled mb-0">
+                    {ticketItems.map(({ id, quantity, orderItem }) => (
+                      <li key={id} className="d-flex justify-content-between align-items-center py-1 border-bottom border-light-subtle">
+                        <div>
+                          <span className="fw-medium text-dark">{orderItem?.product_name}</span>
+                          {orderItem?.variant_info && (
+                            <small className="text-secondary d-block">{orderItem.variant_info}</small>
+                          )}
+                        </div>
+                        <Badge bg="secondary">SL: {quantity}</Badge>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
 
                 <Form onSubmit={handleInspectionSubmit}>
                   <Form.Group className="mb-3" controlId="inspection-result">
                     <Form.Label className="fw-semibold small">
-                      Kết quả kiểm tra <span className="text-danger">*</span>
+                      Kết quả kiểm tra sản phẩm <span className="text-danger">*</span>
                     </Form.Label>
                     <Form.Select
                       value={inspectionResult}
@@ -512,18 +532,58 @@ export default function SupportTicketManagementDetailPage() {
                       rows={3}
                       value={inspectionNote}
                       onChange={(e) => setInspectionNote(e.target.value)}
-                      placeholder="Ghi nhận hiện trạng tem mác, bao bì, phụ kiện đính kèm..."
+                      placeholder="Ghi nhận hiện trạng tem mác, bao bì, phụ kiện đính kèm, xác nhận lỗi..."
                     />
                   </Form.Group>
 
-                  <Button
-                    type="submit"
-                    variant={inspectionResult === 'PASSED' ? 'primary' : 'danger'}
-                    className="w-100"
-                    disabled={busy}
-                  >
-                    Lưu kết quả thẩm định
-                  </Button>
+                  {/* THÔNG BÁO VÀ NÚT XÁC NHẬN THEO HẠN MỨC */}
+                  {inspectionResult === 'PASSED' ? (
+                    calculatedRefund >= currentThreshold ? (
+                      <div>
+                        <div className="alert alert-info py-2 px-3 small mb-3">
+                          ⚠️ <strong>Đơn vượt hạn mức:</strong> Khoản hoàn là <strong>{formatMoney(calculatedRefund)} &ge; {formatMoney(currentThreshold)}</strong>.
+                          Hệ thống sẽ ghi nhận biên bản check hàng và <strong>đẩy sang Quản lý (Manager UI)</strong> thẩm định phê duyệt.
+                        </div>
+                        <Button
+                          type="submit"
+                          variant="primary"
+                          className="w-100 fw-semibold"
+                          disabled={busy}
+                        >
+                          ✓ Xác nhận check hàng & Gửi lên Quản lý duyệt
+                        </Button>
+                      </div>
+                    ) : (
+                      <div>
+                        <div className="alert alert-success py-2 px-3 small mb-3">
+                          ✓ <strong>Đơn trong hạn mức:</strong> Khoản hoàn là <strong>{formatMoney(calculatedRefund)} &lt; {formatMoney(currentThreshold)}</strong>.
+                          Nhân viên có quyền trực tiếp phê duyệt sau khi check lại sản phẩm từ khách.
+                        </div>
+                        <Button
+                          type="submit"
+                          variant="success"
+                          className="w-100 fw-semibold"
+                          disabled={busy}
+                        >
+                          ✓ Check lại sản phẩm ĐẠT & Nhân viên duyệt hoàn tiền
+                        </Button>
+                      </div>
+                    )
+                  ) : (
+                    <div>
+                      <div className="alert alert-danger py-2 px-3 small mb-3">
+                        ✕ <strong>Kiểm tra không đạt:</strong> Hàng lỗi do người dùng hoặc không đạt chuẩn đổi trả. Phiếu sẽ bị từ chối và gửi trả lại hàng cho khách.
+                      </div>
+                      <Button
+                        type="submit"
+                        variant="danger"
+                        className="w-100 fw-semibold"
+                        disabled={busy}
+                      >
+                        ✕ Xác nhận kiểm tra KHÔNG ĐẠT - Từ chối đổi trả
+                      </Button>
+                    </div>
+                  )}
                 </Form>
               </Card.Body>
             </Card>
@@ -594,6 +654,25 @@ export default function SupportTicketManagementDetailPage() {
                 </h2>
               </Card.Header>
               <Card.Body className="p-4">
+                {/* THÔNG TIN CHECK SẢN PHẨM ĐÃ XÁC NHẬN */}
+                <div className="p-3 bg-light rounded border mb-3 small">
+                  <div className="d-flex justify-content-between align-items-center mb-1">
+                    <span className="text-secondary">Trạng thái kiểm tra hàng:</span>
+                    <Badge bg="success">ĐÃ CHECK ĐẠT CHUẨN</Badge>
+                  </div>
+                  {ticket.inspection?.note && (
+                    <div className="text-muted mb-1">
+                      <strong>Ghi chú:</strong> {ticket.inspection.note}
+                    </div>
+                  )}
+                  <div className="d-flex justify-content-between align-items-center">
+                    <span className="text-secondary">Cấp phê duyệt hoàn tiền:</span>
+                    <strong className="text-dark">
+                      {(ticket.refund_amount || calculatedRefund) >= currentThreshold ? 'Quản lý (Manager)' : 'Nhân viên (Staff)'}
+                    </strong>
+                  </div>
+                </div>
+
                 <div className="text-center p-3 bg-light rounded border mb-3">
                   <div className="small text-secondary mb-1">Số tiền cần chuyển khoản cho khách</div>
                   <div className="fs-3 fw-bold text-success mb-2">{formatMoney(ticket.refund_amount || calculatedRefund)}</div>
@@ -628,8 +707,8 @@ export default function SupportTicketManagementDetailPage() {
                     />
                   </Form.Group>
 
-                  <Button type="submit" variant="success" className="w-100" disabled={busy}>
-                    ✓ Xác nhận đã chuyển khoản thành công
+                  <Button type="submit" variant="success" className="w-100 fw-semibold" disabled={busy}>
+                    ✓ Xác nhận đã chuyển khoản thành công cho khách hàng
                   </Button>
                 </Form>
               </Card.Body>

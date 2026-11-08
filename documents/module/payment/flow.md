@@ -17,9 +17,9 @@
    * **Giá trị thực tiễn:** Giúp hệ thống hoạt động tự động hoàn hảo ngay trên Localhost mà không cần cài đặt ngrok, đồng thời là cơ chế dự phòng cứu cánh trên Production phòng khi Webhook bị nghẽn mạng.
 3. **Cơ chế Idempotency (Chống xử lý lặp giao dịch):**  
    * Hàm `markPaymentAsPaid()` kiểm tra nếu giao dịch đã ở trạng thái `paid` thì ghi log và bỏ qua cập nhật trùng lặp, đảm bảo không có xung đột giữa 2 kênh Webhook và Polling.
-4. **Thời hạn thanh toán 15 phút (Timeout Scheduler):**  
-   * Mỗi link thanh toán VietQR có thời gian hiệu lực là 15 phút.
-   * `PaymentTimeoutScheduler` chạy định kỳ mỗi 60 giây quét các đơn quá hạn: chuyển `payments.status = 'expired'`, tự động hủy đơn (`orders.status = 'cancelled'`) và nhả tồn kho sản phẩm về lại cửa hàng.
+4. **Thời hạn thanh toán cấu hình linh hoạt (Timeout Scheduler - Mặc định 15 phút):**  
+   * Mỗi link thanh toán VietQR có thời gian hiệu lực mặc định là 15 phút, và **Quản lý (Manager) có thể linh hoạt cấu hình thời gian hủy này tại trang Cài đặt hệ thống (`/management/settings`)** từ 1 đến 1440 phút (24 giờ).
+   * `PaymentTimeoutScheduler` chạy định kỳ mỗi 60 giây quét các đơn quá hạn cấu hình: chuyển `payments.status = 'expired'`, tự động hủy đơn (`orders.status = 'cancelled'`) và nhả tồn kho sản phẩm về lại cửa hàng.
 5. **Bảo mật thanh toán & Cô lập dữ liệu (Security & Data Isolation):**  
    * Khách hàng chỉ có thể tra cứu và thao tác trên phiên thanh toán của chính mình qua bộ lọc [`PaymentAccess.java`](file:///backend/badmintonshop/src/main/java/fu/se/badmintonshop/modules/payment/controller/PaymentAccess.java) (`if (!userId.equals(order.getUserId())) throw Forbidden`).
    * Không thể can thiệp hoặc làm giả số tiền từ URL hay body request: Số tiền thanh toán được lấy 100% từ `orders.total_amount` trong Database và được bảo vệ bằng chữ ký HMAC-SHA256 khi gửi sang payOS.
@@ -136,3 +136,5 @@ sequenceDiagram
 | `POST` | `/api/payments/{id}/cancel` | Authenticated (Chính chủ) | Hủy phiên thanh toán đang chờ |
 | `POST` | `/api/payments/payos/webhook` | Public | Cổng payOS bắn Webhook thông báo kết quả (Xác thực chữ ký HMAC-SHA256) |
 | `POST` | `/api/payments/payos/confirm-webhook` | `ROLE_ADMIN` | Gửi yêu cầu xác thực Webhook URL tới cổng payOS khi deploy |
+| `GET` | `/api/payments/settings/timeout` | `MANAGER`, `ADMIN` | Xem thời gian tự động hủy mã QR payment hiện tại (mặc định 15 phút) |
+| `PUT` | `/api/payments/settings/timeout` | `MANAGER`, `ADMIN` | Quản lý cập nhật thời gian tự động hủy mã QR payment mới |

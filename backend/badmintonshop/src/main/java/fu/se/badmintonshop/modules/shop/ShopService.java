@@ -77,6 +77,7 @@ public class ShopService {
         }
         // van don doc qua API cua module delivery (/api/manager/shipments, /api/my/shipments)
         result.put("refund_approval_threshold", support.getTickets().getApprovalThreshold());
+        result.put("payment_qr_timeout_minutes", payments.getPaymentTimeoutMinutes());
         return result;
     }
 

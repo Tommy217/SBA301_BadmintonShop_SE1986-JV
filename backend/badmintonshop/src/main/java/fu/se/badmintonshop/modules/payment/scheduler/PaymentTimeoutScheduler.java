@@ -17,7 +17,7 @@ public class PaymentTimeoutScheduler {
     private final PaymentService paymentService;
 
     /**
-     * Chạy định kỳ mỗi 60 giây để quét các phiên thanh toán pending quá 15 phút,
+     * Chạy định kỳ mỗi 60 giây để quét các phiên thanh toán pending quá thời gian hiệu lực cài đặt,
      * tự động chuyển trạng thái sang expired và hủy đơn hàng tương ứng.
      */
     @Scheduled(fixedDelay = 60000, initialDelay = 30000)
@@ -25,7 +25,7 @@ public class PaymentTimeoutScheduler {
         try {
             int expiredCount = paymentService.processExpiredPayments();
             if (expiredCount > 0) {
-                log.info("PaymentTimeoutScheduler: Đã xử lý hết hạn {} phiên thanh toán quá hạn 15 phút.", expiredCount);
+                log.info("PaymentTimeoutScheduler: Đã xử lý hết hạn {} phiên thanh toán quá hạn cấu hình.", expiredCount);
             }
         } catch (Exception e) {
             log.warn("PaymentTimeoutScheduler gặp lỗi khi xử lý hết hạn thanh toán: {}", e.getMessage());

@@ -28,13 +28,13 @@ public class VoucherController {
 
     @GetMapping("")
     public List<VoucherResponse> listVouchers(org.springframework.security.core.Authentication auth) {
-        return service.listVouchers().stream().filter(v -> management(auth) || "public".equals(v.getAudience())).toList();
+        return service.listVouchers().stream().filter(v -> management(auth) || v.getAudience() == null || "public".equals(v.getAudience())).toList();
     }
 
     @GetMapping("/{id}")
     public VoucherResponse getVoucher(@PathVariable Integer id, org.springframework.security.core.Authentication auth) {
         var voucher = service.getVoucher(id);
-        if (!management(auth) && !"public".equals(voucher.getAudience())) throw new org.springframework.web.server.ResponseStatusException(HttpStatus.NOT_FOUND);
+        if (!management(auth) && voucher.getAudience() != null && !"public".equals(voucher.getAudience())) throw new org.springframework.web.server.ResponseStatusException(HttpStatus.NOT_FOUND);
         return voucher;
     }
 

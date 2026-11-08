@@ -2,6 +2,7 @@ package fu.se.badmintonshop.modules.shop;
 
 import com.fasterxml.jackson.databind.*;
 import fu.se.badmintonshop.modules.auth.service.AuthService;
+import fu.se.badmintonshop.modules.payment.service.PaymentService;
 import fu.se.badmintonshop.modules.supportticket.dto.*;
 import fu.se.badmintonshop.modules.supportticket.service.SupportTicketService;
 import jakarta.validation.Validator;
@@ -16,6 +17,7 @@ import static fu.se.badmintonshop.modules.shop.ShopService.*;
 @RequiredArgsConstructor
 class SupportActions {
     private final SupportTicketService tickets;
+    private final PaymentService payments;
     private final Validator validator;
     private final JdbcTemplate jdbc;
     private final ObjectMapper mapper = new ObjectMapper().setPropertyNamingStrategy(PropertyNamingStrategies.SNAKE_CASE)
@@ -30,6 +32,14 @@ class SupportActions {
             require(user != null && Set.of("MANAGER", "ADMIN").contains(user.role()), HttpStatus.FORBIDDEN, "Chỉ quản lý được thiết lập ngưỡng phê duyệt hoàn tiền.");
             java.math.BigDecimal newThreshold = new java.math.BigDecimal(String.valueOf(action.get("threshold")));
             tickets.updateApprovalThreshold(newThreshold, user.id());
+            return;
+        }
+        if ("update_payment_timeout".equals(type)) {
+            require(user != null && Set.of("MANAGER", "ADMIN").contains(user.role()), HttpStatus.FORBIDDEN, "Chỉ quản lý được thiết lập thời gian hủy mã QR.");
+            Object minObj = action.get("timeout_minutes");
+            if (minObj == null) minObj = action.get("timeoutMinutes");
+            int minutes = Integer.parseInt(String.valueOf(minObj));
+            payments.updatePaymentTimeoutMinutes(minutes, user.id());
             return;
         }
         if ("create_support_ticket".equals(type)) {

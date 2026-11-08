@@ -21,9 +21,10 @@
    * Cửa hàng **chỉ chấp nhận hoàn tiền khi phát sinh lỗi từ phía shop / nhà sản xuất** (`STORE_FAULT`: giao sai mẫu, sai kích thước, bong tróc, nứt gãy, hư hại do vận chuyển...). Cửa hàng **hoàn lại 100% tiền hàng và phí vận chuyển ban đầu**.
    * Trường hợp hàng hoàn về kiểm định đạt chuẩn (hàng nguyên vẹn không lỗi) nhưng nguyên nhân do **khách đổi ý cá nhân (`CUSTOMER_PREFERENCE`)** $\rightarrow$ Hệ thống sẽ **Từ chối phiếu (`REJECTED`)**, gửi trả lại sản phẩm cho khách và **không hoàn tiền**.
    * **Không nhập lại kho (`No Restock`):** Hàng lỗi thu hồi được chuyển bảo hành hãng hoặc tiêu hủy, không tự động cộng lại tồn kho bán đại trà.
-4. **Phân quyền duyệt hoàn tiền theo hạn mức 3.000.000 VNĐ:**  
-   * Số tiền hoàn **dưới 3.000.000 VNĐ**: Nhân viên CSKH (`STAFF`) có thẩm quyền phê duyệt trực tiếp sang trạng thái chờ chuyển tiền (`PENDING_TRANSFER`).
-   * Số tiền hoàn **từ 3.000.000 VNĐ trở lên**: Chuyển sang trạng thái chờ Quản lý phê duyệt (`PENDING_APPROVAL`). Chỉ tài khoản có vai trò `MANAGER` hoặc `ADMIN` mới được phép ra quyết định.
+4. **Phân quyền duyệt hoàn tiền theo hạn mức linh hoạt (Mặc định 3.000.000 VNĐ, Quản lý cấu hình tại Setting):**  
+   * Quản lý (`MANAGER`, `ADMIN`) có thể tùy chỉnh ngưỡng duyệt hoàn tiền tại màn hình **Cài đặt hệ thống (`/management/settings`)** hoặc qua API `/api/manager/support-tickets/settings/threshold`.
+   * **Số tiền hoàn dưới ngưỡng**: Nhân viên (`STAFF`) sau khi nhận hàng hoàn từ khách sẽ thực hiện **Check lại sản phẩm** (kiểm định hiện trạng tem mác, bao bì, lỗi thực tế), và có thẩm quyền trực tiếp bấm **Phê duyệt hoàn tiền** (`approve-refund`) chuyển sang chờ chuyển tiền (`PENDING_TRANSFER`).
+   * **Số tiền hoàn từ ngưỡng trở lên**: Nhân viên check sản phẩm và lập biên bản kiểm định, phiếu tự động được đẩy sang **Manager UI** (`PENDING_APPROVAL`). Chỉ tài khoản có vai trò `MANAGER` hoặc `ADMIN` mới được phép thẩm định và phê duyệt chuyển tiền.
 5. **Hoàn tiền thủ công qua quét mã QR (Manual QR Transfer):**  
    * Nhân viên CSKH mở App ngân hàng quét trực tiếp ảnh QR do khách upload, chuyển đúng số tiền đã duyệt, sau đó **nhập Mã giao dịch ngân hàng (`bank_reference`)** vào hệ thống để đối soát và kết thúc phiếu (`REFUNDED`). Không dùng Payout API tự động trừ tiền.
 6. **Bảo mật & Cô lập dữ liệu (Data Isolation):**  
@@ -47,17 +48,17 @@ flowchart TD
     ApproveReview --> StatusAwaiting[UPDATE status='AWAITING_RETURN' - Hướng dẫn gửi hàng]
     
     StatusAwaiting --> ShipBack[Khách đóng gói gửi hàng về địa chỉ kho shop]
-    ShipBack --> WarehouseInspect[Nhân viên kho nhận kiện hàng & thẩm định chất lượng]
+    ShipBack --> WarehouseInspect[Staff nhận hàng hoàn từ khách & Check lại sản phẩm]
     WarehouseInspect --> InspectResult{Kết quả kiểm tra hàng?}
     
     InspectResult -->|FAILED - Hàng rách/hỏng do khách| FailedInspect([status='INSPECTION_FAILED' - Gửi trả hàng cho khách])
     InspectResult -->|PASSED - Hàng chuẩn| CheckCause{Nguyên nhân lỗi ban đầu?}
     
     CheckCause -->|CUSTOMER_PREFERENCE - Khách đổi ý| RejectPref([status='REJECTED' - Gửi trả hàng, không hoàn tiền])
-    CheckCause -->|STORE_FAULT - Lỗi từ phía shop| CheckAmount{Số tiền hoàn}
+    CheckCause -->|STORE_FAULT - Lỗi từ phía shop| CheckAmount{Số tiền hoàn so với Ngưỡng}
     
-    CheckAmount -->|< 3.000.000 VNĐ| StaffPass[Staff phê duyệt trực tiếp]
-    CheckAmount -->|>= 3.000.000 VNĐ| ManagerReview[Chuyển PENDING_APPROVAL -> Quản lý thẩm định]
+    CheckAmount -->|< Ngưỡng cài đặt| StaffPass[Staff check sản phẩm & duyệt hoàn tiền trực tiếp]
+    CheckAmount -->|>= Ngưỡng cài đặt| ManagerReview[Chuyển PENDING_APPROVAL -> Đẩy sang Manager UI thẩm định]
     ManagerReview -->|Manager duyệt| ManagerPass[Chuyển sang PENDING_TRANSFER]
     ManagerReview -->|Manager từ chối| ManagerReject([status='REJECTED' - Gửi trả hàng])
     
@@ -104,7 +105,7 @@ sequenceDiagram
 
     Note over Customer: Bước 2: Khách đóng gói gửi hàng về kho theo hướng dẫn
     Customer->>Staff: Kiện hàng hoàn trả về tới kho
-    Staff->>FE: Lập biên bản kiểm định hàng tại kho (PASSED hoặc FAILED)
+    Staff->>FE: Check lại sản phẩm sau khi nhận hàng hoàn (PASSED hoặc FAILED, ghi chú)
     Staff->>BE: POST /api/staff/support-tickets/{id}/inspection (result, note)
     BE->>DB: INSERT ticket_inspection
 
@@ -115,11 +116,12 @@ sequenceDiagram
             BE->>DB: UPDATE status='REJECTED' (Hàng chuẩn không lỗi, gửi trả khách, không hoàn tiền)
         else Lỗi từ cửa hàng (STORE_FAULT)
             Note over BE: Tính số tiền hoàn = giá trị hàng + phí ship ban đầu
-            alt Số tiền hoàn < 3.000.000 VNĐ
+            alt Số tiền hoàn < Ngưỡng cài đặt (Trong hạn mức)
+                Staff->>FE: Bấm "Check lại sản phẩm ĐẠT & Nhân viên duyệt hoàn tiền"
                 Staff->>BE: POST /api/staff/support-tickets/{id}/approve-refund
                 BE->>DB: UPDATE status='PENDING_TRANSFER', approved_by=staffId
-            else Số tiền hoàn >= 3.000.000 VNĐ
-                BE->>DB: UPDATE status='PENDING_APPROVAL'
+            else Số tiền hoàn >= Ngưỡng cài đặt (Vượt hạn mức)
+                BE->>DB: UPDATE status='PENDING_APPROVAL' (Đẩy sang Manager UI)
                 Manager->>FE: Quản lý xem xét biên bản & bấm Duyệt
                 FE->>BE: POST /api/manager/support-tickets/{id}/decision (decision='approve')
                 BE->>DB: UPDATE status='PENDING_TRANSFER', approved_by=managerId

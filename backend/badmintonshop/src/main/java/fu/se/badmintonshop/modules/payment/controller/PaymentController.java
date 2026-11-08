@@ -158,5 +158,34 @@ public class PaymentController {
         paymentService.confirmWebhook(request.getWebhookUrl());
         return ResponseEntity.ok(ApiResponse.success("Đã gửi yêu cầu xác thực Webhook URL tới payOS", request.getWebhookUrl()));
     }
+
+    /**
+     * 9. Tra cứu thời gian tự động hủy mã QR payment (mặc định 15 phút)
+     */
+    @GetMapping("/settings/timeout")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> getPaymentTimeout() {
+        int timeoutMinutes = paymentService.getPaymentTimeoutMinutes();
+        return ResponseEntity.ok(ApiResponse.success(Map.of("timeoutMinutes", timeoutMinutes)));
+    }
+
+    /**
+     * 10. Quản lý cập nhật thời gian tự động hủy mã QR payment (Chỉ Manager/Admin)
+     */
+    @PutMapping("/settings/timeout")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> updatePaymentTimeout(
+            @RequestBody Map<String, Object> body,
+            @RequestHeader(value = "X-User-Id", required = false) Long managerId
+    ) {
+        Object minutesObj = body.get("timeoutMinutes");
+        if (minutesObj == null) {
+            minutesObj = body.get("timeout_minutes");
+        }
+        if (minutesObj == null) {
+            throw new IllegalArgumentException("Vui lòng cung cấp timeoutMinutes.");
+        }
+        int minutes = Integer.parseInt(String.valueOf(minutesObj));
+        paymentService.updatePaymentTimeoutMinutes(minutes, managerId != null ? managerId : 1L);
+        return ResponseEntity.ok(ApiResponse.success("Đã cập nhật thời gian hủy mã QR thành công", Map.of("timeoutMinutes", minutes)));
+    }
 }
 
