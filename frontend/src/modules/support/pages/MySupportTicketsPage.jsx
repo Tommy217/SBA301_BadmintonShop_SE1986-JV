@@ -4,6 +4,8 @@ import { Link, useLocation } from 'react-router';
 import { useShop } from '@/app/providers/shop/ShopContext';
 import { ticketStatuses, ticketTypes } from '@/modules/support/constants';
 import { formatDateTime, formatMoney } from '@/shared/utils/format';
+import Icon from '@/shared/components/Icon';
+import '../support.css';
 
 export default function MySupportTicketsPage() {
   const { data } = useShop();
@@ -32,17 +34,17 @@ export default function MySupportTicketsPage() {
   }, [supportTickets, tabFilter]);
 
   return (
-    <>
+    <section className="support-page support-customer-page">
       <div className="eyebrow">HỖ TRỢ KHÁCH HÀNG</div>
-      <div className="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+      <div className="support-heading d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
         <div>
-          <h1 className="h2 fw-bold mb-1">Phiếu Trả hàng & Hoàn tiền</h1>
+          <h1 className="h2 fw-bold mb-1">Trả hàng & hoàn tiền</h1>
           <p className="text-secondary mb-0">
             Theo dõi tiến độ xử lý và kết quả các yêu cầu trả hàng, hoàn tiền của bạn.
           </p>
         </div>
         <Button as={Link} to="/support-tickets/create" variant="primary">
-          + Tạo yêu cầu mới
+          <Icon name="plus" size={16} /> Tạo yêu cầu mới
         </Button>
       </div>
 
@@ -53,7 +55,7 @@ export default function MySupportTicketsPage() {
       )}
 
       {/* TABS LỌC TRẠNG THÁI */}
-      <Nav variant="tabs" className="mb-4" activeKey={tabFilter} onSelect={(k) => setTabFilter(k)}>
+      <Nav variant="tabs" className="support-tabs mb-4" aria-label="Lọc trạng thái phiếu hỗ trợ" activeKey={tabFilter} onSelect={(k) => setTabFilter(k)}>
         <Nav.Item>
           <Nav.Link eventKey="all">
             Tất cả ({supportTickets.length})
@@ -85,8 +87,9 @@ export default function MySupportTicketsPage() {
       </Nav>
 
       {filteredTickets.length === 0 ? (
-        <Card className="border-0 p-5 text-center">
+        <Card className="support-empty border-0 text-center">
           <Card.Body>
+            <span className="support-empty-icon"><Icon name="shield" size={30} /></span>
             <h2 className="h5 fw-bold mb-2">Chưa có phiếu hỗ trợ nào</h2>
             <p className="text-secondary mb-3">
               {tabFilter === 'all'
@@ -109,16 +112,16 @@ export default function MySupportTicketsPage() {
             const ticketItems = (data?.ticket_items || []).filter((ti) => ti.ticket_id === ticket.id);
 
             return (
-              <Card key={ticket.id} className="border-0 shadow-sm">
+              <Card key={ticket.id} className="support-ticket-card border-0 shadow-sm">
                 <Card.Body className="p-4">
                   <div className="d-flex flex-wrap justify-content-between align-items-start gap-3">
                     <div>
                       <div className="d-flex flex-wrap align-items-center gap-2 mb-2">
-                        <span className="fw-bold fs-5">{ticket.ticket_code}</span>
+                        <span className="support-ticket-code fw-bold">{ticket.ticket_code}</span>
                         <Badge bg="dark">
                           {ticketTypes[ticket.ticket_type] || ticket.ticket_type}
                         </Badge>
-                        <Badge bg={statusConfig.variant} text={statusConfig.variant === 'warning' ? 'dark' : undefined}>
+                        <Badge className="support-status" bg={statusConfig.variant} text={statusConfig.variant === 'warning' ? 'dark' : undefined}>
                           {statusConfig.label}
                         </Badge>
                       </div>
@@ -134,19 +137,19 @@ export default function MySupportTicketsPage() {
                       </div>
                     </div>
 
-                    <Button
+                    <Button className="support-detail-link"
                       as={Link}
                       to={`/support-tickets/${encodeURIComponent(ticket.id)}`}
                       variant="outline-primary"
                       size="sm"
                     >
-                      Chi tiết & Tiến trình →
+                      Xem chi tiết →
                     </Button>
                   </div>
 
                   <hr className="my-2" />
 
-                  <div className="row g-2 align-items-center mt-1">
+                  <div className="support-ticket-summary row g-2 align-items-center mt-1">
                     <div className="col-md-8">
                       <div className="small text-secondary">Lý do yêu cầu:</div>
                       <div className="fw-medium text-dark">{ticket.reason}</div>
@@ -177,6 +180,6 @@ export default function MySupportTicketsPage() {
           })}
         </div>
       )}
-    </>
+    </section>
   );
 }

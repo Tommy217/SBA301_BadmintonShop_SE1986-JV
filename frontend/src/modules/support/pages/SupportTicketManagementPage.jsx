@@ -8,6 +8,7 @@ import { useAuth } from '@/app/providers/auth/AuthContext';
 import { ROLES } from '@/shared/constants/roles';
 import { supportApi } from '@/modules/support/api/support.api';
 import { formatDateTime, formatMoney } from '@/shared/utils/format';
+import '../support.css';
 
 const EMPTY_LIST = [];
 
@@ -73,7 +74,7 @@ export default function SupportTicketManagementPage() {
     ).length;
 
   return (
-    <section className="manager-page manager-support-page">
+    <section className="manager-page manager-support-page support-page">
       <div className="eyebrow">QUẢN LÝ VẬN HÀNH</div>
       <div className="manager-title mb-4">
         <div>
@@ -98,7 +99,7 @@ export default function SupportTicketManagementPage() {
                   setShowThresholdModal(true);
                 }}
               >
-                ⚙️ Đổi nhanh ngưỡng
+                Điều chỉnh ngưỡng
               </Button>
               <Button
                 as={Link}
@@ -123,7 +124,7 @@ export default function SupportTicketManagementPage() {
       )}
 
       {/* MODAL THIẾT LẬP NGƯỠNG PHÊ DUYỆT */}
-      <Modal show={showThresholdModal} onHide={() => setShowThresholdModal(false)} centered>
+      <Modal show={showThresholdModal} onHide={() => setShowThresholdModal(false)} centered className="support-modal">
         <Modal.Header closeButton>
           <Modal.Title className="h5 fw-bold">Thiết lập ngưỡng Quản lý phê duyệt</Modal.Title>
         </Modal.Header>
@@ -181,7 +182,7 @@ export default function SupportTicketManagementPage() {
       </Modal>
 
       {/* STAT CARDS */}
-      <Row className="g-3 mb-4">
+      <Row className="support-stats g-3 mb-4">
         {[
           ['Chờ sơ duyệt', countByStatus('PENDING'), 'warning'],
           ['Chờ khách gửi hàng', countByStatus('AWAITING_RETURN'), 'info'],

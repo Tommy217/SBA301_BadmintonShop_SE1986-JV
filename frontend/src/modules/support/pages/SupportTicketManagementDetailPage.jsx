@@ -46,7 +46,7 @@ export default function SupportTicketManagementDetailPage() {
 
   if (!ticket) {
     return (
-      <section className="manager-page">
+      <section className="manager-page manager-support-page support-page">
         <h1 className="h2 fw-bold mb-2">Không tìm thấy phiếu hỗ trợ</h1>
         <p className="text-secondary mb-4">Phiếu hỗ trợ không tồn tại hoặc đã bị xóa.</p>
         <Button className="app-back-button" as={Link} to="/management/support-tickets" variant="outline-primary">
@@ -224,7 +224,7 @@ export default function SupportTicketManagementDetailPage() {
   }
 
   return (
-    <section className="manager-page manager-support-page">
+    <section className="manager-page manager-support-page support-page">
       <div className="eyebrow">QUẢN LÝ VẬN HÀNH</div>
       <div className="manager-title mb-4">
         <div>
@@ -786,3 +786,4 @@ export default function SupportTicketManagementDetailPage() {
     </section>
   );
 }
+import '../support.css';

@@ -5,6 +5,7 @@ import { useShop } from '@/app/providers/shop/ShopContext';
 import { supportApi } from '@/modules/support/api/support.api';
 import { RETURN_WINDOW_DAYS } from '@/modules/support/constants';
 import { formatDateTime, formatMoney } from '@/shared/utils/format';
+import '../support.css';
 
 export default function CreateSupportTicketPage() {
   const { data, busy, act } = useShop();
@@ -241,11 +242,11 @@ export default function CreateSupportTicketPage() {
   }
 
   return (
-    <>
+    <section className="support-page support-customer-page support-form-page">
       <div className="eyebrow">HỖ TRỢ KHÁCH HÀNG</div>
-      <div className="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
+      <div className="support-heading d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
         <div>
-          <h1 className="h2 fw-bold mb-1">Tạo yêu cầu Trả hàng & Hoàn tiền</h1>
+          <h1 className="h2 fw-bold mb-1">Tạo yêu cầu hỗ trợ</h1>
           <p className="text-secondary mb-0">
             Hỗ trợ xử lý trả hàng và hoàn tiền trực tiếp cho các đơn hàng đã thanh toán trực tuyến.
           </p>
@@ -571,6 +572,6 @@ export default function CreateSupportTicketPage() {
           </div>
         </Form>
       )}
-    </>
+    </section>
   );
 }

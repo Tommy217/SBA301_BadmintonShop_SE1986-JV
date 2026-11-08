@@ -5,6 +5,7 @@ import { useShop } from '@/app/providers/shop/ShopContext';
 import { supportApi } from '@/modules/support/api/support.api';
 import { ticketStatuses, ticketTypes, ticketCauses } from '@/modules/support/constants';
 import { formatDateTime, formatMoney } from '@/shared/utils/format';
+import '../support.css';
 
 export default function SupportTicketDetailPage() {
   const { ticketId } = useParams();
@@ -19,7 +20,7 @@ export default function SupportTicketDetailPage() {
 
   if (!ticket) {
     return (
-      <>
+      <section className="support-page support-customer-page support-empty">
         <div className="eyebrow">HỖ TRỢ KHÁCH HÀNG</div>
         <h1 className="h2 fw-bold mb-2">Không tìm thấy phiếu hỗ trợ</h1>
         <p className="text-secondary mb-4">
@@ -28,7 +29,7 @@ export default function SupportTicketDetailPage() {
         <Button className="app-back-button" as={Link} to="/support-tickets" variant="outline-primary">
           Quay lại danh sách phiếu hỗ trợ
         </Button>
-      </>
+      </section>
     );
   }
 
@@ -88,14 +89,14 @@ export default function SupportTicketDetailPage() {
   const canCancel = ['PENDING', 'open'].includes(ticket.status);
 
   return (
-    <>
+    <section className="support-page support-customer-page support-detail-page">
       <div className="eyebrow">HỖ TRỢ KHÁCH HÀNG</div>
-      <div className="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
+      <div className="support-heading d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
         <div>
           <h1 className="h2 fw-bold mb-1">Chi tiết phiếu {ticket.ticket_code}</h1>
           <p className="text-secondary mb-0">Theo dõi thông tin và tiến trình xử lý từ cửa hàng.</p>
         </div>
-        <div className="d-flex gap-2">
+        <div className="support-heading-actions d-flex flex-wrap gap-2">
           {canCancel && (
             <Button variant="outline-danger" onClick={() => setShowCancelModal(true)} disabled={busy}>
               Hủy yêu cầu
@@ -382,7 +383,7 @@ export default function SupportTicketDetailPage() {
       </Row>
 
       {/* MODAL XÁC NHẬN HỦY */}
-      <Modal show={showCancelModal} onHide={() => setShowCancelModal(false)} centered>
+      <Modal show={showCancelModal} onHide={() => setShowCancelModal(false)} centered className="support-modal support-customer-modal">
         <Modal.Header closeButton>
           <Modal.Title className="h5 fw-bold">Xác nhận hủy yêu cầu hỗ trợ</Modal.Title>
         </Modal.Header>
@@ -406,6 +407,6 @@ export default function SupportTicketDetailPage() {
           <Image src={previewImage} alt="Xem trước" fluid style={{ maxHeight: '80vh' }} />
         </Modal.Body>
       </Modal>
-    </>
+    </section>
   );
 }
