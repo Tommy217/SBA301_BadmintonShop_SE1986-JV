@@ -958,6 +958,30 @@ BEGIN TRY
     IF NOT EXISTS (SELECT 1 FROM dbo.products WITH (UPDLOCK, HOLDLOCK) WHERE slug = N'demo-product-apparel')
         INSERT INTO dbo.products (category_id, brand_id, product_type, name, slug, description, base_price, is_active, created_by, created_at, updated_at)
         VALUES ((SELECT id FROM dbo.categories WHERE slug = N'apparel'), (SELECT id FROM dbo.brands WHERE slug = N'yonex'), N'apparel', N'Áo thể thao Air Fit (Mẫu)', N'demo-product-apparel', N'Sản phẩm mẫu để minh họa tồn kho và báo cáo doanh thu.', 350000, 1, NULL, CONVERT(datetime2(0), '2026-05-01T08:00:00', 126), CONVERT(datetime2(0), '2026-05-01T08:00:00', 126));
+    -- Seed catalog products first: storefront sorts by product ID ascending.
+ INSERT INTO dbo.products(category_id,brand_id,product_type,name,slug,description,base_price,is_active,created_by,created_at,updated_at)
+ SELECT c.id,b.id,s.product_type,s.name,s.slug,s.description,s.base_price,1,NULL,SYSDATETIME(),SYSDATETIME()
+ FROM (VALUES
+ (N'yonex-astrox-100zz', N'Vợt cầu lông Yonex Astrox 100 ZZ', N'racket', N'yonex', 3890000, N'Vợt thiên công, dành cho người chơi trình độ cao.'),
+ (N'yonex-arcsaber-11-pro', N'Vợt cầu lông Yonex Arcsaber 11 Pro', N'racket', N'yonex', 4190000, N'Vợt cân bằng thiên về kiểm soát và điều cầu.'),
+ (N'yonex-nanoflare-1000z', N'Vợt cầu lông Yonex Nanoflare 1000 Z', N'racket', N'yonex', 4590000, N'Vợt nhẹ đầu hỗ trợ tốc độ vung vợt.'),
+ (N'victor-thruster-ryuga-ii', N'Vợt cầu lông Victor Thruster Ryuga II', N'racket', N'victor', 3690000, N'Vợt thiên công với khung trợ lực.'),
+ (N'victor-auraspeed-90k-ii', N'Vợt cầu lông Victor Auraspeed 90K II', N'racket', N'victor', 3490000, N'Vợt tốc độ dành cho lối chơi phản tạt.'),
+ (N'li-ning-axforce-90-dragon', N'Vợt cầu lông Li-Ning Axforce 90 Dragon', N'racket', N'li-ning', 3990000, N'Vợt thiên công phục vụ đập cầu mạnh.'),
+ (N'yonex-power-cushion-65z3', N'Giày Yonex Power Cushion 65 Z3', N'shoes', N'yonex', 2890000, N'Giày cầu lông có đệm hỗ trợ di chuyển.'),
+ (N'yonex-aerus-z2', N'Giày Yonex Aerus Z2', N'shoes', N'yonex', 3190000, N'Giày nhẹ ưu tiên tính linh hoạt.'),
+ (N'victor-p9200iii', N'Giày Victor P9200 III', N'shoes', N'victor', 2590000, N'Giày có độ ổn định và hỗ trợ bàn chân.'),
+ (N'li-ning-saga-lite', N'Giày Li-Ning Saga Lite', N'shoes', N'li-ning', 1790000, N'Giày luyện tập trọng lượng nhẹ.'),
+ (N'yonex-shirt-crew-10650', N'Áo Yonex Crew Neck 10650', N'apparel', N'yonex', 590000, N'Áo thi đấu cầu lông thoáng khí.'),
+ (N'yonex-shorts-15110', N'Quần Yonex Shorts 15110', N'apparel', N'yonex', 490000, N'Quần short thể thao nhẹ, co giãn.'),
+ (N'victor-shirt-t25000', N'Áo Victor T-25000', N'apparel', N'victor', 450000, N'Áo cầu lông dành cho luyện tập.'),
+ (N'li-ning-shirt-aayu', N'Áo Li-Ning Training AAYU', N'apparel', N'li-ning', 390000, N'Áo luyện tập nhanh khô.'),
+ (N'badminton-shop-training-socks', N'Tất cầu lông Training Socks', N'apparel', N'badminton-shop', 99000, N'Tất thể thao cổ trung, thoáng khí.')
+ ) s(slug,name,product_type,brand_slug,base_price,description) JOIN dbo.categories c ON c.slug=s.product_type
+ JOIN dbo.brands b ON b.slug=s.brand_slug
+ WHERE NOT EXISTS (SELECT 1 FROM dbo.products p WHERE p.slug=s.slug);
+
+    -- Keep the 8 test products with mismatched images at the end.
     IF NOT EXISTS (SELECT 1 FROM dbo.products WITH (UPDLOCK, HOLDLOCK) WHERE slug = N'test-quan-can-yonex-ac102ex-10k')
         INSERT INTO dbo.products (category_id, brand_id, product_type, name, slug, description, base_price, is_active, created_by, created_at, updated_at)
         VALUES ((SELECT id FROM dbo.categories WHERE slug = N'apparel'), (SELECT id FROM dbo.brands WHERE slug = N'yonex'), N'apparel', N'[TEST] Quấn cán vợt Yonex AC102EX', N'test-quan-can-yonex-ac102ex-10k', N'Quấn cán chống trơn trượt Yonex AC102EX - Sản phẩm test luồng Order, Payment và Return (10.000 VNĐ).', 10000, 1, NULL, SYSDATETIME(), SYSDATETIME());
@@ -2251,27 +2275,7 @@ BEGIN TRY
  ) c(name,slug) WHERE NOT EXISTS (SELECT 1 FROM dbo.categories x WHERE x.slug=c.slug);
 
 
- INSERT INTO dbo.products(category_id,brand_id,product_type,name,slug,description,base_price,is_active,created_by,created_at,updated_at)
- SELECT c.id,b.id,s.product_type,s.name,s.slug,s.description,s.base_price,1,NULL,SYSDATETIME(),SYSDATETIME()
- FROM (VALUES
- (N'yonex-astrox-100zz', N'Vợt cầu lông Yonex Astrox 100 ZZ', N'racket', N'yonex', 3890000, N'Vợt thiên công, dành cho người chơi trình độ cao.'),
- (N'yonex-arcsaber-11-pro', N'Vợt cầu lông Yonex Arcsaber 11 Pro', N'racket', N'yonex', 4190000, N'Vợt cân bằng thiên về kiểm soát và điều cầu.'),
- (N'yonex-nanoflare-1000z', N'Vợt cầu lông Yonex Nanoflare 1000 Z', N'racket', N'yonex', 4590000, N'Vợt nhẹ đầu hỗ trợ tốc độ vung vợt.'),
- (N'victor-thruster-ryuga-ii', N'Vợt cầu lông Victor Thruster Ryuga II', N'racket', N'victor', 3690000, N'Vợt thiên công với khung trợ lực.'),
- (N'victor-auraspeed-90k-ii', N'Vợt cầu lông Victor Auraspeed 90K II', N'racket', N'victor', 3490000, N'Vợt tốc độ dành cho lối chơi phản tạt.'),
- (N'li-ning-axforce-90-dragon', N'Vợt cầu lông Li-Ning Axforce 90 Dragon', N'racket', N'li-ning', 3990000, N'Vợt thiên công phục vụ đập cầu mạnh.'),
- (N'yonex-power-cushion-65z3', N'Giày Yonex Power Cushion 65 Z3', N'shoes', N'yonex', 2890000, N'Giày cầu lông có đệm hỗ trợ di chuyển.'),
- (N'yonex-aerus-z2', N'Giày Yonex Aerus Z2', N'shoes', N'yonex', 3190000, N'Giày nhẹ ưu tiên tính linh hoạt.'),
- (N'victor-p9200iii', N'Giày Victor P9200 III', N'shoes', N'victor', 2590000, N'Giày có độ ổn định và hỗ trợ bàn chân.'),
- (N'li-ning-saga-lite', N'Giày Li-Ning Saga Lite', N'shoes', N'li-ning', 1790000, N'Giày luyện tập trọng lượng nhẹ.'),
- (N'yonex-shirt-crew-10650', N'Áo Yonex Crew Neck 10650', N'apparel', N'yonex', 590000, N'Áo thi đấu cầu lông thoáng khí.'),
- (N'yonex-shorts-15110', N'Quần Yonex Shorts 15110', N'apparel', N'yonex', 490000, N'Quần short thể thao nhẹ, co giãn.'),
- (N'victor-shirt-t25000', N'Áo Victor T-25000', N'apparel', N'victor', 450000, N'Áo cầu lông dành cho luyện tập.'),
- (N'li-ning-shirt-aayu', N'Áo Li-Ning Training AAYU', N'apparel', N'li-ning', 390000, N'Áo luyện tập nhanh khô.'),
- (N'badminton-shop-training-socks', N'Tất cầu lông Training Socks', N'apparel', N'badminton-shop', 99000, N'Tất thể thao cổ trung, thoáng khí.')
- ) s(slug,name,product_type,brand_slug,base_price,description) JOIN dbo.categories c ON c.slug=s.product_type
- JOIN dbo.brands b ON b.slug=s.brand_slug
- WHERE NOT EXISTS (SELECT 1 FROM dbo.products p WHERE p.slug=s.slug);
+
 
  -- Thong so chi tiet theo 3 loai san pham.
 
@@ -2776,4 +2780,3 @@ BEGIN
     END;
 END;
 GO
-
