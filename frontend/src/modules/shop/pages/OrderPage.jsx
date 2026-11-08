@@ -8,6 +8,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useAuth } from '@/app/providers/auth/AuthContext';
 import { httpClient } from '@/shared/api/httpClient';
 import VoucherPicker from '../components/VoucherPicker';
+import SavedAddressPicker from '../components/SavedAddressPicker';
 import { Alert, Button, Card, Col, Form, Row } from 'react-bootstrap';
 import { Link, useNavigate, useSearchParams } from 'react-router';
 import { useShop } from '@/app/providers/shop/ShopContext';
@@ -140,7 +141,10 @@ export default function OrderPage() {
     <div className="commerce-page order-page">
       <header className="checkout-heading">
         <div>
-          <Link className="checkout-back app-back-button" to={directVariant ? '/products' : '/cart'}>
+          <Link
+            className="checkout-back app-back-button"
+            to={directVariant ? '/products' : '/cart'}
+          >
             ← {directVariant ? 'Tiếp tục mua sắm' : 'Quay lại giỏ hàng'}
           </Link>
           <p className="checkout-eyebrow">SẴN SÀNG CHO TRẬN ĐẤU MỚI</p>
@@ -174,10 +178,17 @@ export default function OrderPage() {
           <Col lg={7}>
             <Card className="delivery-panel checkout-details">
               <Card.Body className="p-4">
-                <h2 className="section-title">
-                  <Icon name="pin" />
-                  Thông tin giao hàng
-                </h2>
+                <div className="saved-address-heading">
+                  <h2 className="section-title">
+                    <Icon name="pin" />
+                    Thông tin giao hàng
+                  </h2>
+                  <SavedAddressPicker
+                    form={form}
+                    disabled={busy}
+                    onSelect={(address) => setForm((previous) => ({ ...previous, ...address }))}
+                  />
+                </div>
                 <p className="checkout-section-note">
                   Điền thông tin người nhận để chúng mình giao hàng chính xác.
                 </p>
