@@ -1,7 +1,8 @@
-import { Button } from 'react-bootstrap';
+import { Button, Navbar } from 'react-bootstrap';
 import { useNavigate } from 'react-router';
 import { useAuth } from '@/app/providers/auth/AuthContext';
 import BrandLogo from '@/shared/components/BrandLogo';
+import '@/app/layouts/public/PublicHeader.css';
 
 export default function AdminHeader() {
   const { user, logout } = useAuth();
@@ -15,21 +16,31 @@ export default function AdminHeader() {
   const initial = (user?.fullName || user?.email || 'A').charAt(0).toUpperCase();
 
   return (
-    <header className="admin-header">
-      <div className="admin-header-brand">
-        <BrandLogo />
+    <header className="store-header">
+      <div className="shop-topbar">
+        Badminton Shop · Cổng quản trị hệ thống
       </div>
+      <Navbar className="store-navbar">
+        <BrandLogo to="/admin/employees" />
 
-      <div className="admin-user">
-        <div className="admin-avatar">{initial}</div>
-        <div className="admin-user-info">
-          <span className="admin-user-name">{user?.fullName || 'Administrator'}</span>
-          <span className="admin-user-email">{user?.email || 'admin@badminton.vn'}</span>
+        <div className="header-actions">
+          <div className="d-flex align-items-center gap-2">
+            <div className="header-avatar">{initial}</div>
+            <div className="header-user-copy">
+              <small>Quản trị viên</small>
+              <strong>{user?.fullName || user?.email || 'Administrator'}</strong>
+            </div>
+          </div>
+          <span className="header-action-divider" aria-hidden="true" />
+          <Button
+            variant="outline-secondary"
+            size="sm"
+            onClick={handleLogout}
+          >
+            Đăng xuất
+          </Button>
         </div>
-        <Button variant="outline-danger" size="sm" className="admin-logout" onClick={handleLogout}>
-          Đăng xuất
-        </Button>
-      </div>
+      </Navbar>
     </header>
   );
 }
