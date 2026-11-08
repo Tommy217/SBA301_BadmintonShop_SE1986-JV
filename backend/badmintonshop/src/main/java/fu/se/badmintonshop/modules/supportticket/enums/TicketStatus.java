@@ -6,15 +6,15 @@ import lombok.RequiredArgsConstructor;
 @Getter
 @RequiredArgsConstructor
 public enum TicketStatus {
-    PENDING("PENDING", "Chá» tiáº¿p nháº­n sÆ¡ duyá»‡t"),
-    REJECTED("REJECTED", "Bá»‹ tá»« chá»‘i"),
-    AWAITING_RETURN("AWAITING_RETURN", "Chá» khÃ¡ch gá»­i láº¡i hÃ ng"),
-    INSPECTION_FAILED("INSPECTION_FAILED", "Kiá»ƒm tra hÃ ng khÃ´ng Ä‘áº¡t"),
-    PENDING_APPROVAL("PENDING_APPROVAL", "Chá» Quáº£n lÃ½ phÃª duyá»‡t hoÃ n tiá»n"),
-    PENDING_TRANSFER("PENDING_TRANSFER", "Chá» nhÃ¢n viÃªn chuyá»ƒn khoáº£n hoÃ n tiá»n"),
-    REFUNDED("REFUNDED", "ÄÃ£ hoÃ n tiá»n thÃ nh cÃ´ng"),
-    COMPLETED("COMPLETED", "ÄÃ£ hoÃ n táº¥t Ä‘á»•i hÃ ng"),
-    CANCELLED("CANCELLED", "KhÃ¡ch Ä‘Ã£ há»§y yÃªu cáº§u");
+    PENDING("PENDING", "Chờ tiếp nhận sơ duyệt"),
+    REJECTED("REJECTED", "Bị từ chối"),
+    AWAITING_RETURN("AWAITING_RETURN", "Chờ khách gửi lại hàng"),
+    INSPECTION_FAILED("INSPECTION_FAILED", "Kiểm tra hàng không đạt"),
+    PENDING_APPROVAL("PENDING_APPROVAL", "Chờ Quản lý phê duyệt hoàn tiền"),
+    PENDING_TRANSFER("PENDING_TRANSFER", "Chờ nhân viên chuyển khoản hoàn tiền"),
+    REFUNDED("REFUNDED", "Đã hoàn tiền thành công"),
+    COMPLETED("COMPLETED", "Đã hoàn tất đổi hàng"),
+    CANCELLED("CANCELLED", "Khách đã hủy yêu cầu");
 
     private final String value;
     private final String description;

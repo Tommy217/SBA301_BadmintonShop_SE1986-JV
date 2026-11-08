@@ -78,7 +78,7 @@ public class StaffTicketController {
     @PostMapping("/{id}/approve-refund")
     public ResponseEntity<ApiResponse<TicketResponse>> approveRefund(
             @PathVariable Long id,
-            @RequestHeader(value = "X-User-Id", required = false, defaultValue = "1") Long staffId) {
+            @RequestHeader(value = "X-User-Id", required = false) Long staffId) {
         TicketResponse response = ticketService.approveRefund(id, staffId);
         return ResponseEntity.ok(ApiResponse.success("Nhân viên đã phê duyệt hoàn tiền", response));
     }

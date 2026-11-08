@@ -6,8 +6,8 @@ import lombok.RequiredArgsConstructor;
 @Getter
 @RequiredArgsConstructor
 public enum TicketCause {
-    STORE_FAULT("STORE_FAULT", "Lá»—i do cá»­a hÃ ng hoáº·c nhÃ  sáº£n xuáº¥t (HoÃ n phÃ­ váº­n chuyá»ƒn)"),
-    CUSTOMER_PREFERENCE("CUSTOMER_PREFERENCE", "Nhu cáº§u cÃ¡ nhÃ¢n cá»§a khÃ¡ch hÃ ng (KhÃ¡ch chá»‹u phÃ­ váº­n chuyá»ƒn)");
+    STORE_FAULT("STORE_FAULT", "Lỗi do cửa hàng hoặc nhà sản xuất (Hoàn phí vận chuyển)"),
+    CUSTOMER_PREFERENCE("CUSTOMER_PREFERENCE", "Nhu cầu cá nhân của khách hàng (Khách chịu phí vận chuyển)");
 
     private final String value;
     private final String description;

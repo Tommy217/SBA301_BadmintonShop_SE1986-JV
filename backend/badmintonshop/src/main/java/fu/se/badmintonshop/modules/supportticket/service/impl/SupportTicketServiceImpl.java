@@ -47,59 +47,59 @@ public class SupportTicketServiceImpl implements SupportTicketService {
     @Override
     @Transactional
     public TicketResponse createTicket(CreateTicketRequest request, Long currentUserId) {
-        log.info("Khá»Ÿi táº¡o Support Ticket cho orderId={}, userId={}", request.getOrderId(), currentUserId);
+        log.info("Khởi tạo Support Ticket cho orderId={}, userId={}", request.getOrderId(), currentUserId);
 
         Order order = orderRepository.findById(request.getOrderId())
-                .orElseThrow(() -> new IllegalArgumentException("KhÃ´ng tÃ¬m tháº¥y Ä‘Æ¡n hÃ ng ID: " + request.getOrderId()));
+                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy đơn hàng ID: " + request.getOrderId()));
 
-        // 1. Kiá»ƒm tra quyá»n sá»Ÿ há»¯u Ä‘Æ¡n hÃ ng
+        // 1. Kiểm tra quyền sở hữu đơn hàng
         Long userId = currentUserId != null ? currentUserId : (request.getUserId() != null ? request.getUserId() : order.getUserId());
         if (order.getUserId() != null && userId != null && !order.getUserId().equals(userId)) {
-            throw new IllegalArgumentException("Báº¡n khÃ´ng sá»Ÿ há»¯u Ä‘Æ¡n hÃ ng nÃ y.");
+            throw new IllegalArgumentException("Bạn không sở hữu đơn hàng này.");
         }
 
-        // 2. Kiá»ƒm tra Ä‘iá»u kiá»‡n 7 ngÃ y ká»ƒ tá»« ngÃ y giao hÃ ng
+        // 2. Kiểm tra điều kiện 7 ngày kể từ ngày giao hàng
         if (order.getCreatedAt() != null && order.getCreatedAt().isBefore(LocalDateTime.now().minusDays(RETURN_WINDOW_DAYS + 30))) {
-            // LÆ°u Ã½: Trong mÃ´i trÆ°á»ng thá»±c táº¿ kiá»ƒm tra theo delivered_at, táº¡m thá»i cháº¥p nháº­n Ä‘Æ¡n hÃ ng
+            // Lưu ý: Trong môi trường thực tế kiểm tra theo delivered_at, tạm thời chấp nhận đơn hàng
         }
 
-        // 3. Má»—i Ä‘Æ¡n hÃ ng chá»‰ Ä‘Æ°á»£c táº¡o tá»‘i Ä‘a 1 ticket (CR-BR)
+        // 3. Mỗi đơn hàng chỉ được tạo tối đa 1 ticket (CR-BR)
         boolean hasActiveTicket = ticketRepository.existsByOrderIdAndStatusNot(order.getId(), TicketStatus.CANCELLED.getValue());
         if (hasActiveTicket) {
-            throw new IllegalStateException("ÄÆ¡n hÃ ng nÃ y Ä‘Ã£ tá»“n táº¡i má»™t phiáº¿u khiáº¿u náº¡i / Ä‘á»•i tráº£ Ä‘ang Ä‘Æ°á»£c xá»­ lÃ½.");
+            throw new IllegalStateException("Đơn hàng này đã tồn tại một phiếu khiếu nại / đổi trả đang được xử lý.");
         }
 
-        // 4. Validate loáº¡i ticket
+        // 4. Validate loại ticket
         String type = request.getTicketType() != null ? request.getTicketType().toUpperCase() : TicketType.REFUND.getValue();
         if (!TicketType.REFUND.getValue().equals(type)) {
             throw new IllegalArgumentException("Hệ thống chỉ hỗ trợ yêu cầu Trả hàng & Hoàn tiền (REFUND).");
         }
 
-        // 5. Báº¯t buá»™c cÃ³ áº£nh QR nháº­n tiá»n
+        // 5. Bắt buộc có ảnh QR nhận tiền
         if (request.getRefundQrUrl() == null || request.getRefundQrUrl().trim().isEmpty()) {
-            throw new IllegalArgumentException("áº¢nh mÃ£ QR tÃ i khoáº£n ngÃ¢n hÃ ng nháº­n tiá»n lÃ  báº¯t buá»™c cho cáº£ HoÃ n tiá»n vÃ  Äá»•i hÃ ng.");
+            throw new IllegalArgumentException("Ảnh mã QR tài khoản ngân hàng nhận tiền là bắt buộc cho cả Hoàn tiền và Đổi hàng.");
         }
 
-        // 6. Báº¯t buá»™c cÃ³ tá»‘i thiá»ƒu 1 file báº±ng chá»©ng
+        // 6. Bắt buộc có tối thiểu 1 file bằng chứng
         if (request.getEvidenceUrls() == null || request.getEvidenceUrls().isEmpty()) {
-            throw new IllegalArgumentException("Vui lÃ²ng táº£i lÃªn Ã­t nháº¥t má»™t hÃ¬nh áº£nh hoáº·c video báº±ng chá»©ng.");
+            throw new IllegalArgumentException("Vui lòng tải lên ít nhất một hình ảnh hoặc video bằng chứng.");
         }
 
-        // 7. Validate cÃ¡c sáº£n pháº©m yÃªu cáº§u
+        // 7. Validate các sản phẩm yêu cầu
         List<OrderItem> orderItems = orderItemRepository.findByOrderId(order.getId());
         Map<Long, OrderItem> orderItemMap = orderItems.stream().collect(Collectors.toMap(OrderItem::getId, item -> item));
 
         for (TicketItemRequest it : request.getItems()) {
             OrderItem oi = orderItemMap.get(it.getOrderItemId());
             if (oi == null) {
-                throw new IllegalArgumentException("Sáº£n pháº©m ID " + it.getOrderItemId() + " khÃ´ng thuá»™c Ä‘Æ¡n hÃ ng nÃ y.");
+                throw new IllegalArgumentException("Sản phẩm ID " + it.getOrderItemId() + " không thuộc đơn hàng này.");
             }
             if (it.getQuantity() > oi.getQuantity()) {
-                throw new IllegalArgumentException("Sá»‘ lÆ°á»£ng yÃªu cáº§u (" + it.getQuantity() + ") vÆ°á»£t quÃ¡ sá»‘ lÆ°á»£ng Ä‘Ã£ mua (" + oi.getQuantity() + ").");
+                throw new IllegalArgumentException("Số lượng yêu cầu (" + it.getQuantity() + ") vượt quá số lượng đã mua (" + oi.getQuantity() + ").");
             }
         }
 
-        // Táº¡o mÃ£ ticket: ST-yyyyMMdd-XXXXX
+        // Tạo mã ticket: ST-yyyyMMdd-XXXXX
         String datePrefix = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"));
         String ticketCode = "ST-" + datePrefix + "-" + ThreadLocalRandom.current().nextInt(10000, 99999);
 
@@ -138,8 +138,8 @@ public class SupportTicketServiceImpl implements SupportTicketService {
             savedEvidences.add(evidenceRepository.save(evidence));
         }
 
-        // Ghi nháº­n lá»‹ch sá»­ tráº¡ng thÃ¡i Ä‘áº§u tiÃªn
-        addStatusHistory(savedTicket.getId(), null, TicketStatus.PENDING.getValue(), userId, "KhÃ¡ch hÃ ng táº¡o phiáº¿u yÃªu cáº§u há»— trá»£");
+        // Ghi nhận lịch sử trạng thái đầu tiên
+        addStatusHistory(savedTicket.getId(), null, TicketStatus.PENDING.getValue(), userId, "Khách hàng tạo phiếu yêu cầu hỗ trợ");
 
         return buildResponse(savedTicket, savedItems, savedEvidences, null, null, null, order);
     }
@@ -148,10 +148,10 @@ public class SupportTicketServiceImpl implements SupportTicketService {
     @Transactional(readOnly = true)
     public TicketResponse getTicketById(Long id, Long currentUserId, boolean isStaffOrManager) {
         SupportTicket ticket = ticketRepository.findById(id)
-                .orElseThrow(() -> new NoSuchElementException("KhÃ´ng tÃ¬m tháº¥y phiáº¿u há»— trá»£ ID: " + id));
+                .orElseThrow(() -> new NoSuchElementException("Không tìm thấy phiếu hỗ trợ ID: " + id));
 
         if (!isStaffOrManager && currentUserId != null && !ticket.getUserId().equals(currentUserId)) {
-            throw new IllegalArgumentException("Báº¡n khÃ´ng cÃ³ quyá»n xem phiáº¿u há»— trá»£ nÃ y.");
+            throw new IllegalArgumentException("Bạn không có quyền xem phiếu hỗ trợ này.");
         }
 
         return loadFullResponse(ticket);
@@ -180,20 +180,20 @@ public class SupportTicketServiceImpl implements SupportTicketService {
     @Transactional
     public TicketResponse cancelTicket(Long id, Long currentUserId) {
         SupportTicket ticket = ticketRepository.findById(id)
-                .orElseThrow(() -> new NoSuchElementException("KhÃ´ng tÃ¬m tháº¥y phiáº¿u há»— trá»£ ID: " + id));
+                .orElseThrow(() -> new NoSuchElementException("Không tìm thấy phiếu hỗ trợ ID: " + id));
 
         if (currentUserId != null && !ticket.getUserId().equals(currentUserId)) {
-            throw new IllegalArgumentException("Báº¡n khÃ´ng cÃ³ quyá»n há»§y phiáº¿u nÃ y.");
+            throw new IllegalArgumentException("Bạn không có quyền hủy phiếu này.");
         }
 
         if (!TicketStatus.PENDING.getValue().equals(ticket.getStatus())) {
-            throw new IllegalStateException("Chá»‰ cÃ³ thá»ƒ há»§y yÃªu cáº§u khi phiáº¿u á»Ÿ tráº¡ng thÃ¡i Chá» tiáº¿p nháº­n (PENDING).");
+            throw new IllegalStateException("Chỉ có thể hủy yêu cầu khi phiếu ở trạng thái Chờ tiếp nhận (PENDING).");
         }
 
         ticket.setStatus(TicketStatus.CANCELLED.getValue());
         ticketRepository.save(ticket);
 
-        addStatusHistory(ticket.getId(), TicketStatus.PENDING.getValue(), TicketStatus.CANCELLED.getValue(), currentUserId, "KhÃ¡ch hÃ ng chá»§ Ä‘á»™ng há»§y yÃªu cáº§u");
+        addStatusHistory(ticket.getId(), TicketStatus.PENDING.getValue(), TicketStatus.CANCELLED.getValue(), currentUserId, "Khách hàng chủ động hủy yêu cầu");
 
         return loadFullResponse(ticket);
     }
@@ -202,16 +202,16 @@ public class SupportTicketServiceImpl implements SupportTicketService {
     @Transactional
     public TicketResponse reviewTicket(Long id, ReviewTicketRequest request) {
         SupportTicket ticket = ticketRepository.findById(id)
-                .orElseThrow(() -> new NoSuchElementException("KhÃ´ng tÃ¬m tháº¥y phiáº¿u há»— trá»£ ID: " + id));
+                .orElseThrow(() -> new NoSuchElementException("Không tìm thấy phiếu hỗ trợ ID: " + id));
 
         if (!TicketStatus.PENDING.getValue().equals(ticket.getStatus())) {
-            throw new IllegalStateException("Phiáº¿u khÃ´ng á»Ÿ tráº¡ng thÃ¡i Chá» tiáº¿p nháº­n.");
+            throw new IllegalStateException("Phiếu không ở trạng thái Chờ tiếp nhận.");
         }
 
         String action = request.getAction().toLowerCase();
         if ("reject".equals(action)) {
             if (request.getRejectReason() == null || request.getRejectReason().trim().isEmpty()) {
-                throw new IllegalArgumentException("Vui lÃ²ng nháº­p lÃ½ do tá»« chá»‘i yÃªu cáº§u.");
+                throw new IllegalArgumentException("Vui lòng nhập lý do từ chối yêu cầu.");
             }
             ticket.setStatus(TicketStatus.REJECTED.getValue());
             ticket.setRejectReason(request.getRejectReason().trim());
@@ -220,11 +220,11 @@ public class SupportTicketServiceImpl implements SupportTicketService {
             ticketRepository.save(ticket);
 
             addStatusHistory(ticket.getId(), TicketStatus.PENDING.getValue(), TicketStatus.REJECTED.getValue(), request.getStaffId(),
-                    "NhÃ¢n viÃªn tá»« chá»‘i sÆ¡ duyá»‡t: " + request.getRejectReason().trim());
+                    "Nhân viên từ chối sơ duyệt: " + request.getRejectReason().trim());
         } else if ("approve".equals(action)) {
             String cause = request.getCause();
             if (cause == null || (!TicketCause.STORE_FAULT.getValue().equals(cause) && !TicketCause.CUSTOMER_PREFERENCE.getValue().equals(cause))) {
-                throw new IllegalArgumentException("Vui lÃ²ng chá»n nguyÃªn nhÃ¢n lá»—i (STORE_FAULT hoáº·c CUSTOMER_PREFERENCE).");
+                throw new IllegalArgumentException("Vui lòng chọn nguyên nhân lỗi (STORE_FAULT hoặc CUSTOMER_PREFERENCE).");
             }
             ticket.setStatus(TicketStatus.AWAITING_RETURN.getValue());
             ticket.setCause(cause);
@@ -233,9 +233,9 @@ public class SupportTicketServiceImpl implements SupportTicketService {
             ticketRepository.save(ticket);
 
             addStatusHistory(ticket.getId(), TicketStatus.PENDING.getValue(), TicketStatus.AWAITING_RETURN.getValue(), request.getStaffId(),
-                    "NhÃ¢n viÃªn cháº¥p thuáº­n tiáº¿p nháº­n. NguyÃªn nhÃ¢n: " + (TicketCause.STORE_FAULT.getValue().equals(cause) ? "Lá»—i cá»­a hÃ ng/NSX" : "Nhu cáº§u cÃ¡ nhÃ¢n"));
+                    "Nhân viên chấp thuận tiếp nhận. Nguyên nhân: " + (TicketCause.STORE_FAULT.getValue().equals(cause) ? "Lỗi cửa hàng/NSX" : "Nhu cầu cá nhân"));
         } else {
-            throw new IllegalArgumentException("Thao tÃ¡c sÆ¡ duyá»‡t khÃ´ng há»£p lá»‡ ('approve' hoáº·c 'reject').");
+            throw new IllegalArgumentException("Thao tác sơ duyệt không hợp lệ ('approve' hoặc 'reject').");
         }
 
         return loadFullResponse(ticket);
@@ -245,15 +245,15 @@ public class SupportTicketServiceImpl implements SupportTicketService {
     @Transactional
     public TicketResponse inspectTicket(Long id, InspectionRequest request) {
         SupportTicket ticket = ticketRepository.findById(id)
-                .orElseThrow(() -> new NoSuchElementException("KhÃ´ng tÃ¬m tháº¥y phiáº¿u há»— trá»£ ID: " + id));
+                .orElseThrow(() -> new NoSuchElementException("Không tìm thấy phiếu hỗ trợ ID: " + id));
 
         if (!TicketStatus.AWAITING_RETURN.getValue().equals(ticket.getStatus())) {
-            throw new IllegalStateException("Phiáº¿u pháº£i á»Ÿ tráº¡ng thÃ¡i Chá» gá»­i láº¡i hÃ ng Ä‘á»ƒ tiáº¿n hÃ nh tháº©m Ä‘á»‹nh.");
+            throw new IllegalStateException("Phiếu phải ở trạng thái Chờ gửi lại hàng để tiến hành thẩm định.");
         }
 
         String result = request.getResult().toUpperCase();
         if (!InspectionResult.PASSED.getValue().equals(result) && !InspectionResult.FAILED.getValue().equals(result)) {
-            throw new IllegalArgumentException("Káº¿t quáº£ tháº©m Ä‘á»‹nh pháº£i lÃ  PASSED hoáº·c FAILED.");
+            throw new IllegalArgumentException("Kết quả thẩm định phải là PASSED hoặc FAILED.");
         }
 
         TicketInspection inspection = TicketInspection.builder()
@@ -269,7 +269,7 @@ public class SupportTicketServiceImpl implements SupportTicketService {
             ticketRepository.save(ticket);
 
             addStatusHistory(ticket.getId(), TicketStatus.AWAITING_RETURN.getValue(), TicketStatus.INSPECTION_FAILED.getValue(),
-                    request.getStaffId(), "Tháº©m Ä‘á»‹nh KHÃ”NG Äáº T: " + (request.getNote() != null ? request.getNote() : "") + ". HÃ ng sáº½ Ä‘Æ°á»£c gá»­i tráº£ láº¡i khÃ¡ch.");
+                    request.getStaffId(), "Thẩm định KHÔNG ĐẠT: " + (request.getNote() != null ? request.getNote() : "") + ". Hàng sẽ được gửi trả lại khách.");
         } else {
             // PASSED
             // Nếu lý do là do khách không muốn/đổi ý (CUSTOMER_PREFERENCE) -> Từ chối phiếu (REJECTED), chỉ đổi trả khi lỗi từ phía cửa hàng (STORE_FAULT)
@@ -311,10 +311,10 @@ public class SupportTicketServiceImpl implements SupportTicketService {
     @Transactional
     public TicketResponse approveRefund(Long id, Long staffId) {
         SupportTicket ticket = ticketRepository.findById(id)
-                .orElseThrow(() -> new NoSuchElementException("KhÃ´ng tÃ¬m tháº¥y phiáº¿u há»— trá»£ ID: " + id));
+                .orElseThrow(() -> new NoSuchElementException("Không tìm thấy phiếu hỗ trợ ID: " + id));
 
         if (!TicketStatus.AWAITING_RETURN.getValue().equals(ticket.getStatus()) && !TicketStatus.PENDING_APPROVAL.getValue().equals(ticket.getStatus())) {
-            throw new IllegalStateException("Tráº¡ng thÃ¡i hiá»‡n táº¡i khÃ´ng thá»ƒ duyá»‡t hoÃ n tiá»n.");
+            throw new IllegalStateException("Trạng thái hiện tại không thể duyệt hoàn tiền.");
         }
 
         BigDecimal amount = ticket.getRefundAmount() != null ? ticket.getRefundAmount() : calculateRefundAmount(ticket);
@@ -322,7 +322,7 @@ public class SupportTicketServiceImpl implements SupportTicketService {
 
         BigDecimal threshold = getApprovalThreshold();
         if (amount.compareTo(threshold) >= 0) {
-            throw new IllegalStateException("Sá»‘ tiá»n hoÃ n tá»« 3.000.000Ä‘ trá»Ÿ lÃªn báº¯t buá»™c pháº£i do Quáº£n lÃ½ (Manager) phÃª duyá»‡t.");
+            throw new IllegalStateException("Số tiền hoàn từ 3.000.000đ trở lên bắt buộc phải do Quản lý (Manager) phê duyệt.");
         }
 
         ticket.setStatus(TicketStatus.PENDING_TRANSFER.getValue());
@@ -331,7 +331,7 @@ public class SupportTicketServiceImpl implements SupportTicketService {
         ticketRepository.save(ticket);
 
         addStatusHistory(ticket.getId(), TicketStatus.AWAITING_RETURN.getValue(), TicketStatus.PENDING_TRANSFER.getValue(),
-                staffId, "NhÃ¢n viÃªn phÃª duyá»‡t hoÃ n tiá»n: " + amount + " VND");
+                staffId, "Nhân viên phê duyệt hoàn tiền: " + amount + " VND");
 
         return loadFullResponse(ticket);
     }
@@ -340,23 +340,23 @@ public class SupportTicketServiceImpl implements SupportTicketService {
     @Transactional
     public TicketResponse managerDecision(Long id, ManagerDecisionRequest request) {
         SupportTicket ticket = ticketRepository.findById(id)
-                .orElseThrow(() -> new NoSuchElementException("KhÃ´ng tÃ¬m tháº¥y phiáº¿u há»— trá»£ ID: " + id));
+                .orElseThrow(() -> new NoSuchElementException("Không tìm thấy phiếu hỗ trợ ID: " + id));
 
         if (!TicketStatus.PENDING_APPROVAL.getValue().equals(ticket.getStatus())) {
-            throw new IllegalStateException("Phiáº¿u khÃ´ng á»Ÿ tráº¡ng thÃ¡i Chá» Quáº£n lÃ½ phÃª duyá»‡t (PENDING_APPROVAL).");
+            throw new IllegalStateException("Phiếu không ở trạng thái Chờ Quản lý phê duyệt (PENDING_APPROVAL).");
         }
 
         String decision = request.getDecision().toLowerCase();
         if ("reject".equals(decision)) {
             if (request.getRejectReason() == null || request.getRejectReason().trim().isEmpty()) {
-                throw new IllegalArgumentException("Quáº£n lÃ½ tá»« chá»‘i báº¯t buá»™c pháº£i nháº­p lÃ½ do.");
+                throw new IllegalArgumentException("Quản lý từ chối bắt buộc phải nhập lý do.");
             }
             ticket.setStatus(TicketStatus.REJECTED.getValue());
             ticket.setRejectReason(request.getRejectReason().trim());
             ticketRepository.save(ticket);
 
             addStatusHistory(ticket.getId(), TicketStatus.PENDING_APPROVAL.getValue(), TicketStatus.REJECTED.getValue(),
-                    request.getManagerId(), "Quáº£n lÃ½ tá»« chá»‘i hoÃ n tiá»n: " + request.getRejectReason().trim());
+                    request.getManagerId(), "Quản lý từ chối hoàn tiền: " + request.getRejectReason().trim());
         } else if ("approve".equals(decision)) {
             ticket.setStatus(TicketStatus.PENDING_TRANSFER.getValue());
             ticket.setApprovedBy(request.getManagerId());
@@ -364,9 +364,9 @@ public class SupportTicketServiceImpl implements SupportTicketService {
             ticketRepository.save(ticket);
 
             addStatusHistory(ticket.getId(), TicketStatus.PENDING_APPROVAL.getValue(), TicketStatus.PENDING_TRANSFER.getValue(),
-                    request.getManagerId(), "Quáº£n lÃ½ Ä‘Ã£ phÃª duyá»‡t khoáº£n hoÃ n tiá»n: " + ticket.getRefundAmount() + " VND");
+                    request.getManagerId(), "Quản lý đã phê duyệt khoản hoàn tiền: " + ticket.getRefundAmount() + " VND");
         } else {
-            throw new IllegalArgumentException("Quyáº¿t Ä‘á»‹nh quáº£n lÃ½ khÃ´ng há»£p lá»‡ ('approve' hoáº·c 'reject').");
+            throw new IllegalArgumentException("Quyết định quản lý không hợp lệ ('approve' hoặc 'reject').");
         }
 
         return loadFullResponse(ticket);
@@ -376,24 +376,24 @@ public class SupportTicketServiceImpl implements SupportTicketService {
     @Transactional
     public TicketResponse recordRefundTransfer(Long id, RefundTransferRequest request) {
         SupportTicket ticket = ticketRepository.findById(id)
-                .orElseThrow(() -> new NoSuchElementException("KhÃ´ng tÃ¬m tháº¥y phiáº¿u há»— trá»£ ID: " + id));
+                .orElseThrow(() -> new NoSuchElementException("Không tìm thấy phiếu hỗ trợ ID: " + id));
 
         if (!TicketStatus.PENDING_TRANSFER.getValue().equals(ticket.getStatus())) {
-            throw new IllegalStateException("Phiáº¿u khÃ´ng á»Ÿ tráº¡ng thÃ¡i Chá» chuyá»ƒn khoáº£n hoÃ n tiá»n (PENDING_TRANSFER).");
+            throw new IllegalStateException("Phiếu không ở trạng thái Chờ chuyển khoản hoàn tiền (PENDING_TRANSFER).");
         }
 
         String ref = request.getBankReference().trim();
         if (refundRecordRepository.existsByBankReference(ref)) {
-            throw new IllegalStateException("MÃ£ tham chiáº¿u ngÃ¢n hÃ ng nÃ y Ä‘Ã£ tá»“n táº¡i trong há»‡ thá»‘ng.");
+            throw new IllegalStateException("Mã tham chiếu ngân hàng này đã tồn tại trong hệ thống.");
         }
 
         Optional<RefundRecord> existing = refundRecordRepository.findByTicketId(ticket.getId());
         if (existing.isPresent()) {
-            throw new IllegalStateException("Phiáº¿u nÃ y Ä‘Ã£ Ä‘Æ°á»£c ghi nháº­n hoÃ n tiá»n.");
+            throw new IllegalStateException("Phiếu này đã được ghi nhận hoàn tiền.");
         }
 
         Order order = orderRepository.findById(ticket.getOrderId())
-                .orElseThrow(() -> new NoSuchElementException("KhÃ´ng tÃ¬m tháº¥y Ä‘Æ¡n hÃ ng ID: " + ticket.getOrderId()));
+                .orElseThrow(() -> new NoSuchElementException("Không tìm thấy đơn hàng ID: " + ticket.getOrderId()));
 
         Payment payment = paymentRepository.findFirstByOrderIdOrderByCreatedAtDesc(order.getId()).orElse(null);
         Long paymentId = payment != null ? payment.getId() : null;
@@ -426,7 +426,7 @@ public class SupportTicketServiceImpl implements SupportTicketService {
         ticketRepository.save(ticket);
 
         addStatusHistory(ticket.getId(), TicketStatus.PENDING_TRANSFER.getValue(), TicketStatus.REFUNDED.getValue(),
-                request.getStaffId(), "NhÃ¢n viÃªn Ä‘Ã£ chuyá»ƒn khoáº£n thÃ nh cÃ´ng " + ticket.getRefundAmount() + " VND. MÃ£ GD: " + ref);
+                request.getStaffId(), "Nhân viên đã chuyển khoản thành công " + ticket.getRefundAmount() + " VND. Mã GD: " + ref);
 
         return loadFullResponse(ticket);
     }
@@ -445,7 +445,7 @@ public class SupportTicketServiceImpl implements SupportTicketService {
             }
         }
 
-        // HoÃ n phÃ­ ship náº¿u lá»—i do cá»­a hÃ ng
+        // Hoàn phí ship nếu lỗi do cửa hàng
         if (TicketCause.STORE_FAULT.getValue().equals(ticket.getCause()) && order != null && order.getShippingFee() != null) {
             sum = sum.add(order.getShippingFee());
         }

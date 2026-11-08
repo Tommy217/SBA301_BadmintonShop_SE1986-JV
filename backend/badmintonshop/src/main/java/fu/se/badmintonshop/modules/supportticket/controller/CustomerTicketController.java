@@ -22,28 +22,28 @@ public class CustomerTicketController {
     private final SupportTicketService ticketService;
 
     /**
-     * KhÃ¡ch hÃ ng táº¡o phiáº¿u yÃªu cáº§u Äá»•i hÃ ng hoáº·c HoÃ n tiá»n (UC15).
+     * Khách hàng tạo phiếu yêu cầu Đổi hàng hoặc Hoàn tiền (UC15).
      */
     @PostMapping
     public ResponseEntity<ApiResponse<TicketResponse>> createTicket(
             @Valid @RequestBody CreateTicketRequest request,
             @RequestHeader(value = "X-User-Id", required = false) Long userId) {
         TicketResponse response = ticketService.createTicket(request, userId);
-        return ResponseEntity.ok(ApiResponse.success("Gá»­i yÃªu cáº§u há»— trá»£ thÃ nh cÃ´ng", response));
+        return ResponseEntity.ok(ApiResponse.success("Gửi yêu cầu hỗ trợ thành công", response));
     }
 
     /**
-     * KhÃ¡ch hÃ ng xem danh sÃ¡ch phiáº¿u há»— trá»£ cá»§a mÃ¬nh.
+     * Khách hàng xem danh sách phiếu hỗ trợ của mình.
      */
     @GetMapping
     public ResponseEntity<ApiResponse<List<TicketResponse>>> getMyTickets(
-            @RequestHeader(value = "X-User-Id", required = false, defaultValue = "1") Long userId) {
+            @RequestHeader(value = "X-User-Id", required = false) Long userId) {
         List<TicketResponse> list = ticketService.getMyTickets(userId);
         return ResponseEntity.ok(ApiResponse.success(list));
     }
 
     /**
-     * KhÃ¡ch hÃ ng xem chi tiáº¿t 1 phiáº¿u há»— trá»£.
+     * Khách hàng xem chi tiết 1 phiếu hỗ trợ.
      */
     @GetMapping("/{id}")
     public ResponseEntity<ApiResponse<TicketResponse>> getTicketById(
@@ -54,14 +54,14 @@ public class CustomerTicketController {
     }
 
     /**
-     * KhÃ¡ch hÃ ng há»§y yÃªu cáº§u há»— trá»£ (chá»‰ khi Ä‘ang á»Ÿ tráº¡ng thÃ¡i PENDING).
+     * Khách hàng hủy yêu cầu hỗ trợ (chỉ khi đang ở trạng thái PENDING).
      */
     @PostMapping("/{id}/cancel")
     public ResponseEntity<ApiResponse<TicketResponse>> cancelTicket(
             @PathVariable Long id,
             @RequestHeader(value = "X-User-Id", required = false) Long userId) {
         TicketResponse response = ticketService.cancelTicket(id, userId);
-        return ResponseEntity.ok(ApiResponse.success("ÄÃ£ há»§y yÃªu cáº§u há»— trá»£", response));
+        return ResponseEntity.ok(ApiResponse.success("Đã hủy yêu cầu hỗ trợ", response));
     }
 }
 

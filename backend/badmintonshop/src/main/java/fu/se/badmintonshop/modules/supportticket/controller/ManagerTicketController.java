@@ -20,9 +20,9 @@ public class ManagerTicketController {
     private final SupportTicketService ticketService;
 
     /**
-     * Quáº£n lÃ½ (Manager) tháº©m Ä‘á»‹nh vÃ  ra quyáº¿t Ä‘á»‹nh phÃª duyá»‡t hoáº·c tá»« chá»‘i yÃªu cáº§u hoÃ n tiá»n tá»« 3.000.000 VNÄ trá»Ÿ lÃªn:
-     * - Approve: Chuyá»ƒn sang PENDING_TRANSFER.
-     * - Reject: Báº¯t buá»™c cÃ³ rejectReason -> Chuyá»ƒn sang REJECTED (gá»­i tráº£ láº¡i sáº£n pháº©m cho khÃ¡ch).
+     * Quản lý (Manager) thẩm định và ra quyết định phê duyệt hoặc từ chối yêu cầu hoàn tiền từ 3.000.000 VNĐ trở lên:
+     * - Approve: Chuyển sang PENDING_TRANSFER.
+     * - Reject: Bắt buộc có rejectReason -> Chuyển sang REJECTED (gửi trả lại sản phẩm cho khách).
      */
     @PostMapping("/{id}/decision")
     public ResponseEntity<ApiResponse<TicketResponse>> managerDecision(
