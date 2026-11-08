@@ -2604,3 +2604,24 @@ WHERE NOT EXISTS (SELECT 1 FROM dbo.ticket_evidence e WHERE e.ticket_id=a.ticket
 GO
 PRINT N'JAVA SHOP API schema updated. Restart backend, then rebuild frontend.';
 GO
+
+-- Personal voucher wallet: a row grants this voucher to exactly one account.
+IF OBJECT_ID(N'dbo.user_vouchers', N'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.user_vouchers (
+        user_id BIGINT NOT NULL,
+        voucher_id INT NOT NULL,
+        assigned_at DATETIME2(0) NOT NULL DEFAULT SYSDATETIME(),
+        CONSTRAINT PK_user_vouchers PRIMARY KEY (user_id, voucher_id),
+        CONSTRAINT FK_user_vouchers_user FOREIGN KEY (user_id) REFERENCES dbo.users(id) ON DELETE CASCADE,
+        CONSTRAINT FK_user_vouchers_voucher FOREIGN KEY (voucher_id) REFERENCES dbo.vouchers(id) ON DELETE CASCADE
+    );
+END;
+GO
+-- To grant a voucher, insert the intended account and voucher IDs:
+-- INSERT INTO dbo.user_vouchers(user_id, voucher_id) VALUES (<user_id>, <voucher_id>);
+
+-- Public vouchers remain available to everyone; private vouchers require user_vouchers grants.
+IF COL_LENGTH('dbo.vouchers', 'audience') IS NULL
+    ALTER TABLE dbo.vouchers ADD audience VARCHAR(10) NOT NULL CONSTRAINT DF_vouchers_audience DEFAULT 'public' CONSTRAINT CK_vouchers_audience CHECK (audience IN ('public','private'));
+GO
