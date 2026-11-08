@@ -8,7 +8,8 @@ export default function ProtectedRoute({ allowedRoles }) {
   const { user } = useAuth();
   const location = useLocation();
 
-  if (!getToken(user)?.trim()) {
+  const authenticated = Boolean(user?.id || user?.email || user?.role || getToken(user)?.trim());
+  if (!authenticated) {
     return (
       <Navigate
         to="/login"

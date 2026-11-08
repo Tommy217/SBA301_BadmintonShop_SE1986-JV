@@ -1,59 +1,70 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { AUTH_EXPIRED_EVENT, clearSession, getToken, saveSession } from '@/shared/auth/session';
+import { AUTH_EXPIRED_EVENT, clearSession, getSession, getToken, saveSession } from '@/shared/auth/session';
 import { authApi } from '@/modules/auth/api/auth.api';
 import { AuthContext } from './AuthContext';
 import { Alert, Button } from 'react-bootstrap';
 import Loading from '@/shared/components/Loading';
+
 export default function AuthProvider({ children, onSessionExpired }) {
-  const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(() => Boolean(getToken()));
+  const [user, setUser] = useState(() => getSession());
+  const [loading, setLoading] = useState(() => Boolean(getSession()));
   const [connectionError, setConnectionError] = useState('');
   const [attempt, setAttempt] = useState(0);
+
   const login = useCallback((session) => {
     saveSession(session);
     setUser(session);
     setConnectionError('');
   }, []);
+
   const clear = useCallback(() => {
     clearSession();
     setUser(null);
     setConnectionError('');
   }, []);
+
   const logout = useCallback(() => {
     const request = authApi.logout();
     clear();
     request.catch(() => {});
   }, [clear]);
+
   useEffect(() => {
     let active = true;
-    const token = getToken();
-    const identityRequest = token ? authApi.me() : Promise.resolve(null);
+    const hasSession = Boolean(getSession());
+    const identityRequest = hasSession ? authApi.me() : Promise.resolve(null);
+
     identityRequest
       .then((identity) => {
         if (!active) return;
-        if (identity) login({ ...identity, authToken: token });
-        else {
+        if (identity) {
+          const current = getSession();
+          login({ ...current, ...identity });
+        } else if (hasSession) {
           clear();
-          if (token) onSessionExpired?.();
+          onSessionExpired?.();
         }
       })
       .catch((error) => {
         if (!active) return;
         if ([401, 403, 404].includes(error.status)) {
           clear();
-          onSessionExpired?.();
-        } else
+          if (hasSession) onSessionExpired?.();
+        } else {
           setConnectionError(
             error.message || 'Chưa kiểm tra được phiên đăng nhập. Vui lòng thử lại.',
           );
+        }
       })
       .finally(() => {
         if (active) setLoading(false);
       });
+
     const expireSession = () => {
       clear();
       onSessionExpired?.();
     };
+
     window.addEventListener(AUTH_EXPIRED_EVENT, expireSession);
     return () => {
       active = false;
