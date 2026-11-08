@@ -708,3 +708,8 @@
 .product-detail-page .detail-back-button:active { background: #ffd3de; }
 .product-detail-page .detail-back-button:focus-visible { outline: 3px solid #111; outline-offset: 3px; }
 .product-detail-page .detail-back-button svg { flex-shrink: 0; }
+.catalog-price-filter { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px; }
+.catalog-price-filter > div { flex: 1 1 160px; }
+.catalog-price-filter .form-label { font-size: 13px; color: #666; }
+.catalog-price-filter .btn { min-height: 46px; }
+.catalog-price-error { flex-basis: 100%; font-size: 13px; }

@@ -11,7 +11,6 @@ import fu.se.badmintonshop.modules.order.repository.OrderItemRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -50,7 +49,19 @@ public class ProductService {
 
     @Transactional(readOnly = true)
     public Map<String, Object> pageProducts(int page, String search, String type) {
+        return pageProducts(page, search, type, null, null, "default");
+    }
+
+    @Transactional(readOnly = true)
+    public Map<String, Object> pageProducts(int page, String search, String type,
+                                          BigDecimal minPrice, BigDecimal maxPrice, String sort) {
         if (page < 0) throw new CatalogException(400, "Trang phải lớn hơn hoặc bằng 0.");
+        if ((minPrice != null && minPrice.signum() < 0) || (maxPrice != null && maxPrice.signum() < 0))
+            throw new CatalogException(400, "Giá phải lớn hơn hoặc bằng 0.");
+        if (minPrice != null && maxPrice != null && minPrice.compareTo(maxPrice) > 0)
+            throw new CatalogException(400, "Giá tối đa phải lớn hơn hoặc bằng giá tối thiểu.");
+        if (sort == null || !Set.of("default", "price_asc", "price_desc", "name_asc", "name_desc").contains(sort))
+            throw new CatalogException(400, "Thứ tự sắp xếp không hợp lệ.");
         if (type != null && !type.isBlank() && !ALLOWED_PRODUCT_TYPES.contains(type))
             throw new CatalogException(400, "Loại sản phẩm không hợp lệ.");
         Set<String> demoSlugs = Set.of("yonex-astrox-88d-play-1", "victor-thruster-k-220h-2", "li-ning-windstorm-72-3", "yonex-power-cushion-39-4", "victor-a170-ii-5", "ao-cau-long-training-essential-6", "demo-product-racket", "demo-product-shoes", "demo-product-apparel");
@@ -66,9 +77,39 @@ public class ProductService {
                 predicates.add(cb.like(cb.lower(root.get("name")), "%" + term + "%", '!'));
             }
             if (type != null && !type.isBlank()) predicates.add(cb.equal(root.get("productType"), type));
+            // Match the card price: cheapest in-stock active variant, then any active variant,
+            // then base price when there are no active variants. Filter before pagination.
+            jakarta.persistence.criteria.Expression<BigDecimal> price = root.get("basePrice");
+            if (minPrice != null || maxPrice != null || sort.startsWith("price_")) {
+                var inStock = query.subquery(BigDecimal.class);
+                var availableVariant = inStock.from(ProductVariant.class);
+                inStock.select(cb.min(availableVariant.<BigDecimal>get("price"))).where(
+                        cb.equal(availableVariant.get("productId"), root.get("id")),
+                        cb.isTrue(availableVariant.get("isActive")),
+                        cb.greaterThan(availableVariant.get("stockQuantity"), 0));
+                var active = query.subquery(BigDecimal.class);
+                var variant = active.from(ProductVariant.class);
+                active.select(cb.min(variant.<BigDecimal>get("price"))).where(
+                        cb.equal(variant.get("productId"), root.get("id")),
+                        cb.isTrue(variant.get("isActive")));
+                price = cb.<BigDecimal>coalesce().value(inStock).value(active).value(root.get("basePrice"));
+            }
+            if (minPrice != null) predicates.add(cb.greaterThanOrEqualTo(price, minPrice));
+            if (maxPrice != null) predicates.add(cb.lessThanOrEqualTo(price, maxPrice));
+            if (query.getResultType() != Long.class && query.getResultType() != long.class) {
+                var order = switch (sort) {
+                    case "price_asc" -> cb.asc(price);
+                    case "price_desc" -> cb.desc(price);
+                    case "name_asc" -> cb.asc(cb.lower(root.get("name")));
+                    case "name_desc" -> cb.desc(cb.lower(root.get("name")));
+                    default -> cb.asc(root.get("id"));
+                };
+                if (sort.equals("default")) query.orderBy(order);
+                else query.orderBy(order, cb.asc(root.get("id")));
+            }
             return cb.and(predicates.toArray(jakarta.persistence.criteria.Predicate[]::new));
         };
-        var result = productRepository.findAll(filter, PageRequest.of(page, 8, Sort.by("id")));
+        var result = productRepository.findAll(filter, PageRequest.of(page, 8));
         return Map.of("content", result.getContent().stream().map(this::toProductResponse).toList(),
                 "number", result.getNumber(), "size", result.getSize(),
                 "totalElements", result.getTotalElements(), "totalPages", result.getTotalPages());

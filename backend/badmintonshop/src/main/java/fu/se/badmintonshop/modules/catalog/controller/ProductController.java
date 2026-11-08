@@ -28,8 +28,11 @@ public class ProductController {
     @GetMapping("/page")
     public Map<String, Object> pageProducts(@RequestParam(defaultValue = "0") int page,
                                           @RequestParam(defaultValue = "") String search,
-                                          @RequestParam(defaultValue = "") String type) {
-        return service.pageProducts(page, search, type);
+                                          @RequestParam(defaultValue = "") String type,
+                                          @RequestParam(required = false) java.math.BigDecimal minPrice,
+                                          @RequestParam(required = false) java.math.BigDecimal maxPrice,
+                                          @RequestParam(defaultValue = "default") String sort) {
+        return service.pageProducts(page, search, type, minPrice, maxPrice, sort);
     }
 
     @GetMapping("/{id}")
