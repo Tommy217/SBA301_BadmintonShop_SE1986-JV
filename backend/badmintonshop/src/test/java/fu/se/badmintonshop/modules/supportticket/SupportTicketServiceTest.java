@@ -85,20 +85,23 @@ class SupportTicketServiceTest {
     }
 
     @Test
-    @DisplayName("KhÃ¡ch hÃ ng táº¡o phiáº¿u REFUND há»£p lá»‡ vá»›i QR vÃ  sáº£n pháº©m")
+    @DisplayName("Khách hàng tạo phiếu REFUND hợp lệ với QR và sản phẩm")
     void testCreateTicket_Refund_Success() {
         CreateTicketRequest request = CreateTicketRequest.builder()
                 .orderId(1L)
                 .ticketType("REFUND")
-                .reason("Vá»£t bá»‹ ná»©t khung")
-                .description("Vá»«a nháº­n hÃ ng má»Ÿ há»™p Ä‘Ã£ tháº¥y ná»©t")
+                .reason("Vợt bị nứt khung")
+                .description("Vừa nhận hàng mở hộp đã thấy nứt")
                 .refundQrUrl("https://example.com/qr.png")
                 .evidenceUrls(List.of("https://example.com/evidence1.jpg"))
                 .items(List.of(new TicketItemRequest(101L, 1)))
                 .build();
 
         when(orderRepository.findById(1L)).thenReturn(Optional.of(sampleOrder));
-        when(ticketRepository.existsByOrderIdAndStatusNot(1L, TicketStatus.CANCELLED.getValue())).thenReturn(false);
+        when(ticketRepository.existsByOrderIdAndStatusIn(eq(1L), anyCollection())).thenReturn(false);
+        when(ticketRepository.existsByOrderIdAndStatus(1L, TicketStatus.REFUNDED.getValue())).thenReturn(false);
+        when(ticketRepository.findByOrderIdOrderByCreatedAtDesc(1L)).thenReturn(Collections.emptyList());
+        when(ticketRepository.countByOrderIdAndStatusNot(1L, TicketStatus.CANCELLED.getValue())).thenReturn(0L);
         when(orderItemRepository.findByOrderId(1L)).thenReturn(List.of(sampleOrderItem));
 
         SupportTicket savedTicket = SupportTicket.builder()
@@ -127,21 +130,120 @@ class SupportTicketServiceTest {
     }
 
     @Test
-    @DisplayName("Táº¡o phiáº¿u tháº¥t báº¡i náº¿u Ä‘Æ¡n hÃ ng Ä‘Ã£ cÃ³ ticket Ä‘ang xá»­ lÃ½ (CR-BR: 1 ticket / 1 order)")
-    void testCreateTicket_DuplicateOrder_ThrowsException() {
+    @DisplayName("Tạo phiếu thất bại nếu đơn hàng đang có ticket trong tiến trình xử lý")
+    void testCreateTicket_DuplicateActiveOrder_ThrowsException() {
         CreateTicketRequest request = CreateTicketRequest.builder()
                 .orderId(1L)
                 .ticketType("REFUND")
-                .reason("Lá»—i")
+                .reason("Lỗi")
                 .refundQrUrl("url")
                 .evidenceUrls(List.of("url"))
                 .items(List.of(new TicketItemRequest(101L, 1)))
                 .build();
 
         when(orderRepository.findById(1L)).thenReturn(Optional.of(sampleOrder));
-        when(ticketRepository.existsByOrderIdAndStatusNot(1L, TicketStatus.CANCELLED.getValue())).thenReturn(true);
+        when(ticketRepository.existsByOrderIdAndStatusIn(eq(1L), anyCollection())).thenReturn(true);
 
-        assertThrows(IllegalStateException.class, () -> ticketService.createTicket(request, 10L));
+        IllegalStateException ex = assertThrows(IllegalStateException.class, () -> ticketService.createTicket(request, 10L));
+        assertTrue(ex.getMessage().contains("đang được xử lý"));
+    }
+
+    @Test
+    @DisplayName("Khách hàng được phép tạo lại ticket mới sau khi phiếu cũ bị REJECTED ở bước sơ duyệt")
+    void testCreateTicket_AfterInitialReject_AllowsRetry() {
+        CreateTicketRequest request = CreateTicketRequest.builder()
+                .orderId(1L)
+                .ticketType("REFUND")
+                .reason("Chụp lại ảnh bằng chứng rõ nét hơn")
+                .description("Gửi lại bằng chứng theo yêu cầu của nhân viên")
+                .refundQrUrl("https://example.com/qr.png")
+                .evidenceUrls(List.of("https://example.com/evidence_clear.jpg"))
+                .items(List.of(new TicketItemRequest(101L, 1)))
+                .build();
+
+        SupportTicket oldRejectedTicket = SupportTicket.builder()
+                .id(401L)
+                .orderId(1L)
+                .status(TicketStatus.REJECTED.getValue())
+                .rejectReason("Ảnh chụp mờ, vui lòng gửi lại")
+                .build();
+
+        when(orderRepository.findById(1L)).thenReturn(Optional.of(sampleOrder));
+        when(ticketRepository.existsByOrderIdAndStatusIn(eq(1L), anyCollection())).thenReturn(false);
+        when(ticketRepository.existsByOrderIdAndStatus(1L, TicketStatus.REFUNDED.getValue())).thenReturn(false);
+        when(ticketRepository.findByOrderIdOrderByCreatedAtDesc(1L)).thenReturn(List.of(oldRejectedTicket));
+        when(inspectionRepository.findByTicketId(401L)).thenReturn(Optional.empty()); // Chưa kiểm định tại kho
+        when(ticketRepository.countByOrderIdAndStatusNot(1L, TicketStatus.CANCELLED.getValue())).thenReturn(1L); // 1 lần reject trước đó < MAX (2)
+        when(orderItemRepository.findByOrderId(1L)).thenReturn(List.of(sampleOrderItem));
+
+        SupportTicket newTicket = SupportTicket.builder()
+                .id(502L)
+                .ticketCode("ST-20261108-99999")
+                .userId(10L)
+                .orderId(1L)
+                .ticketType("REFUND")
+                .status("PENDING")
+                .reason(request.getReason())
+                .refundQrUrl(request.getRefundQrUrl())
+                .build();
+
+        when(ticketRepository.save(any(SupportTicket.class))).thenReturn(newTicket);
+        when(itemRepository.save(any(SupportTicketItem.class))).thenReturn(SupportTicketItem.builder().id(2L).ticketId(502L).orderItemId(101L).quantity(1).build());
+        when(evidenceRepository.save(any(TicketEvidence.class))).thenReturn(TicketEvidence.builder().id(2L).ticketId(502L).fileUrl("url").build());
+
+        TicketResponse response = ticketService.createTicket(request, 10L);
+
+        assertNotNull(response);
+        assertEquals("PENDING", response.getStatus());
+    }
+
+    @Test
+    @DisplayName("Chặn tạo ticket nếu đơn hàng đã vượt quá số lần tối đa (>= 2 lần)")
+    void testCreateTicket_ExceedMaxAttempts_ThrowsException() {
+        CreateTicketRequest request = CreateTicketRequest.builder()
+                .orderId(1L)
+                .ticketType("REFUND")
+                .reason("Khiếu nại lần 3")
+                .refundQrUrl("url")
+                .evidenceUrls(List.of("url"))
+                .items(List.of(new TicketItemRequest(101L, 1)))
+                .build();
+
+        when(orderRepository.findById(1L)).thenReturn(Optional.of(sampleOrder));
+        when(ticketRepository.existsByOrderIdAndStatusIn(eq(1L), anyCollection())).thenReturn(false);
+        when(ticketRepository.existsByOrderIdAndStatus(1L, TicketStatus.REFUNDED.getValue())).thenReturn(false);
+        when(ticketRepository.findByOrderIdOrderByCreatedAtDesc(1L)).thenReturn(Collections.emptyList());
+        when(ticketRepository.countByOrderIdAndStatusNot(1L, TicketStatus.CANCELLED.getValue())).thenReturn(2L); // Đã có 2 phiếu
+
+        IllegalStateException ex = assertThrows(IllegalStateException.class, () -> ticketService.createTicket(request, 10L));
+        assertTrue(ex.getMessage().contains("đã đạt giới hạn tối đa"));
+    }
+
+    @Test
+    @DisplayName("Chặn tạo ticket nếu sản phẩm đã bị từ chối sau kiểm định thực tế tại kho")
+    void testCreateTicket_AfterInspectionFailed_ThrowsException() {
+        CreateTicketRequest request = CreateTicketRequest.builder()
+                .orderId(1L)
+                .ticketType("REFUND")
+                .reason("Cố gắng khiếu nại lại sau khi kho trả hàng")
+                .refundQrUrl("url")
+                .evidenceUrls(List.of("url"))
+                .items(List.of(new TicketItemRequest(101L, 1)))
+                .build();
+
+        SupportTicket failedTicket = SupportTicket.builder()
+                .id(402L)
+                .orderId(1L)
+                .status(TicketStatus.INSPECTION_FAILED.getValue())
+                .build();
+
+        when(orderRepository.findById(1L)).thenReturn(Optional.of(sampleOrder));
+        when(ticketRepository.existsByOrderIdAndStatusIn(eq(1L), anyCollection())).thenReturn(false);
+        when(ticketRepository.existsByOrderIdAndStatus(1L, TicketStatus.REFUNDED.getValue())).thenReturn(false);
+        when(ticketRepository.findByOrderIdOrderByCreatedAtDesc(1L)).thenReturn(List.of(failedTicket));
+
+        IllegalStateException ex = assertThrows(IllegalStateException.class, () -> ticketService.createTicket(request, 10L));
+        assertTrue(ex.getMessage().contains("kiểm định sản phẩm thực tế"));
     }
 
     @Test
@@ -265,7 +367,10 @@ class SupportTicketServiceTest {
     @DisplayName("Hệ thống chỉ chấp nhận yêu cầu REFUND -> Ném ngoại lệ khi gửi loại yêu cầu khác")
     void testCreateTicket_NonRefundType_ThrowsException() {
         when(orderRepository.findById(1L)).thenReturn(Optional.of(sampleOrder));
-        when(ticketRepository.existsByOrderIdAndStatusNot(1L, TicketStatus.CANCELLED.getValue())).thenReturn(false);
+        when(ticketRepository.existsByOrderIdAndStatusIn(eq(1L), anyCollection())).thenReturn(false);
+        when(ticketRepository.existsByOrderIdAndStatus(1L, TicketStatus.REFUNDED.getValue())).thenReturn(false);
+        when(ticketRepository.findByOrderIdOrderByCreatedAtDesc(1L)).thenReturn(Collections.emptyList());
+        when(ticketRepository.countByOrderIdAndStatusNot(1L, TicketStatus.CANCELLED.getValue())).thenReturn(0L);
 
         CreateTicketRequest request = CreateTicketRequest.builder()
                 .orderId(1L)

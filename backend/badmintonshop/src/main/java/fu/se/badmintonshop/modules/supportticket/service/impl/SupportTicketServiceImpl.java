@@ -31,6 +31,14 @@ public class SupportTicketServiceImpl implements SupportTicketService {
 
     private static final BigDecimal DEFAULT_APPROVAL_THRESHOLD = new BigDecimal("3000000"); // 3,000,000 VND
     private static final int RETURN_WINDOW_DAYS = 7;
+    public static final int MAX_TICKETS_PER_ORDER = 2; // Tối đa 2 lần tạo cho 1 đơn hàng (1 lần đầu + 1 lần retry khi bị từ chối sơ duyệt)
+
+    private static final List<String> ACTIVE_STATUSES = List.of(
+            TicketStatus.PENDING.getValue(),
+            TicketStatus.AWAITING_RETURN.getValue(),
+            TicketStatus.PENDING_APPROVAL.getValue(),
+            TicketStatus.PENDING_TRANSFER.getValue()
+    );
 
     private final SupportTicketRepository ticketRepository;
     private final SupportTicketItemRepository itemRepository;
@@ -63,10 +71,35 @@ public class SupportTicketServiceImpl implements SupportTicketService {
             // Lưu ý: Trong môi trường thực tế kiểm tra theo delivered_at, tạm thời chấp nhận đơn hàng
         }
 
-        // 3. Mỗi đơn hàng chỉ được tạo tối đa 1 ticket (CR-BR)
-        boolean hasActiveTicket = ticketRepository.existsByOrderIdAndStatusNot(order.getId(), TicketStatus.CANCELLED.getValue());
+        // 3. Kiểm tra các ràng buộc nghiệp vụ về ticket của đơn hàng:
+        // 3.1. Đơn hàng đang có ticket trong tiến trình xử lý
+        boolean hasActiveTicket = ticketRepository.existsByOrderIdAndStatusIn(order.getId(), ACTIVE_STATUSES);
         if (hasActiveTicket) {
-            throw new IllegalStateException("Đơn hàng này đã tồn tại một phiếu khiếu nại / đổi trả đang được xử lý.");
+            throw new IllegalStateException("Đơn hàng này đang có một phiếu khiếu nại / đổi trả đang được xử lý.");
+        }
+
+        // 3.2. Đơn hàng đã hoàn tất hoàn tiền
+        boolean isRefunded = ticketRepository.existsByOrderIdAndStatus(order.getId(), TicketStatus.REFUNDED.getValue());
+        if (isRefunded) {
+            throw new IllegalStateException("Đơn hàng này đã được xử lý hoàn tiền thành công.");
+        }
+
+        // 3.3. Đơn hàng đã bị từ chối sau khi kiểm định sản phẩm thực tế tại kho
+        List<SupportTicket> previousTickets = ticketRepository.findByOrderIdOrderByCreatedAtDesc(order.getId());
+        boolean hasWarehouseInspection = previousTickets != null && previousTickets.stream().anyMatch(t ->
+                TicketStatus.INSPECTION_FAILED.getValue().equals(t.getStatus())
+                        || inspectionRepository.findByTicketId(t.getId()).isPresent()
+        );
+        if (hasWarehouseInspection) {
+            throw new IllegalStateException("Đơn hàng này đã bị từ chối sau khi kiểm định sản phẩm thực tế tại kho, không thể tạo lại yêu cầu.");
+        }
+
+        // 3.4. Giới hạn số lần tạo ticket có hiệu lực cho 1 đơn hàng (tối đa MAX_TICKETS_PER_ORDER lần)
+        // Các phiếu do khách hàng chủ động hủy (CANCELLED) không tính vào giới hạn này
+        long nonCancelledCount = ticketRepository.countByOrderIdAndStatusNot(order.getId(), TicketStatus.CANCELLED.getValue());
+        if (nonCancelledCount >= MAX_TICKETS_PER_ORDER) {
+            throw new IllegalStateException("Đơn hàng này đã đạt giới hạn tối đa số lần gửi yêu cầu hỗ trợ ("
+                    + MAX_TICKETS_PER_ORDER + " lần). Vui lòng liên hệ hotline 1900 6868 để được hỗ trợ trực tiếp.");
         }
 
         // 4. Validate loại ticket

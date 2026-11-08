@@ -26,17 +26,47 @@ export default function CreateSupportTicketPage() {
   const existingTickets = data?.support_tickets || [];
   const allOrderItems = data?.order_items || [];
 
-  // Filter orders that don't already have an active ticket
+  // Filter orders that are eligible for support ticket
   const eligibleOrders = useMemo(() => {
     return [...allOrders]
       .filter((order) => {
-        const hasTicket = existingTickets.some(
-          (t) => String(t.order_id) === String(order.id) && !['CANCELLED'].includes(t.status),
+        if (order.payment_status !== 'paid' || ['cancelled', 'returned'].includes(order.status)) {
+          return false;
+        }
+        const orderTickets = existingTickets.filter((t) => String(t.order_id) === String(order.id));
+        // Đang có phiếu trong tiến trình xử lý
+        const hasActiveTicket = orderTickets.some((t) =>
+          ['PENDING', 'AWAITING_RETURN', 'PENDING_APPROVAL', 'PENDING_TRANSFER'].includes(t.status),
         );
-        return !hasTicket && order.payment_status === 'paid' && !['cancelled', 'returned'].includes(order.status);
+        if (hasActiveTicket) return false;
+
+        // Đã hoàn tiền thành công
+        const isRefunded = orderTickets.some((t) => t.status === 'REFUNDED');
+        if (isRefunded) return false;
+
+        // Bị từ chối kiểm định thực tế tại kho
+        const hasInspectionFailed = orderTickets.some(
+          (t) => t.status === 'INSPECTION_FAILED' || t.inspection != null,
+        );
+        if (hasInspectionFailed) return false;
+
+        // Số lần gửi không tính hủy >= 2
+        const nonCancelledCount = orderTickets.filter((t) => t.status !== 'CANCELLED').length;
+        if (nonCancelledCount >= 2) return false;
+
+        return true;
       })
       .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
   }, [allOrders, existingTickets]);
+
+  const previousRejectedTicket = useMemo(() => {
+    if (!orderId) return null;
+    return (
+      existingTickets
+        .filter((t) => String(t.order_id) === String(orderId) && t.status === 'REJECTED')
+        .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))[0] || null
+    );
+  }, [existingTickets, orderId]);
 
   useEffect(() => {
     if (initialOrderId && allOrderItems.length > 0) {
@@ -250,11 +280,17 @@ export default function CreateSupportTicketPage() {
                     </Form.Label>
                     <Form.Select value={orderId} onChange={handleOrderChange} required>
                       <option value="">-- Chọn đơn hàng của bạn --</option>
-                      {eligibleOrders.map((ord) => (
-                        <option key={ord.id} value={ord.id}>
-                          {ord.order_code || `Đơn hàng #${ord.id}`} - {formatDateTime(ord.created_at)} - {formatMoney(ord.total_amount)}
-                        </option>
-                      ))}
+                      {eligibleOrders.map((ord) => {
+                        const isRetry = existingTickets.some(
+                          (t) => String(t.order_id) === String(ord.id) && t.status === 'REJECTED',
+                        );
+                        return (
+                          <option key={ord.id} value={ord.id}>
+                            {ord.order_code || `Đơn hàng #${ord.id}`} - {formatDateTime(ord.created_at)} - {formatMoney(ord.total_amount)}
+                            {isRetry ? ' (Gửi lại lần 2)' : ''}
+                          </option>
+                        );
+                      })}
                     </Form.Select>
                     <Form.Text muted>Áp dụng cho các đơn hàng đã thanh toán của bạn.</Form.Text>
                   </Form.Group>
@@ -291,6 +327,21 @@ export default function CreateSupportTicketPage() {
                     </div>
                   </div>
                 </div>
+              )}
+
+              {previousRejectedTicket && (
+                <Alert variant="warning" className="mt-3 mb-0 small border-warning">
+                  <div className="fw-bold mb-1">
+                    ⚠️ Đơn hàng này đang gửi lại yêu cầu hỗ trợ (Lần 2 / Tối đa 2 lần)
+                  </div>
+                  <div>
+                    Yêu cầu trước đó ({previousRejectedTicket.ticket_code}) đã bị từ chối với lý do:{' '}
+                    <em>"{previousRejectedTicket.reject_reason || 'Chưa đáp ứng điều kiện tiếp nhận'}"</em>.
+                  </div>
+                  <div className="mt-1 text-muted">
+                    Vui lòng tải lên bằng chứng rõ ràng hơn hoặc cập nhật thông tin chính xác để nhân viên hỗ trợ duyệt tiếp nhận.
+                  </div>
+                </Alert>
               )}
             </Card.Body>
           </Card>

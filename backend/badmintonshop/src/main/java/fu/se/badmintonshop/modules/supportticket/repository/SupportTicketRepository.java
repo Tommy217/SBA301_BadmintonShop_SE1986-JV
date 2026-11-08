@@ -13,11 +13,21 @@ public interface SupportTicketRepository extends JpaRepository<SupportTicket, Lo
 
     Optional<SupportTicket> findByOrderId(Long orderId);
 
+    List<SupportTicket> findByOrderIdOrderByCreatedAtDesc(Long orderId);
+
     List<SupportTicket> findByUserIdOrderByCreatedAtDesc(Long userId);
 
     List<SupportTicket> findAllByOrderByCreatedAtDesc();
 
     boolean existsByOrderIdAndStatusNot(Long orderId, String status);
+
+    boolean existsByOrderIdAndStatusIn(Long orderId, java.util.Collection<String> statuses);
+
+    boolean existsByOrderIdAndStatus(Long orderId, String status);
+
+    long countByOrderIdAndStatusNot(Long orderId, String status);
+
+    long countByOrderId(Long orderId);
 
     List<SupportTicket> findByStatusOrderByCreatedAtDesc(String status);
 }

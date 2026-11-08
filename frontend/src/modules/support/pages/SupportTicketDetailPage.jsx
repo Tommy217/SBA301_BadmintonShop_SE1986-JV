@@ -56,6 +56,24 @@ export default function SupportTicketDetailPage() {
     .filter((h) => h.ticket_id === ticket.id)
     .sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
 
+  const allOrderTickets = useMemo(() => {
+    return (data?.support_tickets || []).filter((t) => String(t.order_id) === String(ticket?.order_id));
+  }, [data?.support_tickets, ticket?.order_id]);
+
+  const canRetryTicket = useMemo(() => {
+    if (!ticket || ticket.status !== 'REJECTED') return false;
+    // Bị từ chối kiểm định thực tế tại kho -> không cho tạo lại
+    if (ticket.inspection != null) return false;
+    // Đã có phiếu khác đang xử lý (active)
+    const hasActive = allOrderTickets.some((t) =>
+      ['PENDING', 'AWAITING_RETURN', 'PENDING_APPROVAL', 'PENDING_TRANSFER'].includes(t.status),
+    );
+    if (hasActive) return false;
+    // Giới hạn số lần không tính hủy < 2
+    const nonCancelled = allOrderTickets.filter((t) => t.status !== 'CANCELLED');
+    return nonCancelled.length < 2;
+  }, [ticket, allOrderTickets]);
+
   // Cancel action
   async function handleCancelTicket() {
     setError('');
@@ -312,11 +330,27 @@ export default function SupportTicketDetailPage() {
           )}
 
           {/* LÝ DO TỪ CHỐI (NẾU CÓ) */}
-          {ticket.reject_reason && (
+          {ticket.status === 'REJECTED' && (
             <Card className="border-0 shadow-sm mb-4 bg-danger-subtle border-danger">
               <Card.Body className="p-4 text-danger">
                 <h2 className="h6 fw-bold mb-2">YÊU CẦU ĐÃ BỊ TỪ CHỐI</h2>
-                <p className="mb-0 small">{ticket.reject_reason}</p>
+                <p className="mb-0 small">{ticket.reject_reason || 'Yêu cầu không đáp ứng điều kiện tiếp nhận.'}</p>
+                {canRetryTicket && (
+                  <div className="mt-3 pt-3 border-top border-danger-subtle">
+                    <p className="small text-dark mb-2">
+                      💡 <strong>Bạn có thể gửi lại yêu cầu:</strong> Nếu nhân viên yêu cầu bổ sung bằng chứng rõ nét hơn hoặc cập nhật thông tin mã QR, bạn có thể tạo lại phiếu khiếu nại mới cho đơn hàng này (Tối đa 2 lần).
+                    </p>
+                    <Button
+                      as={Link}
+                      to={`/support-tickets/create?orderId=${encodeURIComponent(ticket.order_id)}`}
+                      variant="danger"
+                      size="sm"
+                      className="fw-semibold"
+                    >
+                      Tạo lại yêu cầu hỗ trợ mới
+                    </Button>
+                  </div>
+                )}
               </Card.Body>
             </Card>
           )}

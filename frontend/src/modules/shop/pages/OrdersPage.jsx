@@ -46,7 +46,13 @@ export default function OrdersPage() {
         const delivery = (shipments || []).find((d) => String(d.order_id) === String(order.id));
         const carrier = carriers[delivery?.carrier];
         const deliveryStatus = deliveryStatuses[delivery?.status];
-        const ticket = (data.support_tickets || []).find((t) => String(t.order_id) === String(order.id) && t.status !== 'CANCELLED');
+        const orderTickets = (data.support_tickets || []).filter((t) => String(t.order_id) === String(order.id));
+        const activeTicket = orderTickets.find((t) => ['PENDING', 'AWAITING_RETURN', 'PENDING_APPROVAL', 'PENDING_TRANSFER'].includes(t.status));
+        const latestTicket = [...orderTickets].sort((a, b) => new Date(b.created_at) - new Date(a.created_at))[0];
+        const isRefunded = orderTickets.some((t) => t.status === 'REFUNDED');
+        const hasInspectionFailed = orderTickets.some((t) => t.status === 'INSPECTION_FAILED' || t.inspection != null);
+        const nonCancelledCount = orderTickets.filter((t) => t.status !== 'CANCELLED').length;
+        const canCreateTicket = order.payment_status === 'paid' && !closed && !activeTicket && !isRefunded && !hasInspectionFailed && nonCancelledCount < 2;
         const payment = (data.payments || []).filter((p) => String(p.order_id) === String(order.id)).at(-1);
         const items = data.order_items.filter((item) => String(item.order_id) === String(order.id));
         const closed = ['cancelled', 'returned'].includes(order.status);
@@ -65,7 +71,15 @@ export default function OrdersPage() {
           <div className="order-tile-footer">
             <div className="order-total-row"><span>{items.reduce((sum, item) => sum + Number(item.quantity), 0)} sản phẩm <span className="order-total-dot">·</span> Phí giao hàng {Number(order.shipping_fee) ? formatMoney(order.shipping_fee) : 'miễn phí'}</span><div>Thành tiền <strong>{formatMoney(order.total_amount)}</strong></div></div>
             <div className="order-bottom-row"><span className="order-payment-note"><span className={'order-payment-dot' + (order.payment_status === 'paid' ? ' is-paid' : '')} />{payments[order.payment_status] || order.payment_status}{payment?.method === 'cod' ? ' · Khi nhận hàng' : ' · VietQR payOS'}</span><div className="order-actions">
-              {ticket ? <Link className="order-action" to={'/support-tickets/' + encodeURIComponent(ticket.id)}>Xem phiếu hỗ trợ</Link> : order.payment_status === 'paid' && <Link className="order-action" to={'/support-tickets/create?orderId=' + encodeURIComponent(order.id)}>Hỗ trợ / Đổi trả</Link>}
+              {activeTicket ? (
+                <Link className="order-action" to={'/support-tickets/' + encodeURIComponent(activeTicket.id)}>Xem phiếu hỗ trợ</Link>
+              ) : canCreateTicket ? (
+                <Link className="order-action" to={'/support-tickets/create?orderId=' + encodeURIComponent(order.id)}>
+                  {latestTicket && latestTicket.status === 'REJECTED' ? 'Gửi lại khiếu nại' : 'Hỗ trợ / Đổi trả'}
+                </Link>
+              ) : latestTicket ? (
+                <Link className="order-action" to={'/support-tickets/' + encodeURIComponent(latestTicket.id)}>Xem phiếu hỗ trợ</Link>
+              ) : null}
               <Link className="order-action" to={trackingUrl}>Chi tiết đơn hàng</Link>
               {order.payment_status === 'unpaid' && !closed && payment?.method !== 'cod' && <Link className="order-action order-action-primary" to={'/payments?order=' + encodeURIComponent(order.id)}>Thanh toán ngay</Link>}
             </div></div>
