@@ -6,49 +6,66 @@ import fu.se.badmintonshop.modules.invoice.repository.InvoiceRepository;
 import fu.se.badmintonshop.modules.invoice.service.InvoiceService;
 import fu.se.badmintonshop.modules.order.entity.Order;
 import lombok.RequiredArgsConstructor;
-import org.springframework.jdbc.core.JdbcTemplate;
+import jakarta.persistence.*;
+import fu.se.badmintonshop.modules.order.entity.OrderItem;
+import fu.se.badmintonshop.modules.order.entity.OrderStatusHistory;
+import fu.se.badmintonshop.modules.catalog.entity.ProductVariant;
+import fu.se.badmintonshop.modules.inventory.entity.InventoryMovement;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
-import java.util.List;
-import java.util.Map;
 import java.util.Set;
 
-// backend delivery tu chuyen orders.status theo trang thai van don (goi trong transaction cua ShipmentService)
+// backend delivery tu chuyen orders.status theo trang thai van don (goi trong transaction cua
+// ShipmentService)
 @Service
 @RequiredArgsConstructor
 public class OrderFulfillmentService {
 
     private static final Set<String> SHIPPABLE = Set.of("confirmed", "preparing");
 
-    private final JdbcTemplate jdbc;
+    private final EntityManager em;
     private final InvoiceService invoiceService;
     private final InvoiceRepository invoiceRepository;
 
     // tra ve trang thai don moi, hoac null neu khong doi
     public String onShipmentStatus(Order order, ShipmentStatus status, Long actorId) {
         String from = order.getStatus();
-        String to = switch (status) {
-            case PENDING_PICKUP, IN_TRANSIT, OUT_FOR_DELIVERY, DELIVERY_FAILED ->
-                    SHIPPABLE.contains(from) ? "shipping" : null;
-            case DELIVERED -> Set.of("completed", "cancelled", "returned").contains(from) ? null : "completed";
-            case RETURNED -> Set.of("returned", "cancelled").contains(from) ? null : "returned";
-            // van don bi huy / tu choi khi don dang giao: tra don ve buoc chuan bi de tao van don moi
-            case CANCELLED, REJECTED -> "shipping".equals(from) ? "preparing" : null;
-            case REQUESTED -> null;
-        };
+        String to =
+                switch (status) {
+                    case PENDING_PICKUP, IN_TRANSIT, OUT_FOR_DELIVERY, DELIVERY_FAILED ->
+                            SHIPPABLE.contains(from) ? "shipping" : null;
+                    case DELIVERED ->
+                            Set.of("completed", "cancelled", "returned").contains(from)
+                                    ? null
+                                    : "completed";
+                    case RETURNED ->
+                            Set.of("returned", "cancelled").contains(from) ? null : "returned";
+                    // van don bi huy / tu choi khi don dang giao: tra don ve buoc chuan bi de tao
+                    // van don moi
+                    case CANCELLED, REJECTED -> "shipping".equals(from) ? "preparing" : null;
+                    case REQUESTED -> null;
+                };
         if (to == null || to.equals(from)) {
             return null;
         }
 
         order.setStatus(to);
-        jdbc.update("INSERT INTO order_status_history(order_id,from_status,to_status,changed_by,note,created_at) VALUES(?,?,?,?,?,?)",
-                order.getId(), from, to, actorId, "Cập nhật theo vận đơn: " + status.getLabel(), LocalDateTime.now());
+        em.persist(
+                OrderStatusHistory.builder()
+                        .orderId(order.getId())
+                        .fromStatus(from)
+                        .toStatus(to)
+                        .changedBy(actorId)
+                        .note("Cập nhật theo vận đơn: " + status.getLabel())
+                        .createdAt(LocalDateTime.now())
+                        .build());
 
         if ("returned".equals(to)) {
             restock(order.getId());
         }
-        if ("completed".equals(to) && "paid".equals(order.getPaymentStatus())
+        if ("completed".equals(to)
+                && "paid".equals(order.getPaymentStatus())
                 && !invoiceRepository.existsByOrderIdAndInvoiceType(order.getId(), "sale")) {
             InvoiceRequest request = new InvoiceRequest();
             request.setOrderId(order.getId());
@@ -59,15 +76,32 @@ public class OrderFulfillmentService {
 
     // hang chuyen hoan ve shop: cong lai ton kho + ghi so kho
     private void restock(Long orderId) {
-        List<Map<String, Object>> lines = jdbc.queryForList(
-                "SELECT variant_id,quantity FROM order_items WHERE order_id=? ORDER BY variant_id", orderId);
-        for (Map<String, Object> line : lines) {
-            long variantId = ((Number) line.get("variant_id")).longValue();
-            int quantity = ((Number) line.get("quantity")).intValue();
-            jdbc.update("UPDATE product_variants SET stock_quantity=stock_quantity+? WHERE id=?", quantity, variantId);
-            jdbc.update("INSERT INTO inventory_movements(variant_id,movement_type,quantity,balance_after,ref_type,ref_id,note,created_at) "
-                            + "VALUES(?,'return_in',?,(SELECT stock_quantity FROM product_variants WHERE id=?),'order',?,?,?)",
-                    variantId, quantity, variantId, orderId, "Đơn vị vận chuyển chuyển hoàn", LocalDateTime.now());
+        var lines =
+                em.createQuery(
+                                "SELECT i FROM OrderItem i WHERE i.orderId=:id ORDER BY i.variantId",
+                                OrderItem.class)
+                        .setParameter("id", orderId)
+                        .getResultList();
+        for (var line : lines) {
+            em.flush();
+            ProductVariant variant =
+                    em.find(
+                            ProductVariant.class,
+                            line.getVariantId(),
+                            LockModeType.PESSIMISTIC_WRITE);
+            em.refresh(variant, LockModeType.PESSIMISTIC_WRITE);
+            variant.setStockQuantity(variant.getStockQuantity() + line.getQuantity());
+            em.persist(
+                    InventoryMovement.builder()
+                            .variant(variant)
+                            .movementType("return_in")
+                            .quantity(line.getQuantity())
+                            .balanceAfter(variant.getStockQuantity())
+                            .refType("order")
+                            .refId(orderId)
+                            .note("Đơn vị vận chuyển chuyển hoàn")
+                            .createdAt(LocalDateTime.now())
+                            .build());
         }
     }
 }
