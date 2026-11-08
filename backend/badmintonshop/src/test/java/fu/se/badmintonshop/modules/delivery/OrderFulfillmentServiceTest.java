@@ -10,7 +10,11 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.jdbc.core.JdbcTemplate;
+import jakarta.persistence.*;
+import fu.se.badmintonshop.modules.order.entity.OrderItem;
+import fu.se.badmintonshop.modules.order.entity.OrderStatusHistory;
+import fu.se.badmintonshop.modules.catalog.entity.ProductVariant;
+import fu.se.badmintonshop.modules.inventory.entity.InventoryMovement;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -23,27 +27,39 @@ import static org.mockito.Mockito.*;
 @ExtendWith(MockitoExtension.class)
 class OrderFulfillmentServiceTest {
 
-    @Mock
-    JdbcTemplate jdbc;
-    @Mock
-    InvoiceService invoiceService;
-    @Mock
-    InvoiceRepository invoiceRepository;
+    @Mock EntityManager em;
+    @Mock TypedQuery<OrderItem> lines;
+    @Mock InvoiceService invoiceService;
+    @Mock InvoiceRepository invoiceRepository;
 
-    @InjectMocks
-    OrderFulfillmentService fulfillment;
+    @InjectMocks OrderFulfillmentService fulfillment;
 
     private Order order(String status, String paymentStatus) {
-        return Order.builder().id(10L).orderCode("ORD-10").status(status).paymentStatus(paymentStatus)
-                .subtotal(BigDecimal.TEN).totalAmount(BigDecimal.TEN).build();
+        return Order.builder()
+                .id(10L)
+                .orderCode("ORD-10")
+                .status(status)
+                .paymentStatus(paymentStatus)
+                .subtotal(BigDecimal.TEN)
+                .totalAmount(BigDecimal.TEN)
+                .build();
     }
 
     @Test
     void pickupMovesConfirmedOrderToShipping() {
         Order o = order("confirmed", "paid");
-        assertEquals("shipping", fulfillment.onShipmentStatus(o, ShipmentStatus.PENDING_PICKUP, 3L));
+        assertEquals(
+                "shipping", fulfillment.onShipmentStatus(o, ShipmentStatus.PENDING_PICKUP, 3L));
         assertEquals("shipping", o.getStatus());
-        verify(jdbc).update(startsWith("INSERT INTO order_status_history"), eq(10L), eq("confirmed"), eq("shipping"), eq(3L), anyString(), any());
+        verify(em)
+                .persist(
+                        argThat(
+                                value ->
+                                        value instanceof OrderStatusHistory h
+                                                && h.getOrderId() == 10L
+                                                && h.getFromStatus().equals("confirmed")
+                                                && h.getToStatus().equals("shipping")
+                                                && h.getChangedBy() == 3L));
     }
 
     @Test
@@ -70,12 +86,23 @@ class OrderFulfillmentServiceTest {
     @Test
     void returnedRestocksItems() {
         Order o = order("shipping", "paid");
-        when(jdbc.queryForList(startsWith("SELECT variant_id,quantity"), eq(10L)))
-                .thenReturn(List.of(Map.of("variant_id", 4L, "quantity", 2)));
+        when(em.createQuery(anyString(), eq(OrderItem.class))).thenReturn(lines);
+        when(lines.setParameter("id", 10L)).thenReturn(lines);
+        when(lines.getResultList())
+                .thenReturn(List.of(OrderItem.builder().variantId(4L).quantity(2).build()));
+        var variant = ProductVariant.builder().id(4L).stockQuantity(5).build();
+        when(em.find(ProductVariant.class, 4L, LockModeType.PESSIMISTIC_WRITE)).thenReturn(variant);
 
         assertEquals("returned", fulfillment.onShipmentStatus(o, ShipmentStatus.RETURNED, 3L));
-        verify(jdbc).update(startsWith("UPDATE product_variants SET stock_quantity=stock_quantity+?"), eq(2), eq(4L));
-        verify(jdbc).update(startsWith("INSERT INTO inventory_movements"), eq(4L), eq(2), eq(4L), eq(10L), anyString(), any());
+        assertEquals(7, variant.getStockQuantity());
+        verify(em)
+                .persist(
+                        argThat(
+                                value ->
+                                        value instanceof InventoryMovement m
+                                                && m.getQuantity() == 2
+                                                && m.getBalanceAfter() == 7
+                                                && m.getRefId() == 10L));
     }
 
     @Test
@@ -97,6 +124,6 @@ class OrderFulfillmentServiceTest {
         }
         Order shipping = order("shipping", "paid");
         assertNull(fulfillment.onShipmentStatus(shipping, ShipmentStatus.IN_TRANSIT, 3L));
-        verifyNoInteractions(jdbc, invoiceService);
+        verifyNoInteractions(em, invoiceService);
     }
 }

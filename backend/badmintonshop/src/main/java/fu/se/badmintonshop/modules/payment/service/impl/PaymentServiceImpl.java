@@ -1,7 +1,13 @@
 package fu.se.badmintonshop.modules.payment.service.impl;
 
+import static fu.se.badmintonshop.modules.common.mapper.SnapshotMapper.*;
+
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+
+import fu.se.badmintonshop.modules.common.entity.SystemSetting;
+import fu.se.badmintonshop.modules.common.repository.SystemSettingRepository;
+import fu.se.badmintonshop.modules.delivery.repository.ShipmentRepository;
 import fu.se.badmintonshop.modules.order.entity.Order;
 import fu.se.badmintonshop.modules.order.repository.OrderRepository;
 import fu.se.badmintonshop.modules.payment.dto.request.CreatePaymentRequest;
@@ -15,14 +21,14 @@ import fu.se.badmintonshop.modules.payment.repository.PaymentRepository;
 import fu.se.badmintonshop.modules.payment.repository.PaymentTransactionRepository;
 import fu.se.badmintonshop.modules.payment.service.PayOSService;
 import fu.se.badmintonshop.modules.payment.service.PaymentService;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.jdbc.core.JdbcTemplate;
 
 import java.math.BigDecimal;
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
@@ -40,9 +46,10 @@ public class PaymentServiceImpl implements PaymentService {
     private final PaymentTransactionRepository paymentTransactionRepository;
     private final OrderRepository orderRepository;
     private final PayOSService payOSService;
-    private final JdbcTemplate jdbcTemplate;
-    @jakarta.persistence.PersistenceContext
-    private jakarta.persistence.EntityManager entityManager;
+    private final SystemSettingRepository systemSettingRepository;
+    private final ShipmentRepository shipmentRepository;
+    @jakarta.persistence.PersistenceContext private jakarta.persistence.EntityManager entityManager;
+
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     public static final int DEFAULT_PAYMENT_TIMEOUT_MINUTES = 15;
@@ -50,14 +57,22 @@ public class PaymentServiceImpl implements PaymentService {
     @Override
     @Transactional
     public CreatePaymentResponse createPayment(CreatePaymentRequest request) {
-        Order order = orderRepository.findById(request.getOrderId())
-                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy đơn hàng với ID: " + request.getOrderId()));
+        Order order =
+                orderRepository
+                        .findById(request.getOrderId())
+                        .orElseThrow(
+                                () ->
+                                        new IllegalArgumentException(
+                                                "Không tìm thấy đơn hàng với ID: "
+                                                        + request.getOrderId()));
 
         if ("paid".equalsIgnoreCase(order.getPaymentStatus())) {
-            throw new IllegalStateException("Đơn hàng #" + order.getOrderCode() + " đã được thanh toán trước đó.");
+            throw new IllegalStateException(
+                    "Đơn hàng #" + order.getOrderCode() + " đã được thanh toán trước đó.");
         }
         if ("cancelled".equalsIgnoreCase(order.getStatus())) {
-            throw new IllegalStateException("Đơn hàng #" + order.getOrderCode() + " đã bị hủy, không thể thanh toán.");
+            throw new IllegalStateException(
+                    "Đơn hàng #" + order.getOrderCode() + " đã bị hủy, không thể thanh toán.");
         }
 
         BigDecimal payAmount = order.getTotalAmount();
@@ -68,8 +83,11 @@ public class PaymentServiceImpl implements PaymentService {
             throw new IllegalArgumentException("Số tiền thanh toán phải lớn hơn 0.");
         }
 
-        // Kiểm tra xem đơn hàng đã có phiên thanh toán pending chưa để tái sử dụng, tránh tạo bản ghi trùng lặp
-        Optional<Payment> existingPendingOpt = paymentRepository.findFirstByOrderIdAndStatusOrderByCreatedAtDesc(order.getId(), "pending");
+        // Kiểm tra xem đơn hàng đã có phiên thanh toán pending chưa để tái sử dụng, tránh tạo bản
+        // ghi trùng lặp
+        Optional<Payment> existingPendingOpt =
+                paymentRepository.findFirstByOrderIdAndStatusOrderByCreatedAtDesc(
+                        order.getId(), "pending");
         Payment payment;
         boolean hasActiveLink = false;
         if (existingPendingOpt.isPresent()) {
@@ -77,26 +95,30 @@ public class PaymentServiceImpl implements PaymentService {
             payment.setMethod("qr");
             payment.setGateway("payos");
             payment.setAmount(payAmount);
-            if (payment.getQrCodeUrl() != null && payment.getCheckoutUrl() != null
+            if (payment.getQrCodeUrl() != null
+                    && payment.getCheckoutUrl() != null
                     && payment.getCreatedAt() != null
                     && payment.getCreatedAt().isAfter(LocalDateTime.now().minusMinutes(14))) {
                 hasActiveLink = true;
             }
         } else {
-            payment = Payment.builder()
-                    .orderId(order.getId())
-                    .method("qr")
-                    .gateway("payos")
-                    .status("pending")
-                    .amount(payAmount)
-                    .build();
+            payment =
+                    Payment.builder()
+                            .orderId(order.getId())
+                            .method("qr")
+                            .gateway("payos")
+                            .status("pending")
+                            .amount(payAmount)
+                            .build();
         }
         payment = paymentRepository.save(payment);
 
         // Random provider code survives database identity resets without reusing old links.
-        long payosOrderCode = hasActiveLink && providerOrderCode(payment) != null
-                ? providerOrderCode(payment)
-                : java.util.concurrent.ThreadLocalRandom.current().nextLong(100_000_000_000_000L, 999_999_999_999_999L);
+        long payosOrderCode =
+                hasActiveLink && providerOrderCode(payment) != null
+                        ? providerOrderCode(payment)
+                        : java.util.concurrent.ThreadLocalRandom.current()
+                                .nextLong(100_000_000_000_000L, 999_999_999_999_999L);
         payment.setGatewayTxnRef(String.valueOf(payosOrderCode));
 
         String paymentCode = formatPaymentCode(payment.getId(), payment.getCreatedAt());
@@ -104,21 +126,26 @@ public class PaymentServiceImpl implements PaymentService {
         String qrCodeUrl = payment.getQrCodeUrl();
 
         if (!hasActiveLink) {
-            String description = request.getDescription() != null && !request.getDescription().isBlank()
-                    ? request.getDescription()
-                    : "Thanh toan #" + order.getOrderCode();
+            String description =
+                    request.getDescription() != null && !request.getDescription().isBlank()
+                            ? request.getDescription()
+                            : "Thanh toan #" + order.getOrderCode();
 
             // Gọi PayOS API để tạo link thanh toán VietQR
-            Map<String, String> payosResult = payOSService.createPaymentLink(
-                    payosOrderCode,
-                    payAmount,
-                    description,
-                    request.getBuyerName() != null ? request.getBuyerName() : order.getReceiverName(),
-                    request.getBuyerEmail(),
-                    request.getBuyerPhone() != null ? request.getBuyerPhone() : order.getReceiverPhone(),
-                    request.getReturnUrl(),
-                    request.getCancelUrl()
-            );
+            Map<String, String> payosResult =
+                    payOSService.createPaymentLink(
+                            payosOrderCode,
+                            payAmount,
+                            description,
+                            request.getBuyerName() != null
+                                    ? request.getBuyerName()
+                                    : order.getReceiverName(),
+                            request.getBuyerEmail(),
+                            request.getBuyerPhone() != null
+                                    ? request.getBuyerPhone()
+                                    : order.getReceiverPhone(),
+                            request.getReturnUrl(),
+                            request.getCancelUrl());
 
             checkoutUrl = payosResult.get("checkoutUrl");
             qrCodeUrl = payosResult.get("qrCodeUrl");
@@ -128,18 +155,19 @@ public class PaymentServiceImpl implements PaymentService {
 
             // Ghi log giao dịch gửi request
             try {
-                Map<String, Object> logPayload = Map.of(
-                        "request", request,
-                        "payosOrderCode", payosOrderCode,
-                        "paymentCode", paymentCode,
-                        "payosResult", payosResult
-                );
-                PaymentTransaction transaction = PaymentTransaction.builder()
-                        .paymentId(payment.getId())
-                        .direction("request")
-                        .payload(objectMapper.writeValueAsString(logPayload))
-                        .httpStatus(200)
-                        .build();
+                Map<String, Object> logPayload =
+                        Map.of(
+                                "request", request,
+                                "payosOrderCode", payosOrderCode,
+                                "paymentCode", paymentCode,
+                                "payosResult", payosResult);
+                PaymentTransaction transaction =
+                        PaymentTransaction.builder()
+                                .paymentId(payment.getId())
+                                .direction("request")
+                                .payload(objectMapper.writeValueAsString(logPayload))
+                                .httpStatus(200)
+                                .build();
                 paymentTransactionRepository.save(transaction);
             } catch (Exception e) {
                 log.warn("Không thể ghi log giao dịch request: {}", e.getMessage());
@@ -147,9 +175,10 @@ public class PaymentServiceImpl implements PaymentService {
         }
 
         int timeoutMinutes = getPaymentTimeoutMinutes();
-        LocalDateTime expiresAt = payment.getCreatedAt() != null
-                ? payment.getCreatedAt().plusMinutes(timeoutMinutes)
-                : LocalDateTime.now().plusMinutes(timeoutMinutes);
+        LocalDateTime expiresAt =
+                payment.getCreatedAt() != null
+                        ? payment.getCreatedAt().plusMinutes(timeoutMinutes)
+                        : LocalDateTime.now().plusMinutes(timeoutMinutes);
 
         return CreatePaymentResponse.builder()
                 .paymentId(payment.getId())
@@ -184,17 +213,19 @@ public class PaymentServiceImpl implements PaymentService {
         Payment payment = findPaymentByOrderCodeOrReference(orderCode, data.getReference());
         if (payment == null) {
             log.error("Không tìm thấy Payment tương ứng với payOS orderCode: {}", orderCode);
-            throw new IllegalArgumentException("Không tìm thấy giao dịch thanh toán cho mã: " + orderCode);
+            throw new IllegalArgumentException(
+                    "Không tìm thấy giao dịch thanh toán cho mã: " + orderCode);
         }
 
         // 3. Ghi log callback vào payment_transactions
         try {
-            PaymentTransaction transaction = PaymentTransaction.builder()
-                    .paymentId(payment.getId())
-                    .direction("callback")
-                    .payload(objectMapper.writeValueAsString(webhookRequest))
-                    .httpStatus(200)
-                    .build();
+            PaymentTransaction transaction =
+                    PaymentTransaction.builder()
+                            .paymentId(payment.getId())
+                            .direction("callback")
+                            .payload(objectMapper.writeValueAsString(webhookRequest))
+                            .httpStatus(200)
+                            .build();
             paymentTransactionRepository.save(transaction);
         } catch (Exception e) {
             log.warn("Không thể lưu log callback giao dịch: {}", e.getMessage());
@@ -207,7 +238,9 @@ public class PaymentServiceImpl implements PaymentService {
     @Transactional
     public void markPaymentAsPaid(Payment payment, String reference) {
         if ("paid".equalsIgnoreCase(payment.getStatus())) {
-            log.info("Payment #{} đã ở trạng thái 'paid'. Bỏ qua cập nhật trùng lặp (Idempotency).", payment.getId());
+            log.info(
+                    "Payment #{} đã ở trạng thái 'paid'. Bỏ qua cập nhật trùng lặp (Idempotency).",
+                    payment.getId());
             return;
         }
 
@@ -218,24 +251,35 @@ public class PaymentServiceImpl implements PaymentService {
         }
         paymentRepository.save(payment);
 
-        Order order = orderRepository.findById(payment.getOrderId()).orElse(null);
+        Order order =
+                orderRepository
+                        .findByIdWithLock(payment.getOrderId())
+                        .orElseGet(
+                                () -> orderRepository.findById(payment.getOrderId()).orElse(null));
         if (order != null) {
-            // PaymentAccess may have loaded this entity before another request cancelled it.
-            if (jdbcTemplate != null) jdbcTemplate.update("UPDATE orders SET updated_at=updated_at WHERE id=?", order.getId());
-            if (entityManager != null) entityManager.refresh(order);
+            // A previous read in this transaction may have cached an older order status.
+            if (entityManager != null)
+                entityManager.refresh(order, jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
             order.setPaymentStatus("paid");
             // A late provider callback must not reopen a cancelled order or restart fulfillment.
             if ("pending".equalsIgnoreCase(order.getStatus())) order.setStatus("confirmed");
             orderRepository.save(order);
-            log.info("Cập nhật thành công đơn hàng #{}: payment_status='paid', status='confirmed'", order.getOrderCode());
+            log.info(
+                    "Cập nhật thành công đơn hàng #{}: payment_status='paid', status='confirmed'",
+                    order.getOrderCode());
         }
     }
 
     @Override
     @Transactional(readOnly = true)
     public PaymentDetailResponse getPaymentById(Long id) {
-        Payment payment = paymentRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy giao dịch thanh toán ID: " + id));
+        Payment payment =
+                paymentRepository
+                        .findById(id)
+                        .orElseThrow(
+                                () ->
+                                        new IllegalArgumentException(
+                                                "Không tìm thấy giao dịch thanh toán ID: " + id));
         return toDetailResponse(payment);
     }
 
@@ -246,8 +290,14 @@ public class PaymentServiceImpl implements PaymentService {
         if (id != null) {
             return getPaymentById(id);
         }
-        Payment payment = paymentRepository.findByGatewayTxnRef(paymentCode)
-                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy thanh toán với mã: " + paymentCode));
+        Payment payment =
+                paymentRepository
+                        .findByGatewayTxnRef(paymentCode)
+                        .orElseThrow(
+                                () ->
+                                        new IllegalArgumentException(
+                                                "Không tìm thấy thanh toán với mã: "
+                                                        + paymentCode));
         return toDetailResponse(payment);
     }
 
@@ -256,7 +306,8 @@ public class PaymentServiceImpl implements PaymentService {
     public PaymentDetailResponse getPaymentByPayosOrderCode(Long payosOrderCode) {
         Payment payment = findPaymentByOrderCodeOrReference(payosOrderCode, null);
         if (payment == null) {
-            throw new IllegalArgumentException("Không tìm thấy giao dịch thanh toán cho payosOrderCode: " + payosOrderCode);
+            throw new IllegalArgumentException(
+                    "Không tìm thấy giao dịch thanh toán cho payosOrderCode: " + payosOrderCode);
         }
         return toDetailResponse(payment);
     }
@@ -272,8 +323,14 @@ public class PaymentServiceImpl implements PaymentService {
     @Override
     @Transactional
     public PaymentDetailResponse cancelPayment(Long paymentId, String reason) {
-        Payment payment = paymentRepository.findById(paymentId)
-                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy giao dịch thanh toán ID: " + paymentId));
+        Payment payment =
+                paymentRepository
+                        .findById(paymentId)
+                        .orElseThrow(
+                                () ->
+                                        new IllegalArgumentException(
+                                                "Không tìm thấy giao dịch thanh toán ID: "
+                                                        + paymentId));
         if ("paid".equalsIgnoreCase(payment.getStatus()))
             throw new IllegalStateException("Không thể hủy giao dịch đã thanh toán thành công.");
         // Cancelling a session never changes the order, fulfillment or reserved inventory.
@@ -311,29 +368,44 @@ public class PaymentServiceImpl implements PaymentService {
         for (Payment payment : paymentRepository.findByOrderIdOrderByCreatedAtDesc(orderId)) {
             if (!"pending".equalsIgnoreCase(payment.getStatus())) continue;
             Long code = providerOrderCode(payment);
-            if (code != null && hasPaymentLink(payment)) payOSService.cancelPaymentLink(code, reason);
+            if (code != null && hasPaymentLink(payment))
+                payOSService.cancelPaymentLink(code, reason);
         }
     }
 
     private boolean hasPaymentLink(Payment payment) {
-        return "payos".equalsIgnoreCase(payment.getGateway()) &&
-                ((payment.getQrCodeUrl() != null && !payment.getQrCodeUrl().isBlank()) ||
-                 (payment.getCheckoutUrl() != null && !payment.getCheckoutUrl().isBlank()));
+        return "payos".equalsIgnoreCase(payment.getGateway())
+                && ((payment.getQrCodeUrl() != null && !payment.getQrCodeUrl().isBlank())
+                        || (payment.getCheckoutUrl() != null
+                                && !payment.getCheckoutUrl().isBlank()));
     }
 
     private Order checkPaymentOrderCancellation(Long orderId) {
-        if (jdbcTemplate != null) jdbcTemplate.update("UPDATE orders SET updated_at=updated_at WHERE id=?", orderId);
-        Order order = orderRepository.findById(orderId)
-                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy đơn hàng."));
-        if (entityManager != null) entityManager.refresh(order);
+        Order order =
+                orderRepository
+                        .findByIdWithLock(orderId)
+                        .orElseGet(
+                                () ->
+                                        orderRepository
+                                                .findById(orderId)
+                                                .orElseThrow(
+                                                        () ->
+                                                                new IllegalArgumentException(
+                                                                        "Không tìm thấy đơn hàng.")));
+        if (entityManager != null)
+            entityManager.refresh(order, jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
         if ("cancelled".equalsIgnoreCase(order.getStatus())) return order;
         if (!java.util.Set.of("pending", "confirmed", "preparing").contains(order.getStatus()))
-            throw new IllegalStateException("Đơn đã chuyển sang giao hàng hoặc hoàn tất, không thể tự hủy.");
+            throw new IllegalStateException(
+                    "Đơn đã chuyển sang giao hàng hoặc hoàn tất, không thể tự hủy.");
         if (!"unpaid".equalsIgnoreCase(order.getPaymentStatus()))
-            throw new IllegalStateException("Đơn đã thanh toán. Vui lòng dùng chức năng hủy đơn để được xử lý hoàn tiền.");
-        if (jdbcTemplate != null && !Long.valueOf(0).equals(jdbcTemplate.queryForObject(
-                "SELECT COUNT(*) FROM shipments WHERE order_id=? AND status NOT IN ('cancelled','rejected')", Long.class, orderId)))
-            throw new IllegalStateException("Đơn đã có vận đơn còn hiệu lực, không thể tự hủy thanh toán.");
+            throw new IllegalStateException(
+                    "Đơn đã thanh toán. Vui lòng dùng chức năng hủy đơn để được xử lý hoàn tiền.");
+        if (shipmentRepository != null
+                && shipmentRepository.existsByOrderIdAndStatusNotIn(
+                        orderId, java.util.List.of("cancelled", "rejected")))
+            throw new IllegalStateException(
+                    "Đơn đã có vận đơn còn hiệu lực, không thể tự hủy thanh toán.");
         return order;
     }
 
@@ -344,21 +416,27 @@ public class PaymentServiceImpl implements PaymentService {
 
     @Override
     public int getPaymentTimeoutMinutes() {
-        if (jdbcTemplate == null) {
+        if (systemSettingRepository == null) {
             return DEFAULT_PAYMENT_TIMEOUT_MINUTES;
         }
         try {
-            ensureSystemSettingsTable();
-            String val = jdbcTemplate.queryForObject(
-                    "SELECT setting_value FROM system_settings WHERE setting_key = 'payment_qr_timeout_minutes'",
-                    String.class);
-            if (val != null && !val.isBlank()) {
-                return Integer.parseInt(val.trim());
-            }
+            return systemSettingRepository
+                    .findById("payment_qr_timeout_minutes")
+                    .map(
+                            setting -> {
+                                try {
+                                    return Integer.parseInt(setting.getSettingValue().trim());
+                                } catch (Exception e) {
+                                    return DEFAULT_PAYMENT_TIMEOUT_MINUTES;
+                                }
+                            })
+                    .orElse(DEFAULT_PAYMENT_TIMEOUT_MINUTES);
         } catch (Exception e) {
-            log.warn("Không thể đọc payment_qr_timeout_minutes từ DB, dùng mặc định 15 phút: {}", e.getMessage());
+            log.warn(
+                    "Không thể đọc payment_qr_timeout_minutes từ DB, dùng mặc định 15 phút: {}",
+                    e.getMessage());
+            return DEFAULT_PAYMENT_TIMEOUT_MINUTES;
         }
-        return DEFAULT_PAYMENT_TIMEOUT_MINUTES;
     }
 
     @Override
@@ -367,44 +445,27 @@ public class PaymentServiceImpl implements PaymentService {
         if (minutes <= 0 || minutes > 1440) {
             throw new IllegalArgumentException("Thời gian hết hạn mã QR phải từ 1 đến 1440 phút.");
         }
-        if (jdbcTemplate == null) {
+        if (systemSettingRepository == null) {
             return;
         }
-        ensureSystemSettingsTable();
-        int updated = jdbcTemplate.update(
-                "UPDATE system_settings SET setting_value = ?, updated_at = SYSDATETIME(), updated_by = ? WHERE setting_key = 'payment_qr_timeout_minutes'",
-                String.valueOf(minutes), managerId);
-        if (updated == 0) {
-            jdbcTemplate.update(
-                    "INSERT INTO system_settings (setting_key, setting_value, description, updated_at, updated_by) VALUES ('payment_qr_timeout_minutes', ?, N'Thời gian hết hạn mã QR thanh toán (phút)', SYSDATETIME(), ?)",
-                    String.valueOf(minutes), managerId);
-        }
-        log.info("Manager ID {} đã cập nhật thời gian hết hạn mã QR thành: {} phút", managerId, minutes);
-    }
-
-    private void ensureSystemSettingsTable() {
-        if (jdbcTemplate == null) {
-            return;
-        }
-        try {
-            jdbcTemplate.execute("IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'system_settings') " +
-                    "BEGIN " +
-                    "CREATE TABLE system_settings (" +
-                    "  setting_key VARCHAR(100) PRIMARY KEY," +
-                    "  setting_value NVARCHAR(500) NOT NULL," +
-                    "  description NVARCHAR(255) NULL," +
-                    "  updated_at DATETIME2(0) NOT NULL DEFAULT SYSDATETIME()," +
-                    "  updated_by BIGINT NULL" +
-                    "); " +
-                    "END; " +
-                    "IF NOT EXISTS (SELECT 1 FROM system_settings WHERE setting_key = 'payment_qr_timeout_minutes') " +
-                    "BEGIN " +
-                    "INSERT INTO system_settings (setting_key, setting_value, description) " +
-                    "VALUES ('payment_qr_timeout_minutes', '15', N'Thời gian hết hạn mã QR thanh toán (phút)'); " +
-                    "END;");
-        } catch (Exception e) {
-            log.warn("Không thể kiểm tra/tạo bảng system_settings: {}", e.getMessage());
-        }
+        SystemSetting setting =
+                systemSettingRepository
+                        .findById("payment_qr_timeout_minutes")
+                        .orElseGet(
+                                () ->
+                                        SystemSetting.builder()
+                                                .settingKey("payment_qr_timeout_minutes")
+                                                .description(
+                                                        "Thời gian hết hạn mã VietQR thanh toán đơn hàng (phút)")
+                                                .build());
+        setting.setSettingValue(String.valueOf(minutes));
+        setting.setUpdatedAt(LocalDateTime.now());
+        setting.setUpdatedBy(managerId);
+        systemSettingRepository.save(setting);
+        log.info(
+                "Manager ID {} đã cập nhật thời gian hết hạn mã QR thành: {} phút",
+                managerId,
+                minutes);
     }
 
     @Override
@@ -412,7 +473,8 @@ public class PaymentServiceImpl implements PaymentService {
     public int processExpiredPayments() {
         int timeoutMinutes = getPaymentTimeoutMinutes();
         LocalDateTime cutoff = LocalDateTime.now().minusMinutes(timeoutMinutes);
-        List<Payment> expiredList = paymentRepository.findByStatusAndCreatedAtBefore("pending", cutoff);
+        List<Payment> expiredList =
+                paymentRepository.findByStatusAndCreatedAtBefore("pending", cutoff);
         int count = 0;
 
         for (Payment payment : expiredList) {
@@ -422,10 +484,15 @@ public class PaymentServiceImpl implements PaymentService {
 
             // Nhả trạng thái đơn hàng nếu chưa trả tiền
             Order order = orderRepository.findById(payment.getOrderId()).orElse(null);
-            if (order != null && "unpaid".equalsIgnoreCase(order.getPaymentStatus()) && "pending".equalsIgnoreCase(order.getStatus())) {
+            if (order != null
+                    && "unpaid".equalsIgnoreCase(order.getPaymentStatus())
+                    && "pending".equalsIgnoreCase(order.getStatus())) {
                 order.setStatus("cancelled");
                 orderRepository.save(order);
-                log.info("Tự động hủy đơn hàng #{} do quá hạn thanh toán {} phút.", order.getOrderCode(), timeoutMinutes);
+                log.info(
+                        "Tự động hủy đơn hàng #{} do quá hạn thanh toán {} phút.",
+                        order.getOrderCode(),
+                        timeoutMinutes);
             }
             count++;
         }
@@ -435,15 +502,22 @@ public class PaymentServiceImpl implements PaymentService {
     @Override
     @Transactional
     public PaymentDetailResponse syncPaymentStatus(Long paymentId) {
-        Payment payment = paymentRepository.findById(paymentId)
-                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy giao dịch ID: " + paymentId));
+        Payment payment =
+                paymentRepository
+                        .findById(paymentId)
+                        .orElseThrow(
+                                () ->
+                                        new IllegalArgumentException(
+                                                "Không tìm thấy giao dịch ID: " + paymentId));
         if ("paid".equalsIgnoreCase(payment.getStatus())) {
             return toDetailResponse(payment);
         }
 
         Long payosOrderCode = providerOrderCode(payment);
-        if (!"payos".equalsIgnoreCase(payment.getGateway()) || payment.getCheckoutUrl() == null
-                || payment.getCheckoutUrl().isBlank() || payosOrderCode == null) {
+        if (!"payos".equalsIgnoreCase(payment.getGateway())
+                || payment.getCheckoutUrl() == null
+                || payment.getCheckoutUrl().isBlank()
+                || payosOrderCode == null) {
             return toDetailResponse(payment);
         }
         JsonNode data = payOSService.getPaymentLinkInformation(payosOrderCode);
@@ -479,7 +553,8 @@ public class PaymentServiceImpl implements PaymentService {
     @Transactional
     public void syncPendingPayments() {
         LocalDateTime cutoff = LocalDateTime.now().minusMinutes(30);
-        List<Payment> pendingList = paymentRepository.findByStatusAndCreatedAtAfter("pending", cutoff);
+        List<Payment> pendingList =
+                paymentRepository.findByStatusAndCreatedAtAfter("pending", cutoff);
         for (Payment p : pendingList) {
             try {
                 syncPaymentStatus(p.getId());
@@ -501,8 +576,10 @@ public class PaymentServiceImpl implements PaymentService {
 
     private Payment findPaymentByOrderCodeOrReference(Long orderCode, String reference) {
         if (orderCode != null) {
-            Optional<Payment> optTxn = paymentRepository.findByGatewayTxnRef(String.valueOf(orderCode))
-                    .filter(p -> "payos".equalsIgnoreCase(p.getGateway()));
+            Optional<Payment> optTxn =
+                    paymentRepository
+                            .findByGatewayTxnRef(String.valueOf(orderCode))
+                            .filter(p -> "payos".equalsIgnoreCase(p.getGateway()));
             if (optTxn.isPresent()) return optTxn.get();
 
             if (orderCode > 100000L) {
@@ -553,8 +630,9 @@ public class PaymentServiceImpl implements PaymentService {
     }
 
     private String formatPaymentCode(Long paymentId, LocalDateTime createdAt) {
-        String dateStr = (createdAt != null ? createdAt : LocalDateTime.now())
-                .format(DateTimeFormatter.ofPattern("yyyyMMdd"));
+        String dateStr =
+                (createdAt != null ? createdAt : LocalDateTime.now())
+                        .format(DateTimeFormatter.ofPattern("yyyyMMdd"));
         return String.format("PAY-%s-%05d", dateStr, paymentId != null ? paymentId : 0L);
     }
 
@@ -565,7 +643,8 @@ public class PaymentServiceImpl implements PaymentService {
         if (matcher.find()) {
             try {
                 return Long.parseLong(matcher.group(1));
-            } catch (NumberFormatException ignored) {}
+            } catch (NumberFormatException ignored) {
+            }
         }
         return null;
     }

@@ -1,6 +1,8 @@
 package fu.se.badmintonshop.modules.payment;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import fu.se.badmintonshop.modules.common.repository.SystemSettingRepository;
+import fu.se.badmintonshop.modules.delivery.repository.ShipmentRepository;
 import fu.se.badmintonshop.modules.order.entity.Order;
 import fu.se.badmintonshop.modules.order.repository.OrderRepository;
 import fu.se.badmintonshop.modules.payment.dto.request.CreatePaymentRequest;
@@ -45,6 +47,12 @@ class PaymentServiceImplTest {
 
     @Mock
     private PayOSService payOSService;
+
+    @Mock
+    private SystemSettingRepository systemSettingRepository;
+
+    @Mock
+    private ShipmentRepository shipmentRepository;
 
     @Spy
     private ObjectMapper objectMapper = new ObjectMapper();

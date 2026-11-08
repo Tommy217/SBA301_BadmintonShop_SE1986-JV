@@ -1,5 +1,6 @@
 package fu.se.badmintonshop.modules.supportticket;
 
+import fu.se.badmintonshop.modules.common.repository.SystemSettingRepository;
 import fu.se.badmintonshop.modules.order.entity.Order;
 import fu.se.badmintonshop.modules.order.entity.OrderItem;
 import fu.se.badmintonshop.modules.order.repository.OrderItemRepository;
@@ -52,6 +53,8 @@ class SupportTicketServiceTest {
     private OrderItemRepository orderItemRepository;
     @Mock
     private PaymentRepository paymentRepository;
+    @Mock
+    private SystemSettingRepository systemSettingRepository;
 
     @InjectMocks
     private SupportTicketServiceImpl ticketService;

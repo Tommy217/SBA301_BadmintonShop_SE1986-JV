@@ -40,50 +40,87 @@ public class SecurityConfig {
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
-        http
-            .cors(Customizer.withDefaults())
-            .csrf(AbstractHttpConfigurer::disable)
-            .formLogin(AbstractHttpConfigurer::disable)
-            .httpBasic(AbstractHttpConfigurer::disable)
-            .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-            .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
-            .exceptionHandling(e -> e
-                .authenticationEntryPoint((request, response, authException) ->
-                    writeError(response, HttpStatus.UNAUTHORIZED, "Yêu cầu xác thực tài khoản."))
-                .accessDeniedHandler((request, response, accessDeniedException) ->
-                    writeError(response, HttpStatus.FORBIDDEN, "Không có quyền truy cập."))
-            )
-            .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/error").permitAll()
-                .requestMatchers(HttpMethod.GET, "/api/shop", "/api/catalog").permitAll()
-                .requestMatchers(
-                    HttpMethod.POST,
-                    "/api/auth/login",
-                    "/api/auth/register",
-                    "/api/auth/logout",
-                    "/api/auth/forgot-password",
-                    "/api/auth/reset-password",
-                    "/api/payments/payos/webhook",
-                    "/api/webhooks/carriers/**"
-                ).permitAll()
-                .requestMatchers(
-                    HttpMethod.GET,
-                    "/api/products/**",
-                    "/api/categories/**",
-                    "/api/brands/**",
-                    "/api/vouchers/**",
-                    "/api/carriers/**"
-                ).permitAll()
-                .requestMatchers("/api/auth/**", "/api/profile", "/api/profile/**").authenticated()
-                .requestMatchers("/api/admin/**").hasRole("ADMIN")
-                .requestMatchers("/api/manager/shipments", "/api/manager/shipments/**").hasAnyRole("STAFF", "MANAGER", "ADMIN")
-                .requestMatchers("/api/manager/**").hasAnyRole("MANAGER", "ADMIN")
-                .requestMatchers("/api/staff/**", "/api/inventory/**", "/api/invoices/**").hasAnyRole("STAFF", "MANAGER", "ADMIN")
-                .requestMatchers(HttpMethod.GET, "/api/vouchers/usages", "/api/vouchers/usages/**").hasAnyRole("STAFF", "MANAGER", "ADMIN")
-                .requestMatchers("/api/products/**", "/api/categories/**", "/api/brands/**", "/api/vouchers/**").hasAnyRole("STAFF", "MANAGER", "ADMIN")
-                .requestMatchers("/api/payments/payos/confirm-webhook").hasRole("ADMIN")
-                .anyRequest().authenticated()
-            );
+        http.cors(Customizer.withDefaults())
+                .csrf(AbstractHttpConfigurer::disable)
+                .formLogin(AbstractHttpConfigurer::disable)
+                .httpBasic(AbstractHttpConfigurer::disable)
+                .sessionManagement(
+                        session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .addFilterBefore(
+                        jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
+                .exceptionHandling(
+                        e ->
+                                e.authenticationEntryPoint(
+                                                (request, response, authException) ->
+                                                        writeError(
+                                                                response,
+                                                                HttpStatus.UNAUTHORIZED,
+                                                                "Yêu cầu xác thực tài khoản."))
+                                        .accessDeniedHandler(
+                                                 (request, response, accessDeniedException) ->
+                                                        writeError(
+                                                                response,
+                                                                HttpStatus.FORBIDDEN,
+                                                                "Không có quyền truy cập.")))
+                .authorizeHttpRequests(
+                        auth ->
+                                auth.requestMatchers("/error")
+                                        .permitAll()
+                                        .requestMatchers(
+                                                HttpMethod.GET,
+                                                "/api/cart",
+                                                "/api/orders",
+                                                "/api/catalog")
+                                        .permitAll()
+                                        .requestMatchers(
+                                                HttpMethod.POST,
+                                                "/api/auth/login",
+                                                "/api/auth/register",
+                                                "/api/auth/logout",
+                                                "/api/auth/forgot-password",
+                                                "/api/auth/reset-password",
+                                                "/api/payments/payos/webhook",
+                                                "/api/webhooks/carriers/**")
+                                        .permitAll()
+                                        .requestMatchers(
+                                                HttpMethod.GET,
+                                                "/api/products/**",
+                                                "/api/categories/**",
+                                                "/api/brands/**",
+                                                "/api/vouchers/**",
+                                                "/api/carriers/**")
+                                        .permitAll()
+                                        .requestMatchers(
+                                                "/api/auth/**", "/api/profile", "/api/profile/**")
+                                        .authenticated()
+                                        .requestMatchers("/api/admin/**")
+                                        .hasRole("ADMIN")
+                                        .requestMatchers(
+                                                "/api/manager/shipments",
+                                                "/api/manager/shipments/**")
+                                        .hasAnyRole("STAFF", "MANAGER", "ADMIN")
+                                        .requestMatchers("/api/manager/**")
+                                        .hasAnyRole("MANAGER", "ADMIN")
+                                        .requestMatchers(
+                                                "/api/staff/**",
+                                                "/api/inventory/**",
+                                                "/api/invoices/**")
+                                        .hasAnyRole("STAFF", "MANAGER", "ADMIN")
+                                        .requestMatchers(
+                                                HttpMethod.GET,
+                                                "/api/vouchers/usages",
+                                                "/api/vouchers/usages/**")
+                                        .hasAnyRole("STAFF", "MANAGER", "ADMIN")
+                                        .requestMatchers(
+                                                "/api/products/**",
+                                                "/api/categories/**",
+                                                "/api/brands/**",
+                                                "/api/vouchers/**")
+                                        .hasAnyRole("STAFF", "MANAGER", "ADMIN")
+                                        .requestMatchers("/api/payments/payos/confirm-webhook")
+                                        .hasRole("ADMIN")
+                                        .anyRequest()
+                                        .authenticated());
 
         return http.build();
     }
@@ -104,7 +141,8 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
         configuration.setAllowedOriginPatterns(List.of("*"));
-        configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
+        configuration.setAllowedMethods(
+                List.of("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("*"));
         configuration.setAllowCredentials(true);
         configuration.setMaxAge(3600L);
@@ -113,10 +151,12 @@ public class SecurityConfig {
         return source;
     }
 
-    private void writeError(HttpServletResponse response, HttpStatus status, String message) throws IOException {
+    private void writeError(HttpServletResponse response, HttpStatus status, String message)
+            throws IOException {
         response.setStatus(status.value());
         response.setContentType(MediaType.APPLICATION_JSON_VALUE);
         response.setCharacterEncoding("UTF-8");
-        response.getWriter().write("{\"status\":" + status.value() + ",\"message\":\"" + message + "\"}");
+        response.getWriter()
+                .write("{\"status\":" + status.value() + ",\"message\":\"" + message + "\"}");
     }
 }
