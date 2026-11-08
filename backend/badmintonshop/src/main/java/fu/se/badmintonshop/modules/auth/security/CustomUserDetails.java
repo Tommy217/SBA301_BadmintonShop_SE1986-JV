@@ -2,10 +2,12 @@ package fu.se.badmintonshop.modules.auth.security;
 
 import lombok.Getter;
 import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.Locale;
 
 @Getter
 public class CustomUserDetails implements UserDetails {
@@ -15,6 +17,8 @@ public class CustomUserDetails implements UserDetails {
     private final String fullName;
     private final String password;
     private final boolean active;
+    private final boolean locked;
+    private final String role;
     private final Collection<? extends GrantedAuthority> authorities;
 
     public CustomUserDetails(
@@ -23,17 +27,23 @@ public class CustomUserDetails implements UserDetails {
         String fullName,
         String password,
         boolean active,
-        Collection<? extends GrantedAuthority> authorities
+        boolean locked,
+        String role
     ) {
+        if (role == null || role.isBlank()) {
+            throw new IllegalArgumentException("User role must not be null or blank");
+        }
         this.id = id;
         this.email = email;
         this.fullName = fullName;
         this.password = password;
         this.active = active;
-        this.authorities = authorities;
+        this.locked = locked;
+        this.role = role.trim().toUpperCase(Locale.ROOT);
+        this.authorities = List.of(new SimpleGrantedAuthority("ROLE_" + this.role));
     }
 
-    // Accessors for compatibility with record style .id(), .roles(), .isActive()
+    // Accessors for record style .id(), .role(), .isActive(), .isLocked()
     public Long id() {
         return id;
     }
@@ -50,12 +60,16 @@ public class CustomUserDetails implements UserDetails {
         return active;
     }
 
-    public List<String> roles() {
-        if (authorities == null) return List.of();
-        return authorities.stream()
-            .map(GrantedAuthority::getAuthority)
-            .map(auth -> auth.startsWith("ROLE_") ? auth.substring(5) : auth)
-            .toList();
+    public boolean isLocked() {
+        return locked;
+    }
+
+    public String role() {
+        return role;
+    }
+
+    public String getRole() {
+        return role;
     }
 
     @Override
@@ -80,7 +94,7 @@ public class CustomUserDetails implements UserDetails {
 
     @Override
     public boolean isAccountNonLocked() {
-        return active;
+        return !locked;
     }
 
     @Override
@@ -93,4 +107,3 @@ public class CustomUserDetails implements UserDetails {
         return active;
     }
 }
-

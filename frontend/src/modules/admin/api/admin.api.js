@@ -1,9 +1,15 @@
 import { httpClient } from '@/shared/api/httpClient';
 
-// The server checks for duplicate emails and normalizes the payload.
-export const adminApi = {
-  getUsers: (params = {}) => httpClient.get('/users', { params }),
-  getUserById: (id) => httpClient.get(`/users/${id}`),
-  createUser: (userData) => httpClient.post('/users', userData),
-  updateUser: (id, updateData) => httpClient.patch(`/users/${id}`, updateData),
+export const employeeApi = {
+  getEmployees: (params = {}) => httpClient.get('/admin/employees', { params }),
+  getEmployeeById: (id) => httpClient.get(`/admin/employees/${id}`),
+  createEmployee: (employeeData) => httpClient.post('/admin/employees', employeeData),
+  updateEmployee: (id, updateData) => httpClient.put(`/admin/employees/${id}`, updateData),
+  updateEmployeeStatus: (id, status) => httpClient.patch(`/admin/employees/${id}/status`, { status }),
+};
+
+export const customerApi = {
+  getCustomers: (params = {}) => httpClient.get('/admin/customers', { params }),
+  getCustomerById: (id) => httpClient.get(`/admin/customers/${id}`),
+  updateCustomerStatus: (id, status) => httpClient.patch(`/admin/customers/${id}/status`, { status }),
 };

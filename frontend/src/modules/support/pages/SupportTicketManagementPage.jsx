@@ -21,9 +21,8 @@ export default function SupportTicketManagementPage() {
   const [typeFilter, setTypeFilter] = useState('all');
 
   const currentThreshold = Number(data?.refund_approval_threshold) || 3000000;
-  const isManager = user?.roles?.some(
-    (r) => String(r).toUpperCase() === ROLES.MANAGER || String(r).toUpperCase() === ROLES.ADMIN,
-  );
+  const role = user?.role?.toUpperCase();
+  const isManager = role === ROLES.MANAGER || role === ROLES.ADMIN;
 
   const [showThresholdModal, setShowThresholdModal] = useState(false);
   const [newThresholdInput, setNewThresholdInput] = useState('');

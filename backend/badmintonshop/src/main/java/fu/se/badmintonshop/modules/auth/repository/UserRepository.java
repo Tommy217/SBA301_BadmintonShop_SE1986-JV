@@ -14,27 +14,51 @@ import java.util.Optional;
 @Repository
 public interface UserRepository extends JpaRepository<User, Long> {
 
-    @EntityGraph(attributePaths = {"roles"})
+    @EntityGraph(attributePaths = {"role"})
     Optional<User> findByEmailIgnoreCase(String email);
 
-    @EntityGraph(attributePaths = {"roles"})
+    @EntityGraph(attributePaths = {"role"})
     @Query("SELECT u FROM User u WHERE u.id = :id")
-    Optional<User> findWithRolesById(@Param("id") Long id);
+    Optional<User> findWithRoleById(@Param("id") Long id);
 
     boolean existsByEmailIgnoreCase(String email);
 
-    boolean existsByEmailIgnoreCaseAndIdNot(String email, Long id);
-
-    @Query(value = "SELECT DISTINCT u FROM User u LEFT JOIN FETCH u.roles r " +
-                   "WHERE (:keyword IS NULL OR LOWER(u.email) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
+    @Query(value = "SELECT u FROM User u JOIN FETCH u.role r " +
+                   "WHERE LOWER(r.code) != 'customer' " +
+                   "AND (:keyword IS NULL OR LOWER(u.email) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
                    "OR LOWER(u.fullName) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
                    "OR LOWER(u.phone) LIKE LOWER(CONCAT('%', :keyword, '%'))) " +
-                   "AND (:roleCode IS NULL OR LOWER(r.code) = LOWER(:roleCode))",
-           countQuery = "SELECT COUNT(DISTINCT u) FROM User u LEFT JOIN u.roles r " +
-                        "WHERE (:keyword IS NULL OR LOWER(u.email) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
+                   "AND (:roleCode IS NULL OR LOWER(r.code) = LOWER(:roleCode)) " +
+                   "AND (:status IS NULL OR LOWER(u.status) = LOWER(:status))",
+           countQuery = "SELECT COUNT(u) FROM User u JOIN u.role r " +
+                        "WHERE LOWER(r.code) != 'customer' " +
+                        "AND (:keyword IS NULL OR LOWER(u.email) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
                         "OR LOWER(u.fullName) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
                         "OR LOWER(u.phone) LIKE LOWER(CONCAT('%', :keyword, '%'))) " +
-                        "AND (:roleCode IS NULL OR LOWER(r.code) = LOWER(:roleCode))")
-    Page<User> searchUsers(@Param("keyword") String keyword, @Param("roleCode") String roleCode, Pageable pageable);
-}
+                        "AND (:roleCode IS NULL OR LOWER(r.code) = LOWER(:roleCode)) " +
+                        "AND (:status IS NULL OR LOWER(u.status) = LOWER(:status))")
+    Page<User> searchEmployees(
+        @Param("keyword") String keyword,
+        @Param("roleCode") String roleCode,
+        @Param("status") String status,
+        Pageable pageable
+    );
 
+    @Query(value = "SELECT u FROM User u JOIN FETCH u.role r " +
+                   "WHERE LOWER(r.code) = 'customer' " +
+                   "AND (:keyword IS NULL OR LOWER(u.email) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
+                   "OR LOWER(u.fullName) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
+                   "OR LOWER(u.phone) LIKE LOWER(CONCAT('%', :keyword, '%'))) " +
+                   "AND (:status IS NULL OR LOWER(u.status) = LOWER(:status))",
+           countQuery = "SELECT COUNT(u) FROM User u JOIN u.role r " +
+                        "WHERE LOWER(r.code) = 'customer' " +
+                        "AND (:keyword IS NULL OR LOWER(u.email) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
+                        "OR LOWER(u.fullName) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
+                        "OR LOWER(u.phone) LIKE LOWER(CONCAT('%', :keyword, '%'))) " +
+                        "AND (:status IS NULL OR LOWER(u.status) = LOWER(:status))")
+    Page<User> searchCustomers(
+        @Param("keyword") String keyword,
+        @Param("status") String status,
+        Pageable pageable
+    );
+}

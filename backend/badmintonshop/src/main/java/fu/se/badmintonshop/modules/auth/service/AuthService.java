@@ -6,12 +6,11 @@ import fu.se.badmintonshop.modules.auth.dto.response.AuthResponse;
 import fu.se.badmintonshop.modules.auth.dto.response.UserResponse;
 import fu.se.badmintonshop.modules.auth.security.CustomUserDetails;
 
-import java.util.List;
 import java.util.Map;
 
 public interface AuthService {
 
-    record User(long id, String email, String fullName, List<String> roles, boolean isActive) {}
+    record User(long id, String email, String fullName, String role, boolean isActive) {}
 
     AuthResponse login(LoginRequest request);
 
@@ -27,4 +26,3 @@ public interface AuthService {
 
     void logout(String header);
 }
-

@@ -31,7 +31,7 @@ export default function LoginPage() {
       const result = await authApi.login({ email, password });
       login(result);
       const from = location.state?.from;
-      const homePath = getRoleHomePath(result.roles);
+      const homePath = getRoleHomePath(result.role);
       const returnPath =
         homePath === '/' &&
         typeof from?.pathname === 'string' &&

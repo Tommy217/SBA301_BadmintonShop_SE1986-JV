@@ -6,9 +6,13 @@ export default function AdminSidebar() {
       <div className="admin-sidebar-title">QUẢN TRỊ VIÊN</div>
 
       <nav className="admin-nav">
-        <NavLink to="/admin" end className="admin-nav-link">
+        <NavLink to="/admin/employees" className="admin-nav-link">
+          <span className="admin-nav-icon">👔</span>
+          <span>Nhân viên</span>
+        </NavLink>
+        <NavLink to="/admin/customers" className="admin-nav-link">
           <span className="admin-nav-icon">👥</span>
-          <span>Quản lý tài khoản</span>
+          <span>Khách hàng</span>
         </NavLink>
       </nav>
     </aside>

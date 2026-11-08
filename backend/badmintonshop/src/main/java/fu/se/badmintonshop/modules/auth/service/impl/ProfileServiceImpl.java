@@ -205,7 +205,7 @@ public class ProfileServiceImpl implements ProfileService {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Chưa xác thực tài khoản.");
         }
 
-        return userRepository.findWithRolesById(userDetails.getId())
+        return userRepository.findWithRoleById(userDetails.getId())
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy người dùng."));
     }
 

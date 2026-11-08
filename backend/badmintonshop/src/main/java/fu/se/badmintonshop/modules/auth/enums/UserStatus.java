@@ -2,7 +2,6 @@ package fu.se.badmintonshop.modules.auth.enums;
 
 public enum UserStatus {
     ACTIVE("active"),
-    INACTIVE("inactive"),
     LOCKED("locked");
 
     private final String value;
@@ -16,13 +15,14 @@ public enum UserStatus {
     }
 
     public static UserStatus fromString(String text) {
-        if (text == null) return ACTIVE;
+        if (text == null || text.isBlank()) {
+            throw new IllegalArgumentException("UserStatus cannot be null or blank");
+        }
         for (UserStatus b : UserStatus.values()) {
-            if (b.value.equalsIgnoreCase(text) || b.name().equalsIgnoreCase(text)) {
+            if (b.value.equalsIgnoreCase(text.trim()) || b.name().equalsIgnoreCase(text.trim())) {
                 return b;
             }
         }
-        return ACTIVE;
+        throw new IllegalArgumentException("Unknown user status: " + text);
     }
 }
-
