@@ -11,7 +11,7 @@ Hệ thống được thiết kế theo kiến trúc module hóa (Modular Archit
 | Phân hệ / Module | Đường dẫn tài liệu | Trạng thái | Mô tả tóm tắt |
 | :--- | :--- | :--- :---: | :--- |
 | **Auth & Access Control** | [**`module/auth/plan.md`**](module/auth/plan.md) | **Kế hoạch triển khai** | Kiến trúc Clean Architecture, JJWT 0.12.x, JPA Entities, Phân quyền RBAC, Quản lý Profile & Sổ địa chỉ. |
-| **Payment Module** | [**`module/payment/overview.md`**](module/payment/overview.md) | **Đã hoàn thành** | Luồng thanh toán 100% online payOS (VietQR 24/7), Hoàn tiền, bảo mật Webhook HMAC-SHA256 & phân quyền Staff / Manager. |
+| **Payment Module** | [**`module/payment/flow.md`**](module/payment/flow.md) | **Đã hoàn thành** | Luồng thanh toán trực tuyến payOS (VietQR 24/7), Đối soát kép (Dual Verification: Webhook & Polling Sync), tích hợp đổi trả. |
 | **Support Ticket (UC15)** | [**`module/support-ticket/flow.md`**](module/support-ticket/flow.md) | **Đã hoàn thành** | Quy trình đổi trả & hoàn tiền thủ công quét QR, thẩm định hàng, phân quyền duyệt < 3M vs >= 3M (UC15). |
 | **Order Module** | `module/order/` | Đang phát triển | Luồng quản lý giỏ hàng, đặt hàng, hủy đơn, chuyển trạng thái đơn hàng. |
 | **Catalog & Products** | `module/catalog/` | Đang phát triển | Quản lý sản phẩm (vợt, giày, áo quần), biến thể, hình ảnh và voucher. |
@@ -26,11 +26,10 @@ Hệ thống được thiết kế theo kiến trúc module hóa (Modular Archit
 
 ---
 
-## 3. HƯỚNG DẪN TRUY CẬP TÀI LIỆU PAYMENT
-Để xem toàn bộ sơ đồ tuần tự (Sequence Diagram), quy trình kiểm thử và tích hợp chi tiết của Module Payment, vui lòng mở:
-* 👉 **[documents/module/payment/flow.md](module/payment/flow.md)**: Sơ đồ tuần tự và luồng hoạt động chi tiết.
-* 👉 **[documents/module/payment/overview.md](module/payment/overview.md)**: Tổng quan giải pháp kỹ thuật và danh mục API.
-* 👉 **[documents/module/payment/webhook-and-ngrok.md](module/payment/webhook-and-ngrok.md)**: Phân tích chuyên sâu về ngrok, Webhook và cơ chế đối soát kép (Dual Verification).
+## 3. HƯỚNG DẪN TRUY CẬP TÀI LIỆU PAYMENT & SUPPORT TICKET
+Tài liệu luồng hoạt động, sơ đồ tuần tự và đặc tả API của 2 module đã được hợp nhất tại:
+* 👉 **[documents/module/payment/flow.md](module/payment/flow.md)**: Luồng hoạt động toàn diện Payment (payOS VietQR) & Support Ticket (Returns & Refunds).
+* 👉 **[documents/module/support-ticket/flow.md](module/support-ticket/flow.md)**: Bản đồng bộ tài liệu luồng UC15 Support Ticket.
 
 ---
 
