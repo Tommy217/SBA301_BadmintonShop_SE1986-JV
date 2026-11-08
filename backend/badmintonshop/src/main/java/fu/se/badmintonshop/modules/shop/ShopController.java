@@ -18,6 +18,11 @@ public class ShopController {
         return shop.snapshot(identity(authentication));
     }
 
+    @GetMapping("/mine")
+    public Map<String, Object> customerSnapshot(Authentication authentication) {
+        return shop.customerSnapshot(identity(authentication));
+    }
+
     @PostMapping
     public Map<String, Object> action(@RequestBody Map<String, Object> request, Authentication authentication) {
         shop.execute(request, identity(authentication));

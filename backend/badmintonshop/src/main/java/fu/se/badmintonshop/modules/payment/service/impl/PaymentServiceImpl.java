@@ -87,11 +87,11 @@ public class PaymentServiceImpl implements PaymentService {
         }
         payment = paymentRepository.save(payment);
 
-        // Sinh mã orderCode số nguyên dương duy nhất cho payOS (sử dụng 100000 + paymentId để chuẩn đẹp)
-        long payosOrderCode = 100000L + payment.getId();
-        if (payment.getGatewayTxnRef() == null || payment.getGatewayTxnRef().isBlank()) {
-            payment.setGatewayTxnRef(String.valueOf(payosOrderCode));
-        }
+        // Random provider code survives database identity resets without reusing old links.
+        long payosOrderCode = hasActiveLink && providerOrderCode(payment) != null
+                ? providerOrderCode(payment)
+                : java.util.concurrent.ThreadLocalRandom.current().nextLong(100_000_000_000_000L, 999_999_999_999_999L);
+        payment.setGatewayTxnRef(String.valueOf(payosOrderCode));
 
         String paymentCode = formatPaymentCode(payment.getId(), payment.getCreatedAt());
         String checkoutUrl = payment.getCheckoutUrl();
@@ -206,9 +206,7 @@ public class PaymentServiceImpl implements PaymentService {
 
         payment.setStatus("paid");
         payment.setPaidAt(LocalDateTime.now());
-        if (reference != null && !reference.isBlank()) {
-            payment.setGatewayTxnRef(reference);
-        }
+        // Keep the provider order code; bank references belong to transaction logs.
         paymentRepository.save(payment);
 
         Order order = orderRepository.findById(payment.getOrderId()).orElse(null);
@@ -272,8 +270,8 @@ public class PaymentServiceImpl implements PaymentService {
         payment.setCancelledAt(LocalDateTime.now());
         paymentRepository.save(payment);
 
-        long payosOrderCode = 100000L + payment.getId();
-        payOSService.cancelPaymentLink(payosOrderCode, reason);
+        Long payosOrderCode = providerOrderCode(payment);
+        if (payosOrderCode != null) payOSService.cancelPaymentLink(payosOrderCode, reason);
 
         return toDetailResponse(payment);
     }
@@ -316,7 +314,11 @@ public class PaymentServiceImpl implements PaymentService {
             return toDetailResponse(payment);
         }
 
-        long payosOrderCode = 100000L + payment.getId();
+        Long payosOrderCode = providerOrderCode(payment);
+        if (!"payos".equalsIgnoreCase(payment.getGateway()) || payment.getCheckoutUrl() == null
+                || payment.getCheckoutUrl().isBlank() || payosOrderCode == null) {
+            return toDetailResponse(payment);
+        }
         JsonNode data = payOSService.getPaymentLinkInformation(payosOrderCode);
         if (data != null) {
             String status = data.path("status").asText();
@@ -360,30 +362,19 @@ public class PaymentServiceImpl implements PaymentService {
         }
     }
 
+    private Long providerOrderCode(Payment payment) {
+        try {
+            return payment.getGatewayTxnRef() == null ? null : Long.valueOf(payment.getGatewayTxnRef());
+        } catch (NumberFormatException ignored) {
+            return null;
+        }
+    }
+
     private Payment findPaymentByOrderCodeOrReference(Long orderCode, String reference) {
-        if (orderCode != null) {
-            // 1. Kiểm tra nếu orderCode là dạng (100000 + id)
-            if (orderCode > 100000L) {
-                Long paymentId = orderCode - 100000L;
-                Optional<Payment> opt = paymentRepository.findById(paymentId);
-                if (opt.isPresent()) return opt.get();
-            }
-
-            // 2. Kiểm tra nếu orderCode chính là paymentId
-            Optional<Payment> optId = paymentRepository.findById(orderCode);
-            if (optId.isPresent()) return optId.get();
-
-            // 3. Tra cứu theo gatewayTxnRef lưu trữ orderCode
-            Optional<Payment> optTxn = paymentRepository.findByGatewayTxnRef(String.valueOf(orderCode));
-            if (optTxn.isPresent()) return optTxn.get();
-        }
-
-        if (reference != null && !reference.isBlank()) {
-            Optional<Payment> optRef = paymentRepository.findByGatewayTxnRef(reference);
-            if (optRef.isPresent()) return optRef.get();
-        }
-
-        return null;
+        if (orderCode == null) return null;
+        return paymentRepository.findByGatewayTxnRef(String.valueOf(orderCode))
+                .filter(p -> "payos".equalsIgnoreCase(p.getGateway()))
+                .orElse(null);
     }
 
     private PaymentDetailResponse toDetailResponse(Payment payment) {
@@ -393,7 +384,7 @@ public class PaymentServiceImpl implements PaymentService {
             orderCode = order.getOrderCode();
         }
 
-        long payosOrderCode = 100000L + payment.getId();
+        Long payosOrderCode = providerOrderCode(payment);
         String paymentCode = formatPaymentCode(payment.getId(), payment.getCreatedAt());
 
         return PaymentDetailResponse.builder()

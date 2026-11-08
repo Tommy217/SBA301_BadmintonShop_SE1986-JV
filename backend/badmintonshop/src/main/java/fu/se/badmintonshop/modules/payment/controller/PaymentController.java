@@ -25,6 +25,7 @@ import java.util.Map;
 public class PaymentController {
 
     private final PaymentService paymentService;
+    private final PaymentAccess paymentAccess;
 
     /**
      * 1. Tạo phiên thanh toán VietQR (Online Checkout qua payOS)
@@ -34,6 +35,7 @@ public class PaymentController {
             @Valid @RequestBody CreatePaymentRequest request
     ) {
         log.info("Nhận yêu cầu tạo thanh toán cho orderId: {}", request.getOrderId());
+        paymentAccess.order(request.getOrderId());
         CreatePaymentResponse response = paymentService.createPayment(request);
         return ResponseEntity.ok(ApiResponse.success("Tạo phiên thanh toán thành công", response));
     }
@@ -43,6 +45,7 @@ public class PaymentController {
      */
     @GetMapping("/{id}")
     public ResponseEntity<ApiResponse<PaymentDetailResponse>> getPaymentById(@PathVariable Long id) {
+        paymentAccess.payment(id);
         PaymentDetailResponse response = paymentService.getPaymentById(id);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
@@ -53,6 +56,7 @@ public class PaymentController {
     @GetMapping("/by-code/{code}")
     public ResponseEntity<ApiResponse<PaymentDetailResponse>> getPaymentByCode(@PathVariable String code) {
         PaymentDetailResponse response = paymentService.getPaymentByCode(code);
+        paymentAccess.order(response.getOrderId());
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 
@@ -62,6 +66,7 @@ public class PaymentController {
     @GetMapping("/by-payos-code/{code}")
     public ResponseEntity<ApiResponse<PaymentDetailResponse>> getPaymentByPayosOrderCode(@PathVariable Long code) {
         PaymentDetailResponse response = paymentService.getPaymentByPayosOrderCode(code);
+        paymentAccess.order(response.getOrderId());
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 
@@ -70,6 +75,7 @@ public class PaymentController {
      */
     @GetMapping("/order/{orderId}")
     public ResponseEntity<ApiResponse<List<PaymentDetailResponse>>> getPaymentsByOrderId(@PathVariable Long orderId) {
+        paymentAccess.order(orderId);
         List<PaymentDetailResponse> responses = paymentService.getPaymentsByOrderId(orderId);
         return ResponseEntity.ok(ApiResponse.success(responses));
     }
@@ -83,6 +89,7 @@ public class PaymentController {
             @RequestBody(required = false) CancelPaymentRequest request
     ) {
         String reason = request != null ? request.getCancellationReason() : "Hủy bởi khách hàng";
+        paymentAccess.payment(id);
         PaymentDetailResponse response = paymentService.cancelPayment(id, reason);
         return ResponseEntity.ok(ApiResponse.success("Hủy phiên thanh toán thành công", response));
     }
@@ -92,12 +99,14 @@ public class PaymentController {
      */
     @GetMapping("/{id}/sync")
     public ResponseEntity<ApiResponse<PaymentDetailResponse>> syncPayment(@PathVariable Long id) {
+        paymentAccess.payment(id);
         PaymentDetailResponse response = paymentService.syncPaymentStatus(id);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 
     @GetMapping("/order/{orderId}/sync")
     public ResponseEntity<ApiResponse<PaymentDetailResponse>> syncPaymentByOrderId(@PathVariable Long orderId) {
+        paymentAccess.order(orderId);
         PaymentDetailResponse response = paymentService.syncPaymentStatusByOrderId(orderId);
         return ResponseEntity.ok(ApiResponse.success(response));
     }

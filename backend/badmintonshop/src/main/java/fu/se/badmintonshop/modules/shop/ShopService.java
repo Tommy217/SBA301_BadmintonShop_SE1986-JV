@@ -33,6 +33,15 @@ public class ShopService {
 
     @Transactional
     public Map<String, Object> snapshot(AuthService.User user) {
+        return snapshot(user, management(user));
+    }
+
+    @Transactional
+    public Map<String, Object> customerSnapshot(AuthService.User user) {
+        return snapshot(user, false);
+    }
+
+    private Map<String, Object> snapshot(AuthService.User user, boolean staff) {
         if (user != null) {
             try {
                 payments.syncPendingPayments();
@@ -45,7 +54,7 @@ public class ShopService {
             result.put(name, new ArrayList<>());
         }
         if (user == null) return result;
-        boolean staff = management(user);
+
         String orderWhere = staff ? "" : " WHERE o.user_id=?";
         Object[] scope = staff ? new Object[]{} : new Object[]{user.id()};
         result.put("carts", rows("SELECT * FROM carts WHERE user_id=?", user.id()));
