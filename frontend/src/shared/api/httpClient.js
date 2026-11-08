@@ -4,6 +4,7 @@ import { AUTH_EXPIRED_EVENT, clearSession, getToken } from '@/shared/auth/sessio
 export const httpClient = axios.create({
   baseURL: import.meta.env.VITE_API_URL || '/api',
   timeout: 15000,
+  withCredentials: true,
 });
 
 httpClient.interceptors.request.use((config) => {
@@ -17,7 +18,8 @@ httpClient.interceptors.response.use(
   (error) => {
     if (axios.isCancel(error)) return Promise.reject(error);
     const status = error.response?.status;
-    if (status === 401 && error.config?.headers?.Authorization) {
+    const isLoginRequest = error.config?.url?.includes('/auth/login');
+    if (status === 401 && !isLoginRequest) {
       clearSession();
       window.dispatchEvent(new Event(AUTH_EXPIRED_EVENT));
     }
