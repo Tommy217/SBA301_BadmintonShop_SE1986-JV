@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Table, Badge, Button, Form, Alert, Spinner } from 'react-bootstrap';
 import { customerApi } from '@/modules/admin/api/admin.api';
+import { ManagerPagination } from '@/shared/components/ManagerControls';
 
 export default function CustomersPage() {
   const [customers, setCustomers] = useState([]);
@@ -31,6 +32,11 @@ export default function CustomersPage() {
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  // Reset to first page when search or filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search, statusFilter]);
 
   // Statistics
   const stats = {
@@ -262,34 +268,12 @@ export default function CustomersPage() {
       </div>
 
       {/* Pagination Controls */}
-      {totalPages > 1 && (
-        <div className="d-flex justify-content-between align-items-center mt-3">
-          <div className="text-secondary small">
-            Hiển thị {startIndex + 1} - {Math.min(startIndex + pageSize, filtered.length)} trên tổng số {filtered.length} khách hàng
-          </div>
-          <div className="d-flex gap-1">
-            <Button
-              size="sm"
-              variant="outline-secondary"
-              disabled={validPage <= 1}
-              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-            >
-              Trang trước
-            </Button>
-            <span className="px-3 py-1 text-secondary small align-self-center">
-              Trang {validPage} / {totalPages}
-            </span>
-            <Button
-              size="sm"
-              variant="outline-secondary"
-              disabled={validPage >= totalPages}
-              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-            >
-              Trang sau
-            </Button>
-          </div>
-        </div>
-      )}
+      <ManagerPagination
+        total={filtered.length}
+        page={validPage}
+        pageSize={pageSize}
+        onChange={setCurrentPage}
+      />
     </div>
   );
 }

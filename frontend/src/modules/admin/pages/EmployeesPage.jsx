@@ -3,6 +3,7 @@ import { Table, Badge, Button, Form, Alert, Spinner } from 'react-bootstrap';
 import { useAuth } from '@/app/providers/auth/AuthContext';
 import { employeeApi } from '@/modules/admin/api/admin.api';
 import EmployeeModal from '@/modules/admin/components/EmployeeModal';
+import { ManagerPagination } from '@/shared/components/ManagerControls';
 import { ROLES } from '@/shared/constants/roles';
 
 export default function EmployeesPage() {
@@ -41,6 +42,11 @@ export default function EmployeesPage() {
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  // Reset to first page when search or filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search, roleFilter, statusFilter]);
 
   // Statistics
   const stats = {
@@ -187,7 +193,7 @@ export default function EmployeesPage() {
       <div style={styles.header}>
         <div>
           <h1 style={styles.title}>Quản lý nhân viên nội bộ</h1>
-          <div style={styles.subtitle}>Quản lý thông tin tài khoản Admin, Quản lý và Nhân viên</div>
+          <div style={styles.subtitle}>Quản lý thông tin tài khoản Quản trị viên, Quản lý và Nhân viên</div>
         </div>
         <Button
           variant="primary"
@@ -367,34 +373,12 @@ export default function EmployeesPage() {
       </div>
 
       {/* Pagination Controls */}
-      {totalPages > 1 && (
-        <div className="d-flex justify-content-between align-items-center mt-3">
-          <div className="text-secondary small">
-            Hiển thị {startIndex + 1} - {Math.min(startIndex + pageSize, filtered.length)} trên tổng số {filtered.length} nhân viên
-          </div>
-          <div className="d-flex gap-1">
-            <Button
-              size="sm"
-              variant="outline-secondary"
-              disabled={validPage <= 1}
-              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-            >
-              Trang trước
-            </Button>
-            <span className="px-3 py-1 text-secondary small align-self-center">
-              Trang {validPage} / {totalPages}
-            </span>
-            <Button
-              size="sm"
-              variant="outline-secondary"
-              disabled={validPage >= totalPages}
-              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-            >
-              Trang sau
-            </Button>
-          </div>
-        </div>
-      )}
+      <ManagerPagination
+        total={filtered.length}
+        page={validPage}
+        pageSize={pageSize}
+        onChange={setCurrentPage}
+      />
 
       {/* Modal */}
       <EmployeeModal
