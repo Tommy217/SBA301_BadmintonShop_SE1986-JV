@@ -32,7 +32,7 @@ export default function DeliveryManagementDetailPage() {
 
   if (isLoading && !delivery) {
     return (
-      <div className="py-5 text-center">
+      <div className="delivery-page delivery-empty py-5 text-center" role="status">
         <Spinner animation="border" size="sm" className="me-2" />
         Đang tải vận đơn...
       </div>
@@ -41,7 +41,7 @@ export default function DeliveryManagementDetailPage() {
 
   if (!delivery) {
     return (
-      <>
+      <section className="manager-page delivery-page delivery-empty">
         <div className="eyebrow">QUẢN LÝ VẬN HÀNH & GIAO VẬN</div>
         <h1 className="h2 fw-bold mb-2">Không tìm thấy vận đơn</h1>
         <p className="text-secondary mb-4">
@@ -52,7 +52,7 @@ export default function DeliveryManagementDetailPage() {
         <Button className="app-back-button" as={Link} to="/management/deliveries" variant="outline-primary">
           Quay lại danh sách vận đơn
         </Button>
-      </>
+      </section>
     );
   }
 
@@ -109,11 +109,11 @@ export default function DeliveryManagementDetailPage() {
   const trackingLogs = delivery.tracking_logs || [];
 
   return (
-    <>
+    <section className="manager-page delivery-page delivery-management-page">
       <div className="eyebrow">CHI TIẾT VẬN ĐƠN & HÀNH TRÌNH</div>
-      <div className="d-flex flex-wrap align-items-start justify-content-between gap-3 mb-4">
+      <div className="manager-title delivery-heading d-flex flex-wrap align-items-start justify-content-between gap-3 mb-4">
         <div>
-          <div className="d-flex align-items-center gap-2 mb-2">
+          <div className="delivery-title-row d-flex flex-wrap align-items-center gap-2 mb-2">
             <h1 className="h2 fw-bold mb-0">{delivery.tracking_number || 'Chưa có mã vận đơn'}</h1>
             <span
               className="carrier-badge-pill"
@@ -461,7 +461,7 @@ export default function DeliveryManagementDetailPage() {
         </Col>
       </Row>
 
-      <Modal show={cancelReason !== null} onHide={() => setCancelReason(null)} centered>
+      <Modal show={cancelReason !== null} onHide={() => setCancelReason(null)} centered className="delivery-modal">
         <Form onSubmit={handleCancel}>
           <Modal.Header closeButton>
             <Modal.Title className="h5">Huỷ vận đơn</Modal.Title>
@@ -489,6 +489,6 @@ export default function DeliveryManagementDetailPage() {
           </Modal.Footer>
         </Form>
       </Modal>
-    </>
+    </section>
   );
 }

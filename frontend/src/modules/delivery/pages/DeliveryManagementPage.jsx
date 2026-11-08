@@ -7,6 +7,9 @@ import useAutoHide from '@/modules/delivery/hooks/useAutoHide';
 import usePolling from '@/modules/delivery/hooks/usePolling';
 import { formatDateTime, formatMoney } from '@/shared/utils/format';
 import { deliveryApi } from '@/modules/delivery/api/delivery.api';
+import Icon from '@/shared/components/Icon';
+import { ManagerSearch } from '@/shared/components/ManagerControls';
+import '../delivery.css';
 
 
 const EMPTY_LIST = [];
@@ -85,18 +88,19 @@ export default function DeliveryManagementPage() {
   }
 
   return (
-    <>
+    <section className="manager-page delivery-page delivery-management-page">
       <div className="eyebrow">QUẢN LÝ VẬN HÀNH & GIAO VẬN</div>
-      <div className="d-flex flex-wrap align-items-start justify-content-between gap-3 mb-4">
+      <div className="manager-title delivery-heading d-flex flex-wrap align-items-start justify-content-between gap-3 mb-4">
         <div>
-          <h1 className="h2 fw-bold mb-2">Vận đơn & Giao hàng</h1>
+          <h1 className="h2 fw-bold mb-2">Vận đơn & giao hàng</h1>
           <p className="text-secondary mb-0">
             Theo dõi hành trình bưu cục và đồng bộ trạng thái trực tiếp từ các đối tác giao hàng.
 
           </p>
         </div>
         <div className="d-flex gap-2 align-items-center">
-          <Badge bg="light" text="dark" className="fs-6 border">
+          <Badge bg="light" text="dark" className="delivery-total border">
+            <Icon name="truck" size={16} />
             {deliveries.length} vận đơn
           </Badge>
         </div>
@@ -118,40 +122,39 @@ export default function DeliveryManagementPage() {
       )}
 
       {/* Thẻ thống kê 4 trạng thái chính */}
-      <div className="row g-3 mb-4">
+      <div className="delivery-stats row g-3 mb-4">
         {[
-          ['Chờ lấy hàng', countByStatus('pending_pickup'), 'warning'],
-          ['Đang trung chuyển', countByStatus('in_transit'), 'info'],
-          ['Đang phát hàng', countByStatus('out_for_delivery'), 'primary'],
-          ['Giao thành công', countByStatus('delivered'), 'success'],
-        ].map(([label, count, variant]) => (
+          ['Chờ lấy hàng', countByStatus('pending_pickup'), 'warning', 'bag'],
+          ['Đang trung chuyển', countByStatus('in_transit'), 'info', 'truck'],
+          ['Đang phát hàng', countByStatus('out_for_delivery'), 'primary', 'pin'],
+          ['Giao thành công', countByStatus('delivered'), 'success', 'check'],
+        ].map(([label, count, variant, icon]) => (
           <div className="col-6 col-xl-3" key={label}>
             <Card className="border-0 shadow-sm h-100">
               <Card.Body className="p-3">
-                <div className="small text-secondary mb-1">{label}</div>
-                <div className={`fs-3 fw-bold text-${variant}`}>{count}</div>
+                <div className="delivery-stat-label"><span>{label}</span><span className={`delivery-stat-icon text-${variant}`}><Icon name={icon} size={19} /></span></div>
+                <div className="delivery-stat-count">{count}</div>
               </Card.Body>
             </Card>
           </div>
         ))}
       </div>
 
-      <Card className="border-0 shadow-sm">
+      <Card className="delivery-list-panel border-0 shadow-sm">
         <Card.Body className="p-3 p-md-4">
           {/* Bộ lọc & Tìm kiếm */}
-          <div className="row g-3 mb-4">
+          <div className="delivery-filters row g-3 mb-4">
             <div className="col-lg-8">
               <Form.Label
-                htmlFor="delivery-search"
+                as="div"
                 className="fw-semibold small"
               >
                 Tìm kiếm vận đơn
               </Form.Label>
-              <Form.Control
-                id="delivery-search"
-                type="search"
+              <ManagerSearch
+                label="Tìm kiếm vận đơn"
                 value={query}
-                onChange={(e) => setQuery(e.target.value)}
+                onChange={setQuery}
                 placeholder="Mã vận đơn, mã đơn, khách hàng, số điện thoại, địa chỉ..."
               />
             </div>
@@ -176,12 +179,13 @@ export default function DeliveryManagementPage() {
           </div>
 
           {isLoading && !shipmentPage ? (
-            <div className="py-5 text-center">
+            <div className="delivery-empty py-5 text-center" role="status">
               <Spinner animation="border" size="sm" className="me-2" />
               Đang tải vận đơn...
             </div>
           ) : filteredDeliveries.length === 0 ? (
-            <div className="empty-state py-5 text-center">
+            <div className="delivery-empty py-5 text-center">
+              <span className="delivery-empty-icon"><Icon name="truck" size={30} /></span>
               <h2 className="h5 fw-bold mb-2">
                 Không tìm thấy vận đơn phù hợp
               </h2>
@@ -385,6 +389,6 @@ export default function DeliveryManagementPage() {
           )}
         </Card.Body>
       </Card>
-    </>
+    </section>
   );
 }

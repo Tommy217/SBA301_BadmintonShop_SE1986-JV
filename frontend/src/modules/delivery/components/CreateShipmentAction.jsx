@@ -4,6 +4,7 @@ import { Link } from 'react-router';
 import { carrierServices } from '@/modules/delivery/constants';
 import { deliveryApi } from '@/modules/delivery/api/delivery.api';
 import { useCarriers, useShipments } from '@/modules/delivery/hooks/useDelivery';
+import '../delivery.css';
 
 const SHIPPABLE = ['confirmed', 'preparing'];
 const INACTIVE = ['cancelled', 'rejected'];
@@ -77,7 +78,7 @@ export default function CreateShipmentAction({ order, onCreated }) {
         </Alert>
       )}
 
-      <Modal show={form !== null} onHide={() => setForm(null)} centered>
+      <Modal show={form !== null} onHide={() => setForm(null)} centered className="delivery-modal">
         {form && (
           <Form onSubmit={submit}>
             <Modal.Header closeButton>

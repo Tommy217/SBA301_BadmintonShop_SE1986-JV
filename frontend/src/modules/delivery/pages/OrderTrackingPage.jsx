@@ -25,7 +25,7 @@ export default function OrderTrackingPage() {
 
   if (!order) {
     return (
-      <div className="py-5 text-center">
+      <div className="delivery-page delivery-customer-page delivery-empty py-5 text-center">
         <div className="eyebrow">THEO DÕI ĐƠN HÀNG</div>
         <h1 className="h3 fw-bold mb-2">Không tìm thấy đơn hàng</h1>
         <p className="text-secondary mb-4">
@@ -87,11 +87,11 @@ export default function OrderTrackingPage() {
   const trackingLogs = delivery?.tracking_logs || [];
 
   return (
-    <div className="py-2">
+    <section className="delivery-page delivery-customer-page py-2">
       <div className="eyebrow">THEO DÕI HÀNH TRÌNH ĐƠN HÀNG</div>
-      <div className="d-flex flex-wrap align-items-start justify-content-between gap-3 mb-4">
+      <div className="delivery-heading d-flex flex-wrap align-items-start justify-content-between gap-3 mb-4">
         <div>
-          <div className="d-flex align-items-center gap-2 mb-1">
+          <div className="delivery-title-row d-flex flex-wrap align-items-center gap-2 mb-1">
             <h1 className="h3 fw-bold mb-0">Đơn hàng #{order.order_code}</h1>
             <Badge bg={getOrderStatus(order.status).variant} text={order.status === 'pending' ? 'dark' : undefined}>{getOrderStatus(order.status).label}</Badge>
             {carrier && (
@@ -507,6 +507,6 @@ export default function OrderTrackingPage() {
           </Card>
         </Col>
       </Row>
-    </div>
+    </section>
   );
 }
