@@ -25,7 +25,7 @@ export default function SupportTicketDetailPage() {
         <p className="text-secondary mb-4">
           Phiếu hỗ trợ không tồn tại hoặc không thuộc tài khoản của bạn.
         </p>
-        <Button as={Link} to="/support-tickets" variant="outline-primary">
+        <Button className="app-back-button" as={Link} to="/support-tickets" variant="outline-primary">
           Quay lại danh sách phiếu hỗ trợ
         </Button>
       </>
@@ -83,7 +83,7 @@ export default function SupportTicketDetailPage() {
               Hủy yêu cầu
             </Button>
           )}
-          <Button as={Link} to="/support-tickets" variant="outline-secondary">
+          <Button className="app-back-button" as={Link} to="/support-tickets" variant="outline-secondary">
             ← Quay lại danh sách
           </Button>
         </div>

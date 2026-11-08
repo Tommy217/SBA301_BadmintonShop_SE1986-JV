@@ -220,7 +220,7 @@ export default function CreateSupportTicketPage() {
             Hỗ trợ xử lý trả hàng và hoàn tiền trực tiếp cho các đơn hàng đã thanh toán trực tuyến.
           </p>
         </div>
-        <Button as={Link} to="/support-tickets" variant="outline-secondary">
+        <Button className="app-back-button" as={Link} to="/support-tickets" variant="outline-secondary">
           ← Quay lại danh sách
         </Button>
       </div>

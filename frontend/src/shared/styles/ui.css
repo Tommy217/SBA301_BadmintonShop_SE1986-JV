@@ -138,3 +138,156 @@ body {
     transition: none;
   }
 }
+
+/* Feedback shared by customer pages, management screens and modal portals. */
+.alert {
+  --feedback-color: #366581;
+  --feedback-bg: #f0f7fc;
+  --feedback-border: #cfe2f0;
+  position: relative;
+  padding: 15px 18px 15px 50px;
+  border: 1px solid var(--feedback-border);
+  border-left: 3px solid var(--feedback-color);
+  border-radius: 12px;
+  background: var(--feedback-bg);
+  color: var(--feedback-color);
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+}
+.alert::before {
+  content: 'i';
+  position: absolute;
+  top: 17px;
+  left: 17px;
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border: 1.5px solid currentColor;
+  border-radius: 50%;
+  font-size: 12px;
+  font-weight: 750;
+  line-height: 1;
+}
+.alert.alert-success {
+  --feedback-color: #287253;
+  --feedback-bg: #f0f9f4;
+  --feedback-border: #cce7d8;
+}
+.alert.alert-success::before {
+  content: '✓';
+}
+.alert.alert-danger {
+  --feedback-color: #ac3f50;
+  --feedback-bg: #fff3f4;
+  --feedback-border: #f0d1d7;
+}
+.alert.alert-danger::before {
+  content: '!';
+}
+.alert.alert-warning {
+  --feedback-color: #946a25;
+  --feedback-bg: #fff9ed;
+  --feedback-border: #efdfbb;
+}
+.alert.alert-warning::before {
+  content: '!';
+}
+.alert.alert-dismissible {
+  padding-right: 48px;
+}
+.alert.alert-dismissible .btn-close {
+  padding: 20px 17px;
+  opacity: 0.45;
+}
+.alert .alert-heading {
+  color: inherit;
+  font-size: 15px;
+}
+.alert a:not(.btn) {
+  color: inherit;
+  font-weight: 650;
+  text-underline-offset: 3px;
+}
+.alert p:last-child {
+  margin-bottom: 0;
+}
+.alert .btn {
+  border-radius: 8px;
+  font-size: 12px;
+  padding: 6px 12px;
+}
+:is(p, .form-text, .invalid-feedback).text-danger {
+  color: #ac3f50 !important;
+  font-size: 12px;
+  line-height: 1.7;
+}
+:is(p, .form-text, .valid-feedback).text-success {
+  color: #287253 !important;
+  font-size: 12px;
+  line-height: 1.7;
+}
+
+/* Secondary navigation remains consistent across page layouts. */
+.app-back-button.app-back-button {
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: fit-content;
+  max-width: 100%;
+  min-height: 38px;
+  padding: 8px 14px;
+  border: 1px solid #dce5ee;
+  border-radius: 9px;
+  background: #fff;
+  color: #557087;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.6;
+  text-decoration: none;
+  text-align: center;
+  box-shadow: 0 1px 3px #29496305;
+  transition:
+    background-color 0.15s,
+    border-color 0.15s,
+    color 0.15s;
+}
+.app-back-button.app-back-button:hover {
+  background: #edf5fc;
+  color: #246baf;
+  border-color: #bdd3e8;
+  text-decoration: none;
+}
+.app-back-button.app-back-button:focus-visible {
+  outline: 3px solid #a6c9e9;
+  outline-offset: 3px;
+}
+.app-back-button.app-back-button:active {
+  background: #e4eff9;
+  color: #1d568c;
+}
+.app-back-button.app-back-button:disabled {
+  opacity: 0.55;
+}
+.app-back-button.app-back-button.mt-3 {
+  margin-inline: auto;
+}
+@media (max-width: 575px) {
+  .alert {
+    padding: 13px 14px 13px 43px;
+    font-size: 12px;
+  }
+  .alert::before {
+    left: 13px;
+    top: 15px;
+    width: 18px;
+    height: 18px;
+    font-size: 11px;
+  }
+  .alert.alert-dismissible {
+    padding-right: 40px;
+  }
+}

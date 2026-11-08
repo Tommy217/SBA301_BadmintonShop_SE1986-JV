@@ -119,7 +119,7 @@ export default function OrderTrackingPage() {
           </p>
         </div>
         <div className="d-flex gap-2">
-          <Button as={Link} to="/orders" variant="outline-secondary">
+          <Button className="app-back-button" as={Link} to="/orders" variant="outline-secondary">
             ← Danh sách đơn hàng
           </Button>
         </div>

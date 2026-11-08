@@ -49,7 +49,7 @@ export default function SupportTicketManagementDetailPage() {
       <section className="manager-page">
         <h1 className="h2 fw-bold mb-2">Không tìm thấy phiếu hỗ trợ</h1>
         <p className="text-secondary mb-4">Phiếu hỗ trợ không tồn tại hoặc đã bị xóa.</p>
-        <Button as={Link} to="/management/support-tickets" variant="outline-primary">
+        <Button className="app-back-button" as={Link} to="/management/support-tickets" variant="outline-primary">
           Quay lại danh sách
         </Button>
       </section>
@@ -232,7 +232,7 @@ export default function SupportTicketManagementDetailPage() {
             Quy trình tiếp nhận sơ duyệt, kiểm định và giải quyết trả hàng & hoàn tiền.
           </p>
         </div>
-        <Button as={Link} to="/management/support-tickets" variant="outline-secondary">
+        <Button className="app-back-button" as={Link} to="/management/support-tickets" variant="outline-secondary">
           ← Quay lại danh sách
         </Button>
       </div>

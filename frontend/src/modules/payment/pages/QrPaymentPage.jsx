@@ -31,7 +31,7 @@ export default function QrPaymentPage() {
         <Alert variant="info">
           {model.error || 'Vui lòng chọn phương thức thanh toán cho đơn hàng.'}
         </Alert>
-        <Button
+        <Button className="app-back-button"
           as={Link}
           to={model.orderId ? '/payments?order=' + encodeURIComponent(model.orderId) : '/orders'}
         >

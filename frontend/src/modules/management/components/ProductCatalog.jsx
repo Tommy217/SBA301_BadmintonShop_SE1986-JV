@@ -66,7 +66,7 @@ export default function ProductManagementPage() {
             {product.brand} · {optionLabels[product.product_type]}
           </p>
         </div>
-        <Button variant="outline-primary" onClick={() => setParams({})}>
+        <Button className="app-back-button" variant="outline-primary" onClick={() => setParams({})}>
           ← Danh sách sản phẩm
         </Button>
       </div>

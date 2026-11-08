@@ -130,7 +130,7 @@ export default function OrderPage() {
         <Button as={Link} to="/products" className="me-2">
           Xem sản phẩm
         </Button>
-        <Button as={Link} to="/cart" variant="outline-primary">
+        <Button className="app-back-button" as={Link} to="/cart" variant="outline-primary">
           Về giỏ hàng
         </Button>
       </div>
@@ -140,7 +140,7 @@ export default function OrderPage() {
     <div className="commerce-page order-page">
       <header className="checkout-heading">
         <div>
-          <Link className="checkout-back" to={directVariant ? '/products' : '/cart'}>
+          <Link className="checkout-back app-back-button" to={directVariant ? '/products' : '/cart'}>
             ← {directVariant ? 'Tiếp tục mua sắm' : 'Quay lại giỏ hàng'}
           </Link>
           <p className="checkout-eyebrow">SẴN SÀNG CHO TRẬN ĐẤU MỚI</p>
@@ -351,12 +351,6 @@ export default function OrderPage() {
                 <p className="checkout-submit-note">
                   <Icon name="shield" size={15} /> Thanh toán an toàn qua ứng dụng ngân hàng
                 </p>
-                <Link
-                  className="d-block text-center small mt-3"
-                  to={directVariant ? '/products' : '/cart'}
-                >
-                  {directVariant ? 'Quay lại sản phẩm' : 'Quay lại giỏ hàng'}
-                </Link>
               </Card.Body>
             </Card>
           </Col>

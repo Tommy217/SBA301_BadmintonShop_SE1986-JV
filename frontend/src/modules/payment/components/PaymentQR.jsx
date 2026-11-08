@@ -79,7 +79,7 @@ function PaymentQR({ payment, onCheckResult, onChooseAnotherMethod }) {
             <Button variant="primary" onClick={onCheckResult} disabled={isPlaceholder}>
               Kiểm tra kết quả giao dịch
             </Button>
-            <Button variant="outline-secondary" onClick={onChooseAnotherMethod}>
+            <Button className="app-back-button" variant="outline-secondary" onClick={onChooseAnotherMethod}>
               Quay lại chọn phương thức
             </Button>
           </div>

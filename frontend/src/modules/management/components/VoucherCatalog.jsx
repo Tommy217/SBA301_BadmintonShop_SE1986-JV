@@ -51,7 +51,7 @@ export default function VoucherManagementPage() {
             {optionLabels[voucher.audience || 'public']}
           </p>
         </div>
-        <Button variant="outline-primary" onClick={() => setParams({})}>
+        <Button className="app-back-button" variant="outline-primary" onClick={() => setParams({})}>
           ← Danh sách voucher
         </Button>
       </div>

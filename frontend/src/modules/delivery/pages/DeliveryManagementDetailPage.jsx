@@ -49,7 +49,7 @@ export default function DeliveryManagementDetailPage() {
             ? 'Vận đơn không tồn tại hoặc đã bị xóa khỏi hệ thống.'
             : loadError.message}
         </p>
-        <Button as={Link} to="/management/deliveries" variant="outline-primary">
+        <Button className="app-back-button" as={Link} to="/management/deliveries" variant="outline-primary">
           Quay lại danh sách vận đơn
         </Button>
       </>
@@ -131,7 +131,7 @@ export default function DeliveryManagementDetailPage() {
           </p>
         </div>
         <div className="d-flex gap-2">
-          <Button as={Link} to="/management/deliveries" variant="outline-secondary">
+          <Button className="app-back-button" as={Link} to="/management/deliveries" variant="outline-secondary">
             ← Quay lại danh sách
           </Button>
         </div>
