@@ -85,7 +85,7 @@ export default function ProductDetailPage() {
         <h1 className="detail-title">{product.name}</h1>
         <p className="detail-price">{formatMoney(variant?.price ?? product.base_price)}</p>
         <p className="product-detail-description">{product.description || 'Chưa có mô tả sản phẩm.'}</p>
-        <div className="purchase-selection" aria-live="polite">{variant ? 'Đã chọn: ' + color + ' / ' + size + ' · Còn ' + variant.stock_quantity + ' sản phẩm' : available.length ? 'Vui lòng chọn màu sắc và kích cỡ' : 'Sản phẩm tạm hết hàng'}</div>
+        <div className="purchase-selection" aria-live="polite">{variant ? 'Đã chọn: ' + color + ' / ' + size + (variant.stock_quantity > 0 ? ' · Còn hàng' : ' · Hết hàng') : available.length ? 'Vui lòng chọn màu sắc và kích cỡ' : 'Sản phẩm tạm hết hàng'}</div>
         <fieldset className="purchase-group" disabled={busy}>
           <legend>Màu sắc {color && <span>{color}</span>}</legend>
           <div className="purchase-options">{colors.map((value) => {
@@ -119,7 +119,7 @@ export default function ProductDetailPage() {
     <section className="detail-specs"><h2 className="h4">Thông số sản phẩm</h2>
       {specs.length ? <Table striped responsive className="mt-3"><tbody>{specs.map(({ key, label }) => <tr key={key}><th scope="row">{label}{key === 'shaft_diameter' ? ' (mm)' : ''}</th><td>{optionLabels[spec[key]] || spec[key]}</td></tr>)}</tbody></Table> : <p className="text-secondary">Thông số đang được cập nhật.</p>}
       <h3 className="h5 mt-4">Thông số các biến thể</h3>
-      <Table responsive className="detail-variants-table"><thead><tr><th>Màu sắc</th><th>{product.product_type === 'racket' ? 'Trọng lượng - Cỡ cán' : 'Kích cỡ'}</th><th>SKU</th><th>Giá</th><th>Tồn kho</th></tr></thead><tbody>{variants.map((v) => <tr key={v.id}><td>{v.color || 'Không phân màu'}</td><td>{v.size || 'Một kích cỡ'}</td><td>{v.sku}</td><td>{formatMoney(v.price)}</td><td>{v.stock_quantity > 0 ? v.stock_quantity : 'Hết hàng'}</td></tr>)}</tbody></Table>
+      <Table responsive className="detail-variants-table"><thead><tr><th>Màu sắc</th><th>{product.product_type === 'racket' ? 'Trọng lượng - Cỡ cán' : 'Kích cỡ'}</th><th>SKU</th><th>Giá</th><th>Trạng thái</th></tr></thead><tbody>{variants.map((v) => <tr key={v.id}><td>{v.color || 'Không phân màu'}</td><td>{v.size || 'Một kích cỡ'}</td><td>{v.sku}</td><td>{formatMoney(v.price)}</td><td>{v.stock_quantity > 0 ? 'Còn hàng' : 'Hết hàng'}</td></tr>)}</tbody></Table>
     </section>
     <Modal show={preview} onHide={() => setPreview(false)} centered size="lg"><Modal.Header closeButton><Modal.Title className="h5">{product.name}</Modal.Title></Modal.Header><Modal.Body className="product-preview"><img src={productImage(data, product, variant?.id)} onError={productImageFallback} alt={product.name} /></Modal.Body></Modal>
   </div>;

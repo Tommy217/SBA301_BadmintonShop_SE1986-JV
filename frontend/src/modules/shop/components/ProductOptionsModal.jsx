@@ -44,7 +44,7 @@ export default function ProductOptionsModal({ product, data, buy, busy, onHide, 
             <span className="purchase-eyebrow">CHỌN PHÂN LOẠI</span>
             <h2 id="product-options-title">{product.name}</h2>
             <strong className="purchase-price">{formatMoney(price)}</strong>
-            <span className="purchase-stock">{stock > 0 ? 'Có sẵn ' + stock + ' sản phẩm' : 'Tạm hết hàng'}</span>
+            <span className="purchase-stock">{stock > 0 ? 'Còn hàng' : 'Tạm hết hàng'}</span>
           </div>
         </div>
         <div className="purchase-selection" aria-live="polite">{color && size ? 'Đã chọn: ' + color + ' / ' + size : 'Vui lòng chọn ' + (!color && !size ? 'màu sắc và kích cỡ' : !color ? 'màu sắc' : 'kích cỡ')}</div>
@@ -67,7 +67,7 @@ export default function ProductOptionsModal({ product, data, buy, busy, onHide, 
         </fieldset>
         {product.product_type === 'racket' && <p className="purchase-hint">U: nhóm trọng lượng vợt · G: kích cỡ cán vợt</p>}
         <div className="purchase-quantity-row">
-          <div><label htmlFor="purchase-quantity">Số lượng</label><small>{variant ? 'Tối đa ' + maxQuantity + ' sản phẩm' : 'Chọn phân loại trước'}</small></div>
+          <div><label htmlFor="purchase-quantity">Số lượng</label>{!variant && <small>Chọn phân loại trước</small>}</div>
           <div className="purchase-stepper">
             <button type="button" aria-label="Giảm số lượng" disabled={locked || !variant || selectedQuantity <= 1} onClick={() => setQuantity(selectedQuantity - 1)}>−</button>
             <input id="purchase-quantity" type="number" min="1" max={maxQuantity} step="1" value={selectedQuantity} disabled={locked || !variant} onChange={(event) => setQuantity(Math.min(maxQuantity, Math.max(1, Math.floor(Number(event.target.value) || 1))))} />
