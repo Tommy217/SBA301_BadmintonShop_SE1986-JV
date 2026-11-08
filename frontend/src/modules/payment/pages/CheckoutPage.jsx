@@ -4,6 +4,7 @@ import PaymentSummary from '@/modules/payment/components/PaymentSummary';
 import usePayment from '@/modules/payment/hooks/usePayment';
 import PaymentPage from './PaymentPage';
 import '@/modules/payment/PaymentPage.css';
+import Icon from '@/shared/components/Icon';
 
 function CheckoutPage() {
   const payment = usePayment();
@@ -27,17 +28,38 @@ function CheckoutPage() {
       </Container>
     );
   return (
-    <main className="payment-page">
-      <Container>
-        <div className="payment-heading mb-4">
-          <h1 className="h3 fw-bold mb-2">Thanh toán</h1>
-          <p className="text-secondary mb-0">Chọn phương thức thanh toán để hoàn tất đơn hàng.</p>
-        </div>
+    <section className="payment-page">
+      <Container fluid className="payment-container">
+        <Button as={Link} to="/orders" variant="outline-secondary" className="app-back-button mb-3">
+          ← Quay lại đơn hàng
+        </Button>
+        <header className="payment-heading mb-4">
+          <div>
+            <p className="payment-eyebrow">HOÀN TẤT ĐƠN HÀNG</p>
+            <h1 className="h3 fw-bold mb-2">Thanh toán</h1>
+            <p className="text-secondary mb-0">
+              Chỉ còn một bước để sẵn sàng cho trận đấu tiếp theo.
+            </p>
+          </div>
+          <div className="payment-order-reference">
+            <Icon name="receipt" size={18} />
+            <div>
+              <span>Mã đơn hàng</span>
+              <strong>{payment.order.order_code}</strong>
+            </div>
+          </div>
+        </header>
+
+        <ol className="payment-progress" aria-label="Tiến trình thanh toán">
+          <li aria-current="step">
+            <span>1</span>Phương thức thanh toán
+          </li>
+          <li>
+            <span>2</span>Quét mã & hoàn tất
+          </li>
+        </ol>
 
         {payment.error && <Alert variant="danger">{payment.error}</Alert>}
-        <p className="text-secondary">
-          Đơn hàng: <strong>{payment.order.order_code}</strong>
-        </p>
         <Row className="g-4 align-items-start">
           <Col lg={7}>
             <PaymentPage
@@ -46,16 +68,19 @@ function CheckoutPage() {
               onSubmit={payment.startPayment}
               busy={payment.busy}
               paid={payment.order.payment_status === 'paid'}
+              total={payment.total}
             />
           </Col>
 
           <Col lg={5}>
-            <Card className="delivery-card mb-3">
+            <Card className="delivery-card mb-4">
               <Card.Body className="p-4">
                 <div className="d-flex align-items-center justify-content-between gap-3 mb-3">
                   <div>
-                    <p className="payment-step mb-2">THÔNG TIN GIAO HÀNG</p>
-                    <h2 className="h6 fw-bold mb-0">Giao đến</h2>
+                    <h2 className="h6 fw-bold mb-0 payment-delivery-title">
+                      <Icon name="pin" size={18} />
+                      Địa chỉ nhận hàng
+                    </h2>
                   </div>
                   <Button
                     className="delivery-edit"
@@ -81,11 +106,12 @@ function CheckoutPage() {
               shippingFee={payment.shippingFee}
               subtotal={payment.subtotal}
               total={payment.total}
+              discount={payment.order.discount_amount}
             />
           </Col>
         </Row>
       </Container>
-    </main>
+    </section>
   );
 }
 
