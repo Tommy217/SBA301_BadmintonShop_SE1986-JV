@@ -45,6 +45,9 @@ class PaymentControllerTest {
     private MockMvc mockMvc;
 
     @MockitoBean
+    private fu.se.badmintonshop.modules.payment.controller.PaymentAccess paymentAccess;
+
+    @MockitoBean
     private PaymentService paymentService;
 
     private final ObjectMapper objectMapper = new ObjectMapper();

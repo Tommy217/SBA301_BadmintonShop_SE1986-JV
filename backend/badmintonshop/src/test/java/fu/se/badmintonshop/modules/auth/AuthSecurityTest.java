@@ -47,6 +47,17 @@ class AuthSecurityTest {
         mvc.perform(post("/api/webhooks/carriers/fastship")).andExpect(status().isOk());
     }
 
+    @Test void deletedUserTokenReturnsUnauthorized() throws Exception {
+        var user = new CustomUserDetails(99L, "deleted@test.com", "Deleted", "", true, List.of());
+        String token = jwtService.generateAccessToken(user);
+        when(userDetailsService.loadUserByUsername("deleted@test.com"))
+            .thenThrow(new org.springframework.security.core.userdetails.UsernameNotFoundException("User not found"));
+        mvc.perform(get("/api/auth/me").header("Authorization", "Bearer " + token))
+            .andExpect(status().isUnauthorized());
+        mvc.perform(get("/api/brands").header("Authorization", "Bearer " + token))
+            .andExpect(status().isOk());
+    }
+
     @Test void enforcesDatabaseRolesAndOverridesSpoofedUserHeader() throws Exception {
         for (String role : List.of("ADMIN", "MANAGER", "STAFF", "CUSTOMER")) {
             CustomUserDetails userDetails = new CustomUserDetails(

@@ -170,7 +170,7 @@ public class AuthServiceImpl implements AuthService {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Chưa xác thực.");
         }
         fu.se.badmintonshop.modules.auth.entity.User user = userRepository.findWithRolesById(userDetails.getId())
-            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy người dùng."));
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Phiên đăng nhập không còn hợp lệ. Vui lòng đăng nhập lại."));
 
         List<String> roles = user.getRoles().stream()
             .map(Role::getCode)

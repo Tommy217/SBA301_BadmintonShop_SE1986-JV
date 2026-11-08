@@ -4,7 +4,7 @@ import { authApi } from '@/modules/auth/api/auth.api';
 import { AuthContext } from './AuthContext';
 import { Alert, Button } from 'react-bootstrap';
 import Loading from '@/shared/components/Loading';
-export default function AuthProvider({ children }) {
+export default function AuthProvider({ children, onSessionExpired }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(() => Boolean(getToken()));
   const [connectionError, setConnectionError] = useState('');
@@ -32,12 +32,17 @@ export default function AuthProvider({ children }) {
       .then((identity) => {
         if (!active) return;
         if (identity) login({ ...identity, authToken: token });
-        else clear();
+        else {
+          clear();
+          if (token) onSessionExpired?.();
+        }
       })
       .catch((error) => {
         if (!active) return;
-        if ([401, 403].includes(error.status)) clear();
-        else
+        if ([401, 403, 404].includes(error.status)) {
+          clear();
+          onSessionExpired?.();
+        } else
           setConnectionError(
             error.message || 'Chưa kiểm tra được phiên đăng nhập. Vui lòng thử lại.',
           );
@@ -45,12 +50,16 @@ export default function AuthProvider({ children }) {
       .finally(() => {
         if (active) setLoading(false);
       });
-    window.addEventListener(AUTH_EXPIRED_EVENT, clear);
+    const expireSession = () => {
+      clear();
+      onSessionExpired?.();
+    };
+    window.addEventListener(AUTH_EXPIRED_EVENT, expireSession);
     return () => {
       active = false;
-      window.removeEventListener(AUTH_EXPIRED_EVENT, clear);
+      window.removeEventListener(AUTH_EXPIRED_EVENT, expireSession);
     };
-  }, [login, clear, attempt]);
+  }, [login, clear, attempt, onSessionExpired]);
   const value = useMemo(() => ({ user, login, logout }), [user, login, logout]);
   return (
     <AuthContext.Provider value={value}>
