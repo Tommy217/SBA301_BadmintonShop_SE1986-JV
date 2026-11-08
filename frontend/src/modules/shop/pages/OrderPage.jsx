@@ -36,7 +36,7 @@ export default function OrderPage() {
     let active = true;
     const controller = new AbortController();
     httpClient
-      .get('/shop/vouchers', { signal: controller.signal })
+      .get('/orders/vouchers', { signal: controller.signal })
       .then((result) => {
         if (active) {
           setWallet({ ...result, userId });

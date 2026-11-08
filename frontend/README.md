@@ -51,7 +51,7 @@ Tài khoản lấy từ SQL Server (`users`, `roles`, `user_roles`), không còn
 
 Bốn tài khoản trong SQL seed: `admin@gmail.com`, `manager@gmail.com`, `staff@gmail.com`, `customer@gmail.com`; mật khẩu seed: `123`.
 
-Mọi API đi tới Java. Backend kiểm tra BCrypt, trạng thái tài khoản và role trong database. Token có hạn 8 giờ, bị thu hồi khi đăng xuất; khởi động lại backend sẽ yêu cầu đăng nhập lại. Frontend chỉ giữ token, hiển thị và điều hướng theo thông tin backend trả về. `/api/shop` trả dữ liệu theo người dùng trong token; khách không được xem đơn hàng của người khác.
+Mọi API đi tới Java. Backend kiểm tra BCrypt, trạng thái tài khoản và role trong database. Token có hạn 8 giờ, bị thu hồi khi đăng xuất; khởi động lại backend sẽ yêu cầu đăng nhập lại. Frontend chỉ giữ token, hiển thị và điều hướng theo thông tin backend trả về. `/api/orders` trả dữ liệu theo người dùng trong token; khách không được xem đơn hàng của người khác.
 
 ### Các cổng trong toàn hệ thống
 
@@ -164,13 +164,13 @@ await act(() =>
 );
 ```
 
-Spring Boot cung cấp `/api/shop`: `GET` trả snapshot theo quyền và người dùng, `POST { type, ... }` ghi thao tác vào SQL Server rồi trả dữ liệu mới. Giá, voucher, tồn kho và quyền sở hữu được kiểm tra lại ở backend trong transaction. `ShopProvider` giữ snapshot; `useShop()` trả `{ data, busy, act, refresh }`.
+Spring Boot cung cấp API riêng: `GET /api/cart`, `POST /api/cart/items`, `PATCH /api/cart/items/{id}`, `DELETE /api/cart/items/{id}`, `PATCH /api/cart/selection`; `GET /api/orders`, `POST /api/orders` (checkout), `POST /api/orders/{id}/cancel`, `PATCH /api/orders/{id}/status`, và các route payment của đơn. Backend lưu bằng JPA và trả snapshot mới sau thao tác. Giá, voucher, tồn kho và quyền sở hữu được kiểm tra lại ở backend trong transaction. `ShopProvider` giữ snapshot; `useShop()` trả `{ data, busy, act, refresh }`.
 
-Catalog tải qua một request `GET /api/catalog`, thay cho 11–12 request riêng trước đây. Luồng cửa hàng dùng `view=shop` và tải song song với `/api/shop` (tổng cộng 2 request). Backend chỉ trả lịch sử giá và lượt dùng voucher cho người có quyền quản lý; dữ liệu này không được cache chung giữa người dùng.
+Catalog tải qua một request `GET /api/catalog`, thay cho 11–12 request riêng trước đây. Luồng cửa hàng dùng `view=shop` và tải song song với `/api/cart` và `/api/orders` (tổng cộng 3 request). Backend chỉ trả lịch sử giá và lượt dùng voucher cho người có quyền quản lý; dữ liệu này không được cache chung giữa người dùng.
 
 Riêng đăng nhập (`authApi.login` → `/api/auth/login`) và quản lý tài khoản (`adminApi` → `/api/users`) đã gọi theo kiểu REST.
 
-Các thao tác phiếu hỗ trợ sử dụng service Java hiện có; kho, catalog và hóa đơn dùng các endpoint REST riêng. Local và bản deploy sử dụng cùng nguồn dữ liệu SQL Server.
+Các thao tác phiếu hỗ trợ gọi `/api/support/actions` và sử dụng service Java hiện có; kho, catalog và hóa đơn dùng các endpoint REST riêng. Local và bản deploy sử dụng cùng nguồn dữ liệu SQL Server.
 
 `httpClient` tự làm các việc sau, page không cần lặp lại:
 
@@ -178,7 +178,7 @@ Các thao tác phiếu hỗ trợ sử dụng service Java hiện có; kho, cata
 - Gắn header `Authorization: Bearer <token>`.
 - Gặp 401 khi đang có token thì xóa phiên và phát sự kiện `auth-expired` để `AuthProvider` đăng xuất.
 - Chuyển lỗi thành `Error` có `message` tiếng Việt lấy từ `response.data.message`.
-- Giới hạn chờ mặc định 15 giây, riêng thao tác `/api/shop` là 30 giây. Không tự gửi lại thao tác ghi khi timeout; cần kiểm tra trạng thái trước khi gửi lại.
+- Giới hạn chờ mặc định 15 giây, riêng thao tác cart/order/support là 30 giây. Không tự gửi lại thao tác ghi khi timeout; cần kiểm tra trạng thái trước khi gửi lại.
 - Lỗi mạng khi kiểm tra phiên đăng nhập giữ token và hiện nút thử lại; chỉ hiển thị ứng dụng sau khi xác thực thành công.
 
 Khi cập nhật bản deploy, chạy lại backend mới trước, sau đó build và tải `dist/` lên Pages. Xem [hướng dẫn Cloudflare](../deploy/README.md).

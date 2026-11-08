@@ -2,7 +2,7 @@ import { httpClient } from '@/shared/api/httpClient';
 import { sendShopAction } from '@/app/providers/shop/shop.api';
 
 export const paymentApi = {
-  getShopData: (config) => httpClient.get('/shop/mine', config),
+  getShopData: (config) => httpClient.get('/orders/mine', config),
   startPayment: (payload) => sendShopAction({ type: 'start_payment', ...payload }),
   cancelPayment: (payload) => sendShopAction({ type: 'cancel_payment', ...payload }),
   cancelPaymentByOrder: (orderId, reason) =>
@@ -13,7 +13,8 @@ export const paymentApi = {
     httpClient.post(`/payments/${encodeURIComponent(paymentId)}/cancel`, {
       cancellationReason: reason || 'Khách hàng chủ động hủy thanh toán',
     }),
-  syncPaymentByOrder: (orderId) => httpClient.get(`/payments/order/${encodeURIComponent(orderId)}/sync`),
+  syncPaymentByOrder: (orderId) =>
+    httpClient.get(`/payments/order/${encodeURIComponent(orderId)}/sync`),
   getPaymentTimeout: () => httpClient.get('/payments/settings/timeout'),
   updatePaymentTimeout: (timeoutMinutes) =>
     sendShopAction({ type: 'update_payment_timeout', timeout_minutes: timeoutMinutes }),
