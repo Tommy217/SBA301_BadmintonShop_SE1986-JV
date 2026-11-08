@@ -39,7 +39,7 @@ export default function PaymentResultPage() {
       ? 'success'
       : model.order.status === 'cancelled' || model.record?.status === 'cancelled'
         ? 'cancelled'
-        : model.record?.status === 'failed'
+        : ['failed', 'expired'].includes(model.record?.status)
           ? 'failed'
           : 'pending';
   return (
@@ -48,13 +48,21 @@ export default function PaymentResultPage() {
         <PaymentStatus
           payment={model.payment}
           status={getTransactionStatus(statusKey)}
-          showRetry={['failed', 'cancelled'].includes(statusKey)}
+          showRetry={
+            ['failed', 'cancelled'].includes(statusKey) &&
+            model.order.payment_status === 'unpaid' &&
+            !['cancelled', 'returned'].includes(model.order.status)
+          }
           onRetry={() => navigate('/payments?order=' + encodeURIComponent(model.orderId))}
           onHome={() => navigate('/')}
         />
         <div className="text-center mt-3 d-flex justify-content-center gap-2">
           {statusKey === 'pending' && (
-            <Button as={Link} to={'/payments/qr?order=' + encodeURIComponent(model.orderId)} variant="primary">
+            <Button
+              as={Link}
+              to={'/payments/qr?order=' + encodeURIComponent(model.orderId)}
+              variant="primary"
+            >
               Quay lại quét mã QR
             </Button>
           )}

@@ -12,23 +12,14 @@ export default function QrPaymentPage() {
   const navigate = useNavigate();
 
   const handleCancelPayment = async (reason) => {
-    if (!model.orderId) return;
-    try {
-      await paymentApi.cancelPayment({
-        order_id: model.orderId,
-        reason: reason || 'Khách hàng chủ động hủy thanh toán',
-      });
-      refresh?.();
-      navigate('/payments/result?order=' + encodeURIComponent(model.orderId));
-    } catch {
-      try {
-        await paymentApi.cancelPaymentByOrder(model.orderId, reason);
-        refresh?.();
-        navigate('/payments/result?order=' + encodeURIComponent(model.orderId));
-      } catch (e) {
-        alert(e.message || 'Không thể hủy thanh toán.');
-      }
-    }
+    if (!model.orderId || !model.record?.id)
+      throw new Error('Không tìm thấy phiên thanh toán hiện tại.');
+    await paymentApi.cancelPaymentById(model.record.id, reason);
+    refresh?.().catch(() => {});
+    navigate('/payments?order=' + encodeURIComponent(model.orderId), {
+      replace: true,
+      state: { paymentCancelled: true },
+    });
   };
   if (model.loading)
     return (
@@ -42,11 +33,41 @@ export default function QrPaymentPage() {
         <Alert variant="info">
           {model.error || 'Vui lòng chọn phương thức thanh toán cho đơn hàng.'}
         </Alert>
-        <Button className="app-back-button"
+        <Button
+          className="app-back-button"
           as={Link}
           to={model.orderId ? '/payments?order=' + encodeURIComponent(model.orderId) : '/orders'}
         >
           Quay lại
+        </Button>
+      </Container>
+    );
+  if (['cancelled', 'returned'].includes(model.order.status))
+    return (
+      <Container fluid className="py-3">
+        <Alert variant="info">Đơn hàng đã hủy hoặc trả lại, không thể tiếp tục thanh toán.</Alert>
+        <Button as={Link} to="/orders" className="app-back-button">
+          Quay lại đơn hàng
+        </Button>
+      </Container>
+    );
+  if (model.order.payment_status === 'paid')
+    return (
+      <Container fluid className="py-3">
+        <Alert variant="success">Đơn hàng đã thanh toán thành công.</Alert>
+        <Button as={Link} to={'/payments/result?order=' + encodeURIComponent(model.orderId)}>
+          Xem kết quả thanh toán
+        </Button>
+      </Container>
+    );
+  if (['cancelled', 'expired', 'failed'].includes(model.record?.status))
+    return (
+      <Container fluid className="py-3">
+        <Alert variant="info">
+          Phiên thanh toán này đã kết thúc. Bạn có thể tạo mã QR mới để thanh toán đơn hàng.
+        </Alert>
+        <Button as={Link} to={'/payments?order=' + encodeURIComponent(model.orderId)}>
+          Thanh toán lại
         </Button>
       </Container>
     );

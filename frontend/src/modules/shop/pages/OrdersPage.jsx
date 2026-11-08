@@ -7,7 +7,6 @@ import Icon from '@/shared/components/Icon';
 import { carriers, deliveryStatuses } from '@/modules/delivery/constants';
 import { useMyShipments } from '@/modules/delivery/hooks/useDelivery';
 import { payments } from '@/modules/management/constants';
-import { paymentApi } from '@/modules/payment/api/payment.api';
 import useOrderUpdates from '../hooks/useOrderUpdates';
 import { getOrderStatus } from '../utils/orderStatus';
 import { productImage, productImageFallback } from '../utils/productImages';
@@ -24,7 +23,7 @@ const tabs = [
 ];
 
 export default function OrdersPage() {
-  const { data, act, refresh } = useShop();
+  const { data } = useShop();
   const { state } = useLocation();
   const [activeTab, setActiveTab] = useState('all');
   const [page, setPage] = useState(1);
@@ -35,15 +34,6 @@ export default function OrdersPage() {
   const totalPages = Math.max(1, Math.ceil(visibleOrders.length / 5));
   const currentPage = Math.min(page, totalPages);
   const pageOrders = visibleOrders.slice((currentPage - 1) * 5, currentPage * 5);
-
-  const handleCancelPaymentOrder = async (orderId) => {
-    if (!window.confirm('Bạn có chắc chắn muốn hủy phiên thanh toán và hủy đơn hàng này không?')) return;
-    try {
-      await act(() => paymentApi.cancelPayment({ order_id: orderId, reason: 'Khách hàng chủ động hủy thanh toán' }));
-    } catch (e) {
-      alert(e.message || 'Không thể hủy thanh toán.');
-    }
-  };
 
   return <section className="customer-orders">
     <header className="orders-heading"><div><span className="orders-eyebrow">MUA SẮM CỦA BẠN</span><h1>Đơn hàng của tôi</h1><p>Theo dõi đơn hàng và những món đồ bạn yêu thích.</p></div><Link to="/products" className="orders-shop-link">Tiếp tục mua sắm <span aria-hidden="true">↗</span></Link></header>
@@ -66,7 +56,7 @@ export default function OrdersPage() {
         const canCreateTicket = order.payment_status === 'paid' && !closed && !activeTicket && !isRefunded && !hasInspectionFailed && nonCancelledCount < 2;
         const payment = (data.payments || []).filter((p) => String(p.order_id) === String(order.id)).at(-1);
         const hasQrCode = Boolean(
-          payment && (payment.qr_code_url || payment.qrCodeUrl || payment.checkout_url || payment.checkoutUrl || payment.gateway_txn_ref || payment.gatewayTxnRef)
+          payment?.status === 'pending' && (payment.qr_code_url || payment.qrCodeUrl || payment.checkout_url || payment.checkoutUrl || payment.gateway_txn_ref || payment.gatewayTxnRef)
         );
         const items = data.order_items.filter((item) => String(item.order_id) === String(order.id));
         const trackingUrl = '/orders/' + encodeURIComponent(order.id) + '/tracking';
@@ -83,7 +73,7 @@ export default function OrdersPage() {
           })}</div>
           <div className="order-tile-footer">
             <div className="order-total-row"><span>{items.reduce((sum, item) => sum + Number(item.quantity), 0)} sản phẩm <span className="order-total-dot">·</span> Phí giao hàng {Number(order.shipping_fee) ? formatMoney(order.shipping_fee) : 'miễn phí'}</span><div>Thành tiền <strong>{formatMoney(order.total_amount)}</strong></div></div>
-            <div className="order-bottom-row"><span className="order-payment-note"><span className={'order-payment-dot' + (order.payment_status === 'paid' ? ' is-paid' : '')} />{payments[order.payment_status] || order.payment_status}{payment?.method === 'cod' ? ' · Khi nhận hàng' : ' · VietQR payOS'}</span><div className="order-actions">
+            <div className="order-bottom-row"><span className="order-payment-note"><span className={'order-payment-dot' + (order.payment_status === 'paid' ? ' is-paid' : '')} />{order.status === 'cancelled' && order.payment_status === 'paid' ? 'Chờ hoàn tiền' : payments[order.payment_status] || order.payment_status}{payment?.method === 'cod' ? ' · Khi nhận hàng' : ' · VietQR payOS'}</span><div className="order-actions">
               {activeTicket ? (
                 <Link className="order-action" to={'/support-tickets/' + encodeURIComponent(activeTicket.id)}>Xem phiếu hỗ trợ</Link>
               ) : canCreateTicket ? (

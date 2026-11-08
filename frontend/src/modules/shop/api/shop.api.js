@@ -10,4 +10,5 @@ export const cartApi = {
 
 export const orderApi = {
   checkout: (payload) => sendShopAction({ type: 'checkout', ...payload }),
+  cancel: (orderId, reason) => sendShopAction({ type: 'cancel_order', order_id: orderId, reason }),
 };
