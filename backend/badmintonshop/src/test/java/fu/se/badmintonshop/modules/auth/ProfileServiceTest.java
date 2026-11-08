@@ -55,7 +55,8 @@ class ProfileServiceTest {
             "Nguyen Van Test",
             passwordEncoder.encode("oldpass123"),
             true,
-            List.of(new SimpleGrantedAuthority("ROLE_CUSTOMER"))
+            false,
+            "CUSTOMER"
         );
 
         sampleUser = User.builder()
@@ -67,13 +68,13 @@ class ProfileServiceTest {
             .birthDate(LocalDate.of(2000, 1, 1))
             .passwordHash(passwordEncoder.encode("oldpass123"))
             .status("active")
-            .roles(new HashSet<>(Set.of(Role.builder().id(1).code("CUSTOMER").name("Khách hàng").build())))
+            .role(Role.builder().id(1).code("CUSTOMER").name("Khách hàng").build())
             .build();
     }
 
     @Test
     void getProfileReturnsUserProfile() {
-        when(userRepository.findWithRolesById(1L)).thenReturn(Optional.of(sampleUser));
+        when(userRepository.findWithRoleById(1L)).thenReturn(Optional.of(sampleUser));
 
         ProfileResponse response = profileService.getProfile(currentUser);
 
@@ -82,19 +83,19 @@ class ProfileServiceTest {
         assertEquals("test@badminton.com", response.getEmail());
         assertEquals("Nguyen Van Test", response.getFullName());
         assertEquals("0987654321", response.getPhone());
-        assertEquals(List.of("CUSTOMER"), response.getRoles());
+        assertEquals("CUSTOMER", response.getRole());
     }
 
     @Test
     void getProfileThrowsNotFoundWhenUserDoesNotExist() {
-        when(userRepository.findWithRolesById(1L)).thenReturn(Optional.empty());
+        when(userRepository.findWithRoleById(1L)).thenReturn(Optional.empty());
 
         assertThrows(ResponseStatusException.class, () -> profileService.getProfile(currentUser));
     }
 
     @Test
     void updateProfileUpdatesFieldsSuccessfully() {
-        when(userRepository.findWithRolesById(1L)).thenReturn(Optional.of(sampleUser));
+        when(userRepository.findWithRoleById(1L)).thenReturn(Optional.of(sampleUser));
         when(userRepository.save(any(User.class))).thenAnswer(inv -> inv.getArgument(0));
 
         UpdateProfileRequest request = UpdateProfileRequest.builder()
@@ -117,7 +118,7 @@ class ProfileServiceTest {
 
     @Test
     void updateProfileRejectsInvalidGender() {
-        when(userRepository.findWithRolesById(1L)).thenReturn(Optional.of(sampleUser));
+        when(userRepository.findWithRoleById(1L)).thenReturn(Optional.of(sampleUser));
 
         UpdateProfileRequest request = UpdateProfileRequest.builder()
             .fullName("Nguyen Van A")
@@ -129,7 +130,7 @@ class ProfileServiceTest {
 
     @Test
     void changePasswordSuccessfullyUpdatesPassword() {
-        when(userRepository.findWithRolesById(1L)).thenReturn(Optional.of(sampleUser));
+        when(userRepository.findWithRoleById(1L)).thenReturn(Optional.of(sampleUser));
         when(userRepository.save(any(User.class))).thenAnswer(inv -> inv.getArgument(0));
 
         ChangePasswordRequest request = ChangePasswordRequest.builder()
@@ -146,7 +147,7 @@ class ProfileServiceTest {
 
     @Test
     void changePasswordRejectsWrongCurrentPassword() {
-        when(userRepository.findWithRolesById(1L)).thenReturn(Optional.of(sampleUser));
+        when(userRepository.findWithRoleById(1L)).thenReturn(Optional.of(sampleUser));
 
         ChangePasswordRequest request = ChangePasswordRequest.builder()
             .currentPassword("wrongpass")
@@ -158,7 +159,7 @@ class ProfileServiceTest {
 
     @Test
     void changePasswordRejectsIdenticalNewPassword() {
-        when(userRepository.findWithRolesById(1L)).thenReturn(Optional.of(sampleUser));
+        when(userRepository.findWithRoleById(1L)).thenReturn(Optional.of(sampleUser));
 
         ChangePasswordRequest request = ChangePasswordRequest.builder()
             .currentPassword("oldpass123")
@@ -170,7 +171,7 @@ class ProfileServiceTest {
 
     @Test
     void changePasswordRejectsMismatchedConfirmPassword() {
-        when(userRepository.findWithRolesById(1L)).thenReturn(Optional.of(sampleUser));
+        when(userRepository.findWithRoleById(1L)).thenReturn(Optional.of(sampleUser));
 
         ChangePasswordRequest request = ChangePasswordRequest.builder()
             .currentPassword("oldpass123")
@@ -183,7 +184,7 @@ class ProfileServiceTest {
 
     @Test
     void getAddressesReturnsUserAddresses() {
-        when(userRepository.findWithRolesById(1L)).thenReturn(Optional.of(sampleUser));
+        when(userRepository.findWithRoleById(1L)).thenReturn(Optional.of(sampleUser));
         Address addr1 = Address.builder()
             .id(101L)
             .user(sampleUser)
@@ -208,7 +209,7 @@ class ProfileServiceTest {
 
     @Test
     void addAddressMakesFirstAddressDefaultAutomatically() {
-        when(userRepository.findWithRolesById(1L)).thenReturn(Optional.of(sampleUser));
+        when(userRepository.findWithRoleById(1L)).thenReturn(Optional.of(sampleUser));
         when(addressRepository.existsByUserId(1L)).thenReturn(false);
         when(addressRepository.save(any(Address.class))).thenAnswer(inv -> {
             Address a = inv.getArgument(0);
@@ -235,7 +236,7 @@ class ProfileServiceTest {
 
     @Test
     void addAddressWithDefaultTrueClearsOldDefaults() {
-        when(userRepository.findWithRolesById(1L)).thenReturn(Optional.of(sampleUser));
+        when(userRepository.findWithRoleById(1L)).thenReturn(Optional.of(sampleUser));
         when(addressRepository.existsByUserId(1L)).thenReturn(true);
 
         Address oldDefault = Address.builder().id(101L).user(sampleUser).isDefault(true).build();
@@ -260,7 +261,7 @@ class ProfileServiceTest {
 
     @Test
     void updateAddressUpdatesAndProtectsOtherUsers() {
-        when(userRepository.findWithRolesById(1L)).thenReturn(Optional.of(sampleUser));
+        when(userRepository.findWithRoleById(1L)).thenReturn(Optional.of(sampleUser));
         Address address = Address.builder()
             .id(101L)
             .user(sampleUser)
@@ -296,7 +297,7 @@ class ProfileServiceTest {
 
     @Test
     void deleteAddressDeletesAndReassignsDefaultIfWasDefault() {
-        when(userRepository.findWithRolesById(1L)).thenReturn(Optional.of(sampleUser));
+        when(userRepository.findWithRoleById(1L)).thenReturn(Optional.of(sampleUser));
         Address defaultAddr = Address.builder().id(101L).user(sampleUser).isDefault(true).build();
         Address secondAddr = Address.builder().id(102L).user(sampleUser).isDefault(false).build();
 

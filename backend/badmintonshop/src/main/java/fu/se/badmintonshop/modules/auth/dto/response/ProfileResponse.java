@@ -1,13 +1,11 @@
 package fu.se.badmintonshop.modules.auth.dto.response;
 
-import fu.se.badmintonshop.modules.auth.entity.Role;
 import fu.se.badmintonshop.modules.auth.entity.User;
 import lombok.*;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.List;
-import java.util.Objects;
+import java.util.Locale;
 
 @Getter
 @Setter
@@ -24,11 +22,12 @@ public class ProfileResponse {
     private String avatarUrl;
     private String status;
     private boolean active;
-    private List<String> roles;
+    private boolean locked;
+    private String role;
     private LocalDateTime lastLoginAt;
     private LocalDateTime createdAt;
 
-    public static ProfileResponse fromUser(User user, List<String> roles) {
+    public static ProfileResponse fromUser(User user, String role) {
         if (user == null) {
             return null;
         }
@@ -42,7 +41,8 @@ public class ProfileResponse {
             .avatarUrl(user.getAvatarUrl())
             .status(user.getStatus())
             .active(user.isActive())
-            .roles(roles)
+            .locked(user.isLocked())
+            .role(role)
             .lastLoginAt(user.getLastLoginAt())
             .createdAt(user.getCreatedAt())
             .build();
@@ -52,13 +52,9 @@ public class ProfileResponse {
         if (user == null) {
             return null;
         }
-        List<String> roleCodes = user.getRoles() == null ? List.of() : user.getRoles().stream()
-            .map(Role::getCode)
-            .filter(Objects::nonNull)
-            .map(String::toUpperCase)
-            .sorted()
-            .toList();
-        return fromUser(user, roleCodes);
+        if (user.getRole() == null || user.getRole().getCode() == null) {
+            throw new IllegalStateException("User ID " + user.getId() + " is missing role data");
+        }
+        return fromUser(user, user.getRole().getCode().toUpperCase(Locale.ROOT));
     }
 }
-

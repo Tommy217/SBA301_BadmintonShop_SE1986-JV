@@ -95,6 +95,7 @@ flowchart LR
 ---
 
 ### Giai đoạn 4: User Administration & Dọn dẹp mã cũ (Ưu tiên 2 & 3)
+> **Kế hoạch chi tiết tái cấu trúc Single-Role & Hoàn thiện Giai đoạn 4:** Xem [`single_role_refactor_plan.md`](./single_role_refactor_plan.md)
 * **Thời lượng dự kiến:** 2 ngày.
 * **Nhiệm vụ trọng tâm:**
   1. **Tái cấu trúc `UserController` & `UserService` (`/api/users`):**

@@ -324,7 +324,7 @@ public class ShopService {
         return Objects.requireNonNull(keys.getKey()).longValue();
     }
 
-    public static boolean management(AuthService.User user) { return user != null && user.roles().stream().anyMatch(Set.of("STAFF", "MANAGER", "ADMIN")::contains); }
+    public static boolean management(AuthService.User user) { return user != null && Set.of("STAFF", "MANAGER", "ADMIN").contains(user.role()); }
     public static long id(Object value) {
         try { long id = Long.parseLong(Objects.toString(value, "")); if (id > 0) return id; } catch (NumberFormatException ignored) { }
         throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Mã dữ liệu không hợp lệ.");

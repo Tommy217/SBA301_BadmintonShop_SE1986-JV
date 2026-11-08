@@ -4,7 +4,7 @@ import { Navbar, Button, Dropdown } from 'react-bootstrap';
 import { Link } from 'react-router';
 import { useAuth } from '@/app/providers/auth/AuthContext';
 import { useShop } from '@/app/providers/shop/ShopContext';
-import { getRoles } from '@/shared/auth/session';
+import { getRole } from '@/shared/auth/session';
 import { getRoleHomePath } from '@/shared/auth/rolePaths';
 import './PublicHeader.css';
 
@@ -41,10 +41,10 @@ function HeaderIcon({ type }) {
 export default function PublicHeader({ management = false }) {
   const shop = useShop();
   const { user, logout } = useAuth();
-  const homePath = getRoleHomePath(getRoles(user));
+  const homePath = getRoleHomePath(getRole(user));
   const accountPath = homePath === '/' ? '/orders' : homePath;
   const accountLabel =
-    homePath === '/admin'
+    homePath.startsWith('/admin')
       ? 'Quản lý tài khoản'
       : homePath === '/management'
         ? 'Dashboard quản lý'

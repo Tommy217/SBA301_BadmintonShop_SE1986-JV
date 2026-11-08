@@ -5,7 +5,6 @@ import fu.se.badmintonshop.modules.auth.dto.request.RegisterRequest;
 import fu.se.badmintonshop.modules.auth.dto.response.AuthResponse;
 import fu.se.badmintonshop.modules.auth.dto.response.UserResponse;
 import fu.se.badmintonshop.modules.auth.entity.Role;
-import fu.se.badmintonshop.modules.auth.entity.User;
 import fu.se.badmintonshop.modules.auth.repository.RoleRepository;
 import fu.se.badmintonshop.modules.auth.repository.UserRepository;
 import fu.se.badmintonshop.modules.auth.security.CustomUserDetails;
@@ -14,15 +13,15 @@ import fu.se.badmintonshop.modules.auth.service.AuthService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
-import org.springframework.security.core.GrantedAuthority;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDateTime;
-import java.util.*;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Optional;
 
 @Service
 @Slf4j
@@ -45,23 +44,22 @@ public class AuthServiceImpl implements AuthService {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Email hoặc mật khẩu không đúng.");
         }
 
+        if (user.isLocked()) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Tài khoản của bạn đã bị khóa. Vui lòng liên hệ quản trị viên.");
+        }
+
         if (!user.isActive()) {
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Tài khoản đã bị khóa.");
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Tài khoản không hoạt động.");
         }
 
         user.setLastLoginAt(LocalDateTime.now());
         userRepository.save(user);
 
-        List<String> roleCodes = user.getRoles().stream()
-            .map(Role::getCode)
-            .filter(Objects::nonNull)
-            .map(c -> c.toUpperCase(Locale.ROOT))
-            .sorted()
-            .toList();
+        if (user.getRole() == null || user.getRole().getCode() == null) {
+            throw new IllegalStateException("User ID " + user.getId() + " has no role assigned in database");
+        }
 
-        List<GrantedAuthority> authorities = roleCodes.stream()
-            .map(r -> (GrantedAuthority) new SimpleGrantedAuthority("ROLE_" + r))
-            .toList();
+        String roleCode = user.getRole().getCode().trim().toUpperCase(Locale.ROOT);
 
         CustomUserDetails userDetails = new CustomUserDetails(
             user.getId(),
@@ -69,18 +67,19 @@ public class AuthServiceImpl implements AuthService {
             user.getFullName(),
             user.getPasswordHash(),
             user.isActive(),
-            authorities
+            user.isLocked(),
+            roleCode
         );
 
         String token = jwtService.generateAccessToken(userDetails);
 
-        UserResponse userResponse = toUserResponse(user, roleCodes);
+        UserResponse userResponse = toUserResponse(user, roleCode);
 
         return AuthResponse.builder()
             .id(user.getId())
             .email(user.getEmail())
             .fullName(user.getFullName())
-            .roles(roleCodes)
+            .role(roleCode)
             .authToken(token)
             .accessToken(token)
             .tokenType("Bearer")
@@ -101,7 +100,7 @@ public class AuthServiceImpl implements AuthService {
             "id", res.getId(),
             "email", res.getEmail(),
             "fullName", res.getFullName(),
-            "roles", res.getRoles(),
+            "role", res.getRole(),
             "authToken", res.getAuthToken(),
             "accessToken", res.getAccessToken()
         );
@@ -120,10 +119,7 @@ public class AuthServiceImpl implements AuthService {
         }
 
         Role customerRole = roleRepository.findByCodeIgnoreCase("CUSTOMER")
-            .orElseGet(() -> roleRepository.save(Role.builder()
-                .code("CUSTOMER")
-                .name("Khách hàng")
-                .build()));
+            .orElseThrow(() -> new IllegalStateException("Critical database error: Role 'CUSTOMER' does not exist in database"));
 
         fu.se.badmintonshop.modules.auth.entity.User user = fu.se.badmintonshop.modules.auth.entity.User.builder()
             .email(email)
@@ -131,13 +127,12 @@ public class AuthServiceImpl implements AuthService {
             .phone(request.getPhone() != null && !request.getPhone().isBlank() ? request.getPhone().trim() : null)
             .passwordHash(passwordEncoder.encode(request.getPassword()))
             .status("active")
-            .roles(new HashSet<>(Set.of(customerRole)))
+            .role(customerRole)
             .build();
 
         user = userRepository.save(user);
 
-        List<String> roleCodes = List.of("CUSTOMER");
-        List<GrantedAuthority> authorities = List.of(new SimpleGrantedAuthority("ROLE_CUSTOMER"));
+        String roleCode = "CUSTOMER";
 
         CustomUserDetails userDetails = new CustomUserDetails(
             user.getId(),
@@ -145,7 +140,8 @@ public class AuthServiceImpl implements AuthService {
             user.getFullName(),
             user.getPasswordHash(),
             true,
-            authorities
+            false,
+            roleCode
         );
 
         String token = jwtService.generateAccessToken(userDetails);
@@ -154,12 +150,12 @@ public class AuthServiceImpl implements AuthService {
             .id(user.getId())
             .email(user.getEmail())
             .fullName(user.getFullName())
-            .roles(roleCodes)
+            .role(roleCode)
             .authToken(token)
             .accessToken(token)
             .tokenType("Bearer")
             .expiresIn(86400L)
-            .user(toUserResponse(user, roleCodes))
+            .user(toUserResponse(user, roleCode))
             .build();
     }
 
@@ -169,33 +165,26 @@ public class AuthServiceImpl implements AuthService {
         if (userDetails == null || userDetails.getId() == null) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Chưa xác thực.");
         }
-        fu.se.badmintonshop.modules.auth.entity.User user = userRepository.findWithRolesById(userDetails.getId())
+        fu.se.badmintonshop.modules.auth.entity.User user = userRepository.findWithRoleById(userDetails.getId())
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Phiên đăng nhập không còn hợp lệ. Vui lòng đăng nhập lại."));
 
-        List<String> roles = user.getRoles().stream()
-            .map(Role::getCode)
-            .filter(Objects::nonNull)
-            .map(c -> c.toUpperCase(Locale.ROOT))
-            .sorted()
-            .toList();
+        if (user.getRole() == null || user.getRole().getCode() == null) {
+            throw new IllegalStateException("User ID " + user.getId() + " has no role assigned");
+        }
 
-        return toUserResponse(user, roles);
+        String roleCode = user.getRole().getCode().trim().toUpperCase(Locale.ROOT);
+        return toUserResponse(user, roleCode);
     }
 
     @Override
     @Transactional(readOnly = true)
     public AuthService.User user(long id) {
-        return userRepository.findWithRolesById(id)
+        return userRepository.findWithRoleById(id)
             .map(u -> new AuthService.User(
                 u.getId(),
                 u.getEmail(),
                 u.getFullName(),
-                u.getRoles().stream()
-                    .map(Role::getCode)
-                    .filter(Objects::nonNull)
-                    .map(c -> c.toUpperCase(Locale.ROOT))
-                    .sorted()
-                    .toList(),
+                u.getRoleCode().toUpperCase(Locale.ROOT),
                 u.isActive()
             ))
             .orElse(null);
@@ -214,7 +203,7 @@ public class AuthServiceImpl implements AuthService {
                 Optional<fu.se.badmintonshop.modules.auth.entity.User> optionalUser = userRepository.findByEmailIgnoreCase(username);
                 if (optionalUser.isPresent()) {
                     fu.se.badmintonshop.modules.auth.entity.User u = optionalUser.get();
-                    if (u.isActive()) {
+                    if (u.isActive() && !u.isLocked()) {
                         return user(u.getId());
                     }
                 }
@@ -229,7 +218,7 @@ public class AuthServiceImpl implements AuthService {
         log.debug("User logged out with header: {}", header != null ? "present" : "null");
     }
 
-    private UserResponse toUserResponse(fu.se.badmintonshop.modules.auth.entity.User user, List<String> roleCodes) {
+    private UserResponse toUserResponse(fu.se.badmintonshop.modules.auth.entity.User user, String roleCode) {
         return UserResponse.builder()
             .id(user.getId())
             .email(user.getEmail())
@@ -240,7 +229,8 @@ public class AuthServiceImpl implements AuthService {
             .avatarUrl(user.getAvatarUrl())
             .status(user.getStatus())
             .active(user.isActive())
-            .roles(roleCodes)
+            .locked(user.isLocked())
+            .role(roleCode)
             .lastLoginAt(user.getLastLoginAt())
             .createdAt(user.getCreatedAt())
             .build();

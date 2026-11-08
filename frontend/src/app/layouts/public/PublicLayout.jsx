@@ -5,12 +5,12 @@ import PublicSidebar from './PublicSidebar';
 import PublicFooter from '@/shared/components/PublicFooter';
 import ShopProvider from '@/app/providers/shop/ShopProvider';
 import '@/shared/styles/app.css';
-import { getRoles, getToken } from '@/shared/auth/session';
+import { getRole, getToken } from '@/shared/auth/session';
 import { getRoleHomePath } from '@/shared/auth/rolePaths';
 export default function PublicLayout() {
   const { user } = useAuth();
   const { pathname } = useLocation();
-  const homePath = getRoleHomePath(getRoles(user));
+  const homePath = getRoleHomePath(getRole(user));
 
   if (pathname === '/' && homePath !== '/') return <Navigate to={homePath} replace />;
 

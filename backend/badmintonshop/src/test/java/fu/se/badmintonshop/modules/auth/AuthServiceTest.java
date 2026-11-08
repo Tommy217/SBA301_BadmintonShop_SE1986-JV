@@ -18,35 +18,36 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.web.server.ResponseStatusException;
 
-import java.util.*;
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class AuthServiceTest {
 
     @Mock
-    UserRepository userRepository;
+    private UserRepository userRepository;
 
     @Mock
-    RoleRepository roleRepository;
+    private RoleRepository roleRepository;
 
-    PasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
-    JwtService jwtService;
-    AuthService authService;
+    private PasswordEncoder passwordEncoder;
+    private JwtService jwtService;
+    private AuthService authService;
 
     @BeforeEach
     void setUp() {
+        passwordEncoder = new BCryptPasswordEncoder();
+
         JwtProperties properties = new JwtProperties();
-        ReflectionTestUtils.setField(properties, "secretBase64", "404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970");
+        ReflectionTestUtils.setField(properties, "secretBase64", "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef");
         ReflectionTestUtils.setField(properties, "accessTokenTtlSeconds", 86400L);
         jwtService = new JwtService(properties);
 
@@ -62,7 +63,7 @@ class AuthServiceTest {
             .fullName("Nguyen Van A")
             .passwordHash(passwordEncoder.encode("123456"))
             .status("active")
-            .roles(new HashSet<>(Set.of(customerRole)))
+            .role(customerRole)
             .build();
 
         when(userRepository.findByEmailIgnoreCase("customer@gmail.com")).thenReturn(Optional.of(user));
@@ -76,7 +77,7 @@ class AuthServiceTest {
         assertNotNull(response.getAccessToken());
         assertNotNull(response.getAuthToken());
         assertEquals("customer@gmail.com", response.getEmail());
-        assertEquals(List.of("CUSTOMER"), response.getRoles());
+        assertEquals("CUSTOMER", response.getRole());
         verify(userRepository).save(user);
     }
 
@@ -89,7 +90,7 @@ class AuthServiceTest {
             .fullName("Locked User")
             .passwordHash(passwordEncoder.encode("123456"))
             .status("locked")
-            .roles(new HashSet<>(Set.of(customerRole)))
+            .role(customerRole)
             .build();
 
         when(userRepository.findByEmailIgnoreCase("locked@gmail.com")).thenReturn(Optional.of(lockedUser));
@@ -122,7 +123,7 @@ class AuthServiceTest {
 
         assertNotNull(response.getAccessToken());
         assertEquals("newuser@gmail.com", response.getEmail());
-        assertEquals(List.of("CUSTOMER"), response.getRoles());
+        assertEquals("CUSTOMER", response.getRole());
     }
 
     @Test
@@ -145,10 +146,10 @@ class AuthServiceTest {
             .email("admin@test.com")
             .fullName("Admin")
             .status("active")
-            .roles(new HashSet<>(Set.of(adminRole)))
+            .role(adminRole)
             .build();
 
-        when(userRepository.findWithRolesById(5L)).thenReturn(Optional.of(user));
+        when(userRepository.findWithRoleById(5L)).thenReturn(Optional.of(user));
 
         CustomUserDetails userDetails = new CustomUserDetails(
             5L,
@@ -156,12 +157,13 @@ class AuthServiceTest {
             "Admin",
             "hash",
             true,
-            List.of(new SimpleGrantedAuthority("ROLE_ADMIN"))
+            false,
+            "ADMIN"
         );
 
         UserResponse profile = authService.me(userDetails);
         assertEquals(5L, profile.getId());
         assertEquals("admin@test.com", profile.getEmail());
-        assertEquals(List.of("ADMIN"), profile.getRoles());
+        assertEquals("ADMIN", profile.getRole());
     }
 }

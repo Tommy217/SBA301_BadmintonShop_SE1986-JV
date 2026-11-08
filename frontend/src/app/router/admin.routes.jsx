@@ -1,7 +1,9 @@
+import { Navigate } from 'react-router';
 import { ROLES } from '@/shared/constants/roles';
 import ProtectedRoute from './ProtectedRoute';
 import AdminLayout from '@/app/layouts/admin/AdminLayout';
-import AccountsPage from '@/modules/admin/pages/AccountsPage';
+import EmployeesPage from '@/modules/admin/pages/EmployeesPage';
+import CustomersPage from '@/modules/admin/pages/CustomersPage';
 
 export const adminRoutes = [
   {
@@ -10,7 +12,11 @@ export const adminRoutes = [
       {
         path: '/admin',
         element: <AdminLayout />,
-        children: [{ index: true, element: <AccountsPage /> }],
+        children: [
+          { index: true, element: <Navigate to="/admin/employees" replace /> },
+          { path: 'employees', element: <EmployeesPage /> },
+          { path: 'customers', element: <CustomersPage /> },
+        ],
       },
     ],
   },

@@ -17,22 +17,31 @@ SET QUOTED_IDENTIFIER ON;
 GO
 
 -- =====================================================================
--- 1-3. USERS, AUTHENTICATION, ROLES & PERMISSIONS
+-- 1-3. ROLES, USERS & AUTHENTICATION
 -- =====================================================================
+CREATE TABLE roles (                                -- Customer, Staff, Manager, Admin
+  id    INT IDENTITY(1,1) PRIMARY KEY,
+  code  VARCHAR(30) NOT NULL UNIQUE,
+  name  NVARCHAR(80) NOT NULL
+);
+
 CREATE TABLE users (
-  id             BIGINT IDENTITY(1,1) PRIMARY KEY,
-  email          VARCHAR(190) NOT NULL UNIQUE,
-  phone          VARCHAR(20) NULL,
-  password_hash  VARCHAR(255) NOT NULL,
-  full_name      NVARCHAR(150) NOT NULL,
-  gender         VARCHAR(20) NULL CHECK (gender IN ('male','female','other')),
-  birth_date     DATE NULL,
-  avatar_url     VARCHAR(500),
-  status         VARCHAR(20) NOT NULL DEFAULT 'active' CHECK (status IN ('active','inactive','locked')), -- Deactivate User
+  id                BIGINT IDENTITY(1,1) PRIMARY KEY,
+  role_id           INT NOT NULL,
+  email             VARCHAR(190) NOT NULL UNIQUE,
+  phone             VARCHAR(20) NULL,
+  password_hash     VARCHAR(255) NOT NULL,
+  full_name         NVARCHAR(150) NOT NULL,
+  gender            VARCHAR(20) NULL CHECK (gender IN ('male','female','other')),
+  birth_date        DATE NULL,
+  avatar_url        VARCHAR(500),
+  status            VARCHAR(20) NOT NULL DEFAULT 'active' CHECK (status IN ('active','locked')),
   email_verified_at DATETIME2(0) NULL,
-  last_login_at  DATETIME2(0) NULL,
-  created_at     DATETIME2(0) NOT NULL DEFAULT SYSDATETIME(),
-  updated_at     DATETIME2(0) NOT NULL DEFAULT SYSDATETIME(),
+  last_login_at     DATETIME2(0) NULL,
+  created_at        DATETIME2(0) NOT NULL DEFAULT SYSDATETIME(),
+  updated_at        DATETIME2(0) NOT NULL DEFAULT SYSDATETIME(),
+  FOREIGN KEY (role_id) REFERENCES roles(id),
+  INDEX idx_users_role_id (role_id),
   INDEX idx_users_status (status)
 );
 
@@ -58,37 +67,6 @@ CREATE TABLE addresses (                            -- Store/update customer pro
   street        NVARCHAR(255) NOT NULL,
   is_default    BIT NOT NULL DEFAULT 0,
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-);
-
-CREATE TABLE roles (                                -- Customer, Staff, Manager, Admin
-  id    INT IDENTITY(1,1) PRIMARY KEY,
-  code  VARCHAR(30) NOT NULL UNIQUE,
-  name  NVARCHAR(80) NOT NULL
-);
-
-CREATE TABLE permissions (
-  id    INT IDENTITY(1,1) PRIMARY KEY,
-  code  VARCHAR(80) NOT NULL UNIQUE,                -- vd: order.confirm, product.edit
-  name  NVARCHAR(150) NOT NULL
-);
-
-CREATE TABLE role_permissions (                     -- Edit/revoke permissions
-  role_id       INT NOT NULL,
-  permission_id INT NOT NULL,
-  PRIMARY KEY (role_id, permission_id),
-  FOREIGN KEY (role_id)       REFERENCES roles(id)       ON DELETE CASCADE,
-  FOREIGN KEY (permission_id) REFERENCES permissions(id) ON DELETE CASCADE
-);
-
-CREATE TABLE user_roles (                           -- Assign roles
-  user_id BIGINT NOT NULL,
-  role_id INT NOT NULL,
-  assigned_by BIGINT NULL,
-  assigned_at DATETIME2(0) NOT NULL DEFAULT SYSDATETIME(),
-  PRIMARY KEY (user_id, role_id),
-  FOREIGN KEY (user_id)     REFERENCES users(id) ON DELETE CASCADE,
-  FOREIGN KEY (role_id)     REFERENCES roles(id) ON DELETE CASCADE,
-  FOREIGN KEY (assigned_by) REFERENCES users(id)
 );
 
 CREATE TABLE audit_logs (                           -- View activity logs / System Monitoring
@@ -799,8 +777,7 @@ SELECT u.id AS staff_id, u.full_name,
        (SELECT COUNT(*) FROM support_tickets t WHERE t.handled_by = u.id)  AS tickets_handled,
        (SELECT COUNT(*) FROM goods_receipts g WHERE g.received_by = u.id)  AS receipts_created
 FROM users u
-JOIN user_roles ur ON ur.user_id = u.id
-JOIN roles r ON r.id = ur.role_id AND r.code IN ('staff','manager','admin');
+JOIN roles r ON r.id = u.role_id AND r.code IN ('staff','manager','admin');
 GO
 
 -- Tăng trưởng người dùng lũy kế (Active Subscriber Accumulation)
@@ -832,8 +809,7 @@ SELECT d.[day],
        SUM(d.new_customers) OVER (ORDER BY d.[day]) AS cumulative_customers
 FROM (SELECT CAST(u.created_at AS DATE) AS [day], COUNT(*) AS new_customers
       FROM users u
-      JOIN user_roles ur ON ur.user_id = u.id
-      JOIN roles r ON r.id = ur.role_id AND r.code = 'customer'
+      JOIN roles r ON r.id = u.role_id AND r.code = 'customer'
       GROUP BY CAST(u.created_at AS DATE)) d;
 GO
 
@@ -847,8 +823,7 @@ SELECT u.id AS customer_id, u.full_name, u.email, u.phone, u.status,
        MIN(o.created_at) AS first_order_at,
        MAX(o.created_at) AS last_order_at
 FROM users u
-JOIN user_roles ur ON ur.user_id = u.id
-JOIN roles r ON r.id = ur.role_id AND r.code = 'customer'
+JOIN roles r ON r.id = u.role_id AND r.code = 'customer'
 LEFT JOIN orders o ON o.user_id = u.id
 GROUP BY u.id, u.full_name, u.email, u.phone, u.status, u.created_at;
 GO
@@ -884,47 +859,12 @@ INSERT INTO roles (code, name) VALUES
   ('customer', N'Khách hàng'), ('staff', N'Nhân viên'),
   ('manager',  N'Quản lý'),    ('admin', N'Quản trị viên');
 
-INSERT INTO permissions (code, name) VALUES
-  ('catalog.manage',   N'Quản lý danh mục/sản phẩm/voucher'),
-  ('order.confirm',    N'Xác nhận/cập nhật đơn hàng'),
-  ('payment.refund',   N'Xử lý hoàn tiền'),
-  ('inventory.manage', N'Quản lý kho'),
-  ('invoice.manage',   N'Quản lý hóa đơn'),
-  ('ticket.handle',    N'Xử lý trả hàng & hoàn tiền'),
-  ('report.view',      N'Xem báo cáo'),
-  ('user.manage',      N'Quản lý người dùng & phân quyền'),
-  ('log.view',         N'Xem nhật ký hoạt động');
-
 -- ===== TÀI KHOẢN (mật khẩu chung: 123) =====
-INSERT INTO users (email, password_hash, full_name, status, email_verified_at) VALUES
-  ('admin@gmail.com',    '$2a$10$NJDzXjN2O69vD1OjD1/MU.KsvrAlJHEBK8PF5VdOYWQPn4hDeUUNS', N'Quản trị viên', 'active', SYSDATETIME()),
-  ('manager@gmail.com',  '$2a$10$NJDzXjN2O69vD1OjD1/MU.KsvrAlJHEBK8PF5VdOYWQPn4hDeUUNS', N'Quản lý',       'active', SYSDATETIME()),
-  ('staff@gmail.com',    '$2a$10$NJDzXjN2O69vD1OjD1/MU.KsvrAlJHEBK8PF5VdOYWQPn4hDeUUNS', N'Nhân viên',     'active', SYSDATETIME()),
-  ('customer@gmail.com', '$2a$10$NJDzXjN2O69vD1OjD1/MU.KsvrAlJHEBK8PF5VdOYWQPn4hDeUUNS', N'Khách hàng',    'active', SYSDATETIME());
-
--- ===== GÁN ROLE (email đầu = role cùng tên) =====
-INSERT INTO user_roles (user_id, role_id)
-SELECT u.id, r.id
-FROM users u
-JOIN roles r ON r.code = LEFT(u.email, CHARINDEX('@', u.email) - 1);
-
--- ===== PHÂN QUYỀN =====
--- admin: tất cả quyền
-INSERT INTO role_permissions (role_id, permission_id)
-SELECT r.id, p.id FROM roles r CROSS JOIN permissions p WHERE r.code = 'admin';
-
--- manager
-INSERT INTO role_permissions (role_id, permission_id)
-SELECT r.id, p.id FROM roles r
-JOIN permissions p ON p.code IN ('catalog.manage','order.confirm','payment.refund',
-                                 'inventory.manage','invoice.manage','ticket.handle','report.view')
-WHERE r.code = 'manager';
-
--- staff
-INSERT INTO role_permissions (role_id, permission_id)
-SELECT r.id, p.id FROM roles r
-JOIN permissions p ON p.code IN ('order.confirm','inventory.manage','invoice.manage','ticket.handle')
-WHERE r.code = 'staff';
+INSERT INTO users (role_id, email, password_hash, full_name, status, email_verified_at) VALUES
+  ((SELECT id FROM roles WHERE code = 'admin'),    'admin@gmail.com',    '$2a$10$NJDzXjN2O69vD1OjD1/MU.KsvrAlJHEBK8PF5VdOYWQPn4hDeUUNS', N'Quản trị viên', 'active', SYSDATETIME()),
+  ((SELECT id FROM roles WHERE code = 'manager'),  'manager@gmail.com',  '$2a$10$NJDzXjN2O69vD1OjD1/MU.KsvrAlJHEBK8PF5VdOYWQPn4hDeUUNS', N'Quản lý',       'active', SYSDATETIME()),
+  ((SELECT id FROM roles WHERE code = 'staff'),    'staff@gmail.com',    '$2a$10$NJDzXjN2O69vD1OjD1/MU.KsvrAlJHEBK8PF5VdOYWQPn4hDeUUNS', N'Nhân viên',     'active', SYSDATETIME()),
+  ((SELECT id FROM roles WHERE code = 'customer'), 'customer@gmail.com', '$2a$10$NJDzXjN2O69vD1OjD1/MU.KsvrAlJHEBK8PF5VdOYWQPn4hDeUUNS', N'Khách hàng',    'active', SYSDATETIME());
 
 -- ===== ĐƠN VỊ VẬN CHUYỂN (FastShip là đối tác giả lập, chạy local) =====
 INSERT INTO carriers (code, name, api_base_url, tracking_url_template, hotline, is_active) VALUES

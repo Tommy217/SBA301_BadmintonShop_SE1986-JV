@@ -1,9 +1,9 @@
 import { Navigate, Outlet, useLocation } from 'react-router';
 import { useAuth } from '@/app/providers/auth/AuthContext';
-import { getRoles, getToken } from '@/shared/auth/session';
+import { getRole, getToken } from '@/shared/auth/session';
 import { getRoleHomePath } from '@/shared/auth/rolePaths';
 
-// Requires a logged-in user; when allowedRoles is given, the user needs at least one of them.
+// Requires a logged-in user; when allowedRoles is given, the user must have an allowed role.
 export default function ProtectedRoute({ allowedRoles }) {
   const { user } = useAuth();
   const location = useLocation();
@@ -18,9 +18,9 @@ export default function ProtectedRoute({ allowedRoles }) {
     );
   }
 
-  const userRoles = getRoles(user);
+  const userRole = getRole(user);
   const hasPermission =
-    !allowedRoles?.length || allowedRoles.some((role) => userRoles.includes(role.toUpperCase()));
+    !allowedRoles?.length || (userRole && allowedRoles.map((r) => r.toUpperCase()).includes(userRole));
 
-  return hasPermission ? <Outlet /> : <Navigate to={getRoleHomePath(userRoles)} replace />;
+  return hasPermission ? <Outlet /> : <Navigate to={getRoleHomePath(userRole)} replace />;
 }

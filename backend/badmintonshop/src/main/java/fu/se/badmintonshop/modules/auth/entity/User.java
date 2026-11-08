@@ -7,8 +7,6 @@ import org.hibernate.annotations.Nationalized;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.HashSet;
-import java.util.Set;
 
 @Entity
 @Table(
@@ -64,14 +62,16 @@ public class User {
     @Column(name = "updated_at", insertable = false, updatable = false)
     private LocalDateTime updatedAt;
 
-    @ManyToMany(fetch = FetchType.LAZY)
-    @JoinTable(
-        name = "user_roles",
-        joinColumns = @JoinColumn(name = "user_id", referencedColumnName = "id"),
-        inverseJoinColumns = @JoinColumn(name = "role_id", referencedColumnName = "id")
-    )
-    @Builder.Default
-    private Set<Role> roles = new HashSet<>();
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "role_id", nullable = false)
+    private Role role;
+
+    public String getRoleCode() {
+        if (this.role == null) {
+            throw new IllegalStateException("User ID " + this.id + " has no role assigned");
+        }
+        return this.role.getCode();
+    }
 
     public boolean isActive() {
         return "active".equalsIgnoreCase(status);
@@ -86,7 +86,9 @@ public class User {
     }
 
     public void setStatusEnum(UserStatus userStatus) {
-        this.status = userStatus != null ? userStatus.getValue() : "active";
+        if (userStatus == null) {
+            throw new IllegalArgumentException("UserStatus cannot be null");
+        }
+        this.status = userStatus.getValue();
     }
 }
-

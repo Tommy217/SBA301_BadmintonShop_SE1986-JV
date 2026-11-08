@@ -56,9 +56,8 @@ export default function SupportTicketManagementDetailPage() {
     );
   }
 
-  const isManager = user?.roles?.some(
-    (r) => String(r).toUpperCase() === ROLES.MANAGER || String(r).toUpperCase() === ROLES.ADMIN,
-  );
+  const role = user?.role?.toUpperCase();
+  const isManager = role === ROLES.MANAGER || role === ROLES.ADMIN;
 
   const currentThreshold = Number(data?.refund_approval_threshold) || APPROVAL_THRESHOLD;
 

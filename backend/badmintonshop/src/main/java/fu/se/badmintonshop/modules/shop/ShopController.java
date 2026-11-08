@@ -38,7 +38,7 @@ public class ShopController {
         if (authentication == null) return null;
         if (authentication.getPrincipal() instanceof AuthService.User user) return user;
         if (authentication.getPrincipal() instanceof CustomUserDetails cud) {
-            return new AuthService.User(cud.getId(), cud.getEmail(), cud.getFullName(), cud.roles(), cud.isActive());
+            return new AuthService.User(cud.getId(), cud.getEmail(), cud.getFullName(), cud.role(), cud.isActive());
         }
         return null;
     }

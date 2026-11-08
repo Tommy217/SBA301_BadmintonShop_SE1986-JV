@@ -4,7 +4,6 @@ import lombok.*;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.List;
 
 @Getter
 @Setter
@@ -21,8 +20,8 @@ public class UserResponse {
     private String avatarUrl;
     private String status;
     private boolean active;
-    private List<String> roles;
+    private boolean locked;
+    private String role;
     private LocalDateTime lastLoginAt;
     private LocalDateTime createdAt;
 }
-

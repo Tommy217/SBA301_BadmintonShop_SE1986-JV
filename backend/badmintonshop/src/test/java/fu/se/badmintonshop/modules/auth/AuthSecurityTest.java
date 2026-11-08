@@ -32,7 +32,7 @@ class AuthSecurityTest {
     @Autowired JwtService jwtService;
 
     @RestController static class Resources {
-        @GetMapping({"/api/users", "/api/inventory", "/api/manager/shipments", "/api/brands"})
+        @GetMapping({"/api/admin/employees", "/api/inventory", "/api/manager/shipments", "/api/brands"})
         String resource() { return "ok"; }
         @PostMapping("/api/brands") String write() { return "ok"; }
         @PostMapping("/api/webhooks/carriers/fastship") String carrierWebhook() { return "ok"; }
@@ -41,14 +41,14 @@ class AuthSecurityTest {
 
     @Test void rejectsAnonymousAndInvalidTokensButAllowsPublicCatalog() throws Exception {
         mvc.perform(get("/api/auth/me")).andExpect(status().isUnauthorized());
-        mvc.perform(get("/api/users").header("Authorization", "Bearer mock-fake")).andExpect(status().isUnauthorized());
+        mvc.perform(get("/api/admin/employees").header("Authorization", "Bearer mock-fake")).andExpect(status().isUnauthorized());
         mvc.perform(get("/api/brands")).andExpect(status().isOk());
         // webhook doi tac khong dang nhap, xac thuc bang chu ky HMAC trong controller
         mvc.perform(post("/api/webhooks/carriers/fastship")).andExpect(status().isOk());
     }
 
     @Test void deletedUserTokenReturnsUnauthorized() throws Exception {
-        var user = new CustomUserDetails(99L, "deleted@test.com", "Deleted", "", true, List.of());
+        var user = new CustomUserDetails(99L, "deleted@test.com", "Deleted", "", true, false, "CUSTOMER");
         String token = jwtService.generateAccessToken(user);
         when(userDetailsService.loadUserByUsername("deleted@test.com"))
             .thenThrow(new org.springframework.security.core.userdetails.UsernameNotFoundException("User not found"));
@@ -66,13 +66,14 @@ class AuthSecurityTest {
                 "User",
                 "123",
                 true,
-                List.of(new SimpleGrantedAuthority("ROLE_" + role))
+                false,
+                role
             );
             when(userDetailsService.loadUserByUsername("user@test.com")).thenReturn(userDetails);
             String token = jwtService.generateAccessToken(userDetails);
             String header = "Bearer " + token;
 
-            mvc.perform(get("/api/users").header("Authorization", header)).andExpect(status().is(role.equals("ADMIN") ? 200 : 403));
+            mvc.perform(get("/api/admin/employees").header("Authorization", header)).andExpect(status().is(role.equals("ADMIN") ? 200 : 403));
             mvc.perform(get("/api/inventory").header("Authorization", header)).andExpect(status().is(role.equals("CUSTOMER") ? 403 : 200));
             mvc.perform(get("/api/manager/shipments").header("Authorization", header)).andExpect(status().is(role.equals("CUSTOMER") ? 403 : 200));
             mvc.perform(post("/api/brands").header("Authorization", header)).andExpect(status().is(role.equals("CUSTOMER") ? 403 : 200));
