@@ -195,7 +195,7 @@ public class AuthServiceImpl implements AuthService {
 
         passwordResetTokenRepository.save(resetToken);
 
-        String resetUrl = UriComponentsBuilder.fromUriString(frontendUrl != null ? frontendUrl : "http://localhost:5173")
+        String resetUrl = UriComponentsBuilder.fromUriString(frontendUrl)
             .path("/reset-password")
             .queryParam("token", rawToken)
             .toUriString();

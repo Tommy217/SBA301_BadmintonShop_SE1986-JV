@@ -63,6 +63,8 @@ class AuthServiceTest {
         jwtService = new JwtService(properties);
 
         authService = new AuthServiceImpl(userRepository, roleRepository, passwordEncoder, jwtService, passwordResetTokenRepository, emailService);
+        ReflectionTestUtils.setField(authService, "frontendUrl", "http://localhost:5173");
+        ReflectionTestUtils.setField(authService, "resetTokenTtlMinutes", 15);
     }
 
     @Test
