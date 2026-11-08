@@ -22,8 +22,8 @@ export function getToken(session = getSession()) {
   return session?.authToken || session?.token || null;
 }
 
-export function getRoles(session = getSession()) {
-  return Array.isArray(session?.roles) ? session.roles.map((role) => role.toUpperCase()) : [];
+export function getRole(session = getSession()) {
+  return session?.role ? session.role.toUpperCase() : null;
 }
 
 export const AUTH_EXPIRED_EVENT = 'auth-expired';

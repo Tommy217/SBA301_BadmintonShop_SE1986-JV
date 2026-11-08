@@ -105,7 +105,7 @@ frontend/
     │       └── management/       # ManagementLayout, ManagementSidebar
     ├── shared/
     │   ├── api/httpClient.js     # Axios dùng chung: gắn token, xử lý 401, chuẩn hóa lỗi
-    │   ├── auth/                 # session.js (getToken, getRoles...), rolePaths.js
+    │   ├── auth/                 # session.js (getToken, getRole...), rolePaths.js
     │   ├── components/           # BrandLogo, Icon, QuantityControl, PublicFooter, HomeButton,
     │   │                         # ManagerControls, Loading, EmptyState
     │   ├── constants/roles.js

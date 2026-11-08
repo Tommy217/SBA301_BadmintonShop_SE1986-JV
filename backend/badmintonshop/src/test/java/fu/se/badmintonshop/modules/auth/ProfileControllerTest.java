@@ -56,7 +56,8 @@ class ProfileControllerTest {
             "Profile User",
             "hashedpass",
             true,
-            List.of(new SimpleGrantedAuthority("ROLE_CUSTOMER"))
+            false,
+            "CUSTOMER"
         );
 
         when(userDetailsService.loadUserByUsername("profileuser@test.com")).thenReturn(userDetails);
@@ -79,7 +80,7 @@ class ProfileControllerTest {
             .id(10L)
             .email("profileuser@test.com")
             .fullName("Profile User")
-            .roles(List.of("CUSTOMER"))
+            .role("CUSTOMER")
             .active(true)
             .build();
 
