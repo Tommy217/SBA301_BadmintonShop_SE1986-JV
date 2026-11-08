@@ -260,11 +260,11 @@ export default function ForgotPasswordPage() {
                       <Alert variant="success" className="mb-4">
                         <Alert.Heading className="h6 fw-bold">Yêu cầu đã được tiếp nhận!</Alert.Heading>
                         <p className="mb-2 small">
-                          Nếu email <strong>{email}</strong> tồn tại trong hệ thống, chúng tôi đã gửi một liên kết đặt lại mật khẩu đến hộp thư của bạn.
+                          Chúng tôi đã gửi một liên kết đặt lại mật khẩu đến hộp thư <strong>{email}</strong> của bạn.
                         </p>
                         <hr />
                         <p className="mb-0 small text-muted">
-                          Vui lòng kiểm tra hộp thư đến (và thư mục <em>Spam / Rác</em>). Liên kết có hiệu lực trong <strong>15 phút</strong>.
+                          Liên kết có hiệu lực trong <strong>15 phút</strong>.
                         </p>
                       </Alert>
 
