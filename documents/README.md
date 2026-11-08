@@ -27,9 +27,9 @@ Hệ thống được thiết kế theo kiến trúc module hóa (Modular Archit
 ---
 
 ## 3. HƯỚNG DẪN TRUY CẬP TÀI LIỆU PAYMENT & SUPPORT TICKET
-Tài liệu luồng hoạt động, sơ đồ tuần tự và đặc tả API của 2 module đã được hợp nhất tại:
-* 👉 **[documents/module/payment/flow.md](module/payment/flow.md)**: Luồng hoạt động toàn diện Payment (payOS VietQR) & Support Ticket (Returns & Refunds).
-* 👉 **[documents/module/support-ticket/flow.md](module/support-ticket/flow.md)**: Bản đồng bộ tài liệu luồng UC15 Support Ticket.
+Tài liệu luồng hoạt động, sơ đồ tuần tự và đặc tả API chi tiết cho 2 module được tổ chức tách biệt tại:
+* 👉 **[documents/module/payment/flow.md](module/payment/flow.md)**: Luồng hoạt động chi tiết Module Payment (payOS VietQR, Đối soát kép Dual Verification).
+* 👉 **[documents/module/support-ticket/flow.md](module/support-ticket/flow.md)**: Luồng hoạt động chi tiết Module Support Ticket (UC15: Khiếu nại, Trả hàng & Hoàn tiền).
 
 ---
 
