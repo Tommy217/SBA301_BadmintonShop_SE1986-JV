@@ -264,10 +264,13 @@ class PaymentServiceImplTest {
 
         assertNotNull(response);
         assertEquals("cancelled", testPayment.getStatus());
-        assertEquals("cancelled", testOrder.getStatus());
-        assertEquals("Đổi ý không mua nữa", testOrder.getCancelReason());
+        assertEquals("pending", testOrder.getStatus());
+        assertEquals("unpaid", testOrder.getPaymentStatus());
+        assertNull(testOrder.getCancelReason());
+        assertNull(testPayment.getQrCodeUrl());
+        assertNull(testPayment.getCheckoutUrl());
         verify(paymentRepository).save(testPayment);
-        verify(orderRepository).save(testOrder);
+        verify(orderRepository, never()).save(any());
         verify(payOSService).cancelPaymentLink(eq(100201L), eq("Đổi ý không mua nữa"));
     }
 
@@ -290,8 +293,90 @@ class PaymentServiceImplTest {
 
         assertNotNull(response);
         assertEquals("cancelled", testPayment.getStatus());
-        assertEquals("cancelled", testOrder.getStatus());
+        assertEquals("pending", testOrder.getStatus());
+        verify(orderRepository, never()).save(any());
         verify(paymentRepository).save(testPayment);
+    }
+    @Test
+    void cancelledSessionCanBeFollowedByNewPaymentWithoutCancellingOrder() {
+        when(paymentRepository.findById(201L)).thenReturn(Optional.of(testPayment));
+        when(orderRepository.findById(105L)).thenReturn(Optional.of(testOrder));
+        when(paymentRepository.save(any(Payment.class))).thenAnswer(invocation -> {
+            Payment p = invocation.getArgument(0);
+            if (p.getId() == null) { p.setId(202L); p.setCreatedAt(LocalDateTime.now()); }
+            return p;
+        });
+        paymentService.cancelPayment(201L, "Tạo mã QR mới");
+        when(paymentRepository.findFirstByOrderIdAndStatusOrderByCreatedAtDesc(105L, "pending")).thenReturn(Optional.empty());
+        when(payOSService.createPaymentLink(anyLong(), any(), anyString(), any(), any(), any(), any(), any()))
+                .thenReturn(Map.of("checkoutUrl", "https://pay.payos.vn/new", "qrCodeUrl", "https://example.com/new-qr.png"));
+        CreatePaymentResponse next = paymentService.createPayment(CreatePaymentRequest.builder().orderId(105L).build());
+        assertEquals(202L, next.getPaymentId());
+        assertEquals("pending", next.getStatus());
+        assertEquals("https://pay.payos.vn/new", next.getCheckoutUrl());
+        assertEquals("cancelled", testPayment.getStatus());
+        assertEquals("pending", testOrder.getStatus());
+        assertEquals("unpaid", testOrder.getPaymentStatus());
+        verify(orderRepository, never()).save(any());
+    }
+
+    @Test
+    void cancellingWithoutPendingSessionDoesNotCancelOrder() {
+        when(orderRepository.findById(105L)).thenReturn(Optional.of(testOrder));
+        when(paymentRepository.findByOrderIdOrderByCreatedAtDesc(105L)).thenReturn(List.of());
+        assertNull(paymentService.cancelPaymentByOrderId(105L, "Hủy phiên"));
+        assertEquals("pending", testOrder.getStatus());
+        verify(orderRepository, never()).save(any());
+        verifyNoInteractions(payOSService);
+    }
+
+    @Test
+    void closingProviderLinkFailureMustPropagateBeforeOrderCancellation() {
+        when(paymentRepository.findByOrderIdOrderByCreatedAtDesc(105L)).thenReturn(List.of(testPayment));
+        doThrow(new IllegalStateException("Already paid")).when(payOSService).cancelPaymentLink(anyLong(), anyString());
+        assertThrows(IllegalStateException.class, () -> paymentService.closePendingPaymentLinks(105L, "Hủy"));
+        verify(orderRepository, never()).save(any());
+        verify(paymentRepository, never()).save(any());
+    }
+
+    @Test
+    void pendingOrderWithoutGeneratedQrDoesNotNeedProviderCancellation() {
+        testPayment.setQrCodeUrl(null);
+        testPayment.setCheckoutUrl(null);
+        when(paymentRepository.findByOrderIdOrderByCreatedAtDesc(105L)).thenReturn(List.of(testPayment));
+        paymentService.closePendingPaymentLinks(105L, "Hủy");
+        verifyNoInteractions(payOSService);
+    }
+
+    @Test
+    void cancellationCannotReopenOrRestockCancelledOrder() {
+        testOrder.setStatus("cancelled");
+        testPayment.setStatus("cancelled");
+        when(orderRepository.findById(105L)).thenReturn(Optional.of(testOrder));
+        when(paymentRepository.findByOrderIdOrderByCreatedAtDesc(105L)).thenReturn(List.of(testPayment));
+        paymentService.cancelPaymentByOrderId(105L, "Retry");
+        verify(orderRepository, never()).save(any());
+        verify(paymentRepository, never()).save(any());
+        verifyNoInteractions(payOSService);
+    }
+
+    @Test
+    void unpaidShippingOrderCannotCancelPayment() {
+        testOrder.setStatus("shipping");
+        when(orderRepository.findById(105L)).thenReturn(Optional.of(testOrder));
+        assertThrows(IllegalStateException.class, () -> paymentService.cancelPaymentByOrderId(105L, "Hủy"));
+        verify(orderRepository, never()).save(any());
+        verifyNoInteractions(payOSService);
+    }
+
+    @Test
+    void latePaymentCallbackDoesNotReopenCancelledOrder() {
+        testOrder.setStatus("cancelled");
+        testPayment.setStatus("cancelled");
+        when(orderRepository.findById(105L)).thenReturn(Optional.of(testOrder));
+        paymentService.markPaymentAsPaid(testPayment, "late-payment");
+        assertEquals("cancelled", testOrder.getStatus());
+        assertEquals("paid", testOrder.getPaymentStatus());
     }
 }
 

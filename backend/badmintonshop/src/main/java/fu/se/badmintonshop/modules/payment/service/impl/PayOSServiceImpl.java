@@ -182,7 +182,8 @@ public class PayOSServiceImpl implements PayOSService {
     @Override
     public void cancelPaymentLink(Long orderCode, String cancellationReason) {
         if (!isConfigured() || orderCode == null) {
-            return;
+            throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.BAD_GATEWAY,
+                    "Không thể xác nhận đóng mã thanh toán payOS. Vui lòng liên hệ cửa hàng.");
         }
         try {
             String url = PAYOS_API_URL + "/" + orderCode + "/cancel";
@@ -198,9 +199,17 @@ public class PayOSServiceImpl implements PayOSService {
                     .timeout(Duration.ofSeconds(10))
                     .build();
 
-            httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+            JsonNode root = objectMapper.readTree(response.body());
+            if (response.statusCode() != 200 || !"00".equals(root.path("code").asText())
+                    || !"CANCELLED".equals(root.path("data").path("status").asText())) {
+                throw new IllegalStateException("Provider did not confirm cancellation");
+            }
         } catch (Exception e) {
             log.warn("Không thể hủy payment link trên payOS: {}", e.getMessage());
+            if (e instanceof InterruptedException) Thread.currentThread().interrupt();
+            throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.BAD_GATEWAY,
+                    "Chưa xác nhận được việc đóng mã QR. Vui lòng kiểm tra thanh toán và thử lại trước khi hủy đơn.");
         }
     }
 

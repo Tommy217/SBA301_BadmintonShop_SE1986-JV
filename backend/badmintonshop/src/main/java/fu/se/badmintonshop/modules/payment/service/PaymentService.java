@@ -23,6 +23,8 @@ public interface PaymentService {
 
     PaymentDetailResponse cancelPaymentByOrderId(Long orderId, String reason);
 
+    void closePendingPaymentLinks(Long orderId, String reason);
+
     void handlePayOSWebhook(PayOSWebhookRequest webhookRequest);
 
     void confirmWebhook(String webhookUrl);

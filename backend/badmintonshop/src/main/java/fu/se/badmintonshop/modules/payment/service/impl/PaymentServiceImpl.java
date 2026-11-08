@@ -41,6 +41,8 @@ public class PaymentServiceImpl implements PaymentService {
     private final OrderRepository orderRepository;
     private final PayOSService payOSService;
     private final JdbcTemplate jdbcTemplate;
+    @jakarta.persistence.PersistenceContext
+    private jakarta.persistence.EntityManager entityManager;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     public static final int DEFAULT_PAYMENT_TIMEOUT_MINUTES = 15;
@@ -218,8 +220,12 @@ public class PaymentServiceImpl implements PaymentService {
 
         Order order = orderRepository.findById(payment.getOrderId()).orElse(null);
         if (order != null) {
+            // PaymentAccess may have loaded this entity before another request cancelled it.
+            if (jdbcTemplate != null) jdbcTemplate.update("UPDATE orders SET updated_at=updated_at WHERE id=?", order.getId());
+            if (entityManager != null) entityManager.refresh(order);
             order.setPaymentStatus("paid");
-            order.setStatus("confirmed");
+            // A late provider callback must not reopen a cancelled order or restart fulfillment.
+            if ("pending".equalsIgnoreCase(order.getStatus())) order.setStatus("confirmed");
             orderRepository.save(order);
             log.info("Cập nhật thành công đơn hàng #{}: payment_status='paid', status='confirmed'", order.getOrderCode());
         }
@@ -268,94 +274,67 @@ public class PaymentServiceImpl implements PaymentService {
     public PaymentDetailResponse cancelPayment(Long paymentId, String reason) {
         Payment payment = paymentRepository.findById(paymentId)
                 .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy giao dịch thanh toán ID: " + paymentId));
-
-        if ("paid".equalsIgnoreCase(payment.getStatus())) {
+        if ("paid".equalsIgnoreCase(payment.getStatus()))
             throw new IllegalStateException("Không thể hủy giao dịch đã thanh toán thành công.");
-        }
-
+        // Cancelling a session never changes the order, fulfillment or reserved inventory.
+        if (!"pending".equalsIgnoreCase(payment.getStatus())) return toDetailResponse(payment);
+        Order order = checkPaymentOrderCancellation(payment.getOrderId());
+        if ("cancelled".equalsIgnoreCase(order.getStatus())) return toDetailResponse(payment);
+        Long code = providerOrderCode(payment);
+        if (code != null && hasPaymentLink(payment)) payOSService.cancelPaymentLink(code, reason);
         payment.setStatus("cancelled");
         payment.setCancelledAt(LocalDateTime.now());
+        payment.setQrCodeUrl(null);
+        payment.setCheckoutUrl(null);
         paymentRepository.save(payment);
-
-        Long payosOrderCode = providerOrderCode(payment);
-        if (payosOrderCode != null) {
-            try {
-                payOSService.cancelPaymentLink(payosOrderCode, reason);
-            } catch (Exception e) {
-                log.warn("Không thể hủy link payOS cho orderCode {}: {}", payosOrderCode, e.getMessage());
-            }
-        }
-
-        // Đồng bộ trạng thái đơn hàng: Hủy đơn và hoàn trả tồn kho nếu đơn hàng chưa trả tiền
-        Order order = orderRepository.findById(payment.getOrderId()).orElse(null);
-        if (order != null && "unpaid".equalsIgnoreCase(order.getPaymentStatus()) && !"cancelled".equalsIgnoreCase(order.getStatus())) {
-            order.setStatus("cancelled");
-            order.setCancelledAt(LocalDateTime.now());
-            order.setCancelReason(reason != null && !reason.isBlank() ? reason : "Khách hàng hủy thanh toán");
-            orderRepository.save(order);
-
-            if (jdbcTemplate != null) {
-                try {
-                    List<Map<String, Object>> items = jdbcTemplate.queryForList(
-                            "SELECT variant_id, quantity FROM order_items WHERE order_id = ?", payment.getOrderId());
-                    for (Map<String, Object> item : items) {
-                        Long variantId = ((Number) item.get("variant_id")).longValue();
-                        int quantity = ((Number) item.get("quantity")).intValue();
-                        jdbcTemplate.update("UPDATE product_variants SET stock_quantity = stock_quantity + ? WHERE id = ?", quantity, variantId);
-                    }
-                    jdbcTemplate.update(
-                            "INSERT INTO order_status_history(order_id, from_status, to_status, note, created_at) VALUES (?, ?, ?, ?, SYSDATETIME())",
-                            payment.getOrderId(), "pending", "cancelled", "Khách hàng hủy thanh toán: " + reason);
-                } catch (Exception e) {
-                    log.warn("Không thể hoàn trả tồn kho hoặc ghi lịch sử đơn hàng khi hủy thanh toán: {}", e.getMessage());
-                }
-            }
-        }
-
         return toDetailResponse(payment);
     }
 
     @Override
     @Transactional
     public PaymentDetailResponse cancelPaymentByOrderId(Long orderId, String reason) {
+        Order order = checkPaymentOrderCancellation(orderId);
         List<Payment> list = paymentRepository.findByOrderIdOrderByCreatedAtDesc(orderId);
-        Payment pendingPayment = list.stream()
-                .filter(p -> "pending".equalsIgnoreCase(p.getStatus()))
-                .findFirst()
-                .orElse(null);
-
-        if (pendingPayment != null) {
-            return cancelPayment(pendingPayment.getId(), reason);
-        }
-
-        Order order = orderRepository.findById(orderId)
-                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy đơn hàng ID: " + orderId));
-        if ("paid".equalsIgnoreCase(order.getPaymentStatus())) {
-            throw new IllegalStateException("Không thể hủy thanh toán đơn hàng đã thanh toán thành công.");
-        }
-        order.setStatus("cancelled");
-        order.setCancelledAt(LocalDateTime.now());
-        order.setCancelReason(reason != null && !reason.isBlank() ? reason : "Khách hàng hủy thanh toán");
-        orderRepository.save(order);
-
-        if (jdbcTemplate != null) {
-            try {
-                List<Map<String, Object>> items = jdbcTemplate.queryForList(
-                        "SELECT variant_id, quantity FROM order_items WHERE order_id = ?", orderId);
-                for (Map<String, Object> item : items) {
-                    Long variantId = ((Number) item.get("variant_id")).longValue();
-                    int quantity = ((Number) item.get("quantity")).intValue();
-                    jdbcTemplate.update("UPDATE product_variants SET stock_quantity = stock_quantity + ? WHERE id = ?", quantity, variantId);
-                }
-                jdbcTemplate.update(
-                        "INSERT INTO order_status_history(order_id, from_status, to_status, note, created_at) VALUES (?, ?, ?, ?, SYSDATETIME())",
-                        orderId, "pending", "cancelled", "Khách hàng hủy thanh toán: " + reason);
-            } catch (Exception e) {
-                log.warn("Không thể hoàn trả tồn kho khi hủy đơn hàng: {}", e.getMessage());
+        if (!"cancelled".equalsIgnoreCase(order.getStatus())) {
+            for (Payment payment : list) {
+                if ("pending".equalsIgnoreCase(payment.getStatus()))
+                    return cancelPayment(payment.getId(), reason);
             }
         }
+        // A repeated cancellation or an order with no session is a no-op.
+        return list.isEmpty() ? null : toDetailResponse(list.getFirst());
+    }
 
-        return list.isEmpty() ? null : toDetailResponse(list.get(0));
+    @Override
+    @Transactional
+    public void closePendingPaymentLinks(Long orderId, String reason) {
+        for (Payment payment : paymentRepository.findByOrderIdOrderByCreatedAtDesc(orderId)) {
+            if (!"pending".equalsIgnoreCase(payment.getStatus())) continue;
+            Long code = providerOrderCode(payment);
+            if (code != null && hasPaymentLink(payment)) payOSService.cancelPaymentLink(code, reason);
+        }
+    }
+
+    private boolean hasPaymentLink(Payment payment) {
+        return "payos".equalsIgnoreCase(payment.getGateway()) &&
+                ((payment.getQrCodeUrl() != null && !payment.getQrCodeUrl().isBlank()) ||
+                 (payment.getCheckoutUrl() != null && !payment.getCheckoutUrl().isBlank()));
+    }
+
+    private Order checkPaymentOrderCancellation(Long orderId) {
+        if (jdbcTemplate != null) jdbcTemplate.update("UPDATE orders SET updated_at=updated_at WHERE id=?", orderId);
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy đơn hàng."));
+        if (entityManager != null) entityManager.refresh(order);
+        if ("cancelled".equalsIgnoreCase(order.getStatus())) return order;
+        if (!java.util.Set.of("pending", "confirmed", "preparing").contains(order.getStatus()))
+            throw new IllegalStateException("Đơn đã chuyển sang giao hàng hoặc hoàn tất, không thể tự hủy.");
+        if (!"unpaid".equalsIgnoreCase(order.getPaymentStatus()))
+            throw new IllegalStateException("Đơn đã thanh toán. Vui lòng dùng chức năng hủy đơn để được xử lý hoàn tiền.");
+        if (jdbcTemplate != null && !Long.valueOf(0).equals(jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM shipments WHERE order_id=? AND status NOT IN ('cancelled','rejected')", Long.class, orderId)))
+            throw new IllegalStateException("Đơn đã có vận đơn còn hiệu lực, không thể tự hủy thanh toán.");
+        return order;
     }
 
     @Override
