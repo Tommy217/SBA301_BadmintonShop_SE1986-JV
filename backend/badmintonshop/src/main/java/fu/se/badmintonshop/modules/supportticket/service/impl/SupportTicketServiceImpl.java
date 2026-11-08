@@ -7,13 +7,14 @@ import fu.se.badmintonshop.modules.order.repository.OrderRepository;
 import fu.se.badmintonshop.modules.payment.entity.Payment;
 import fu.se.badmintonshop.modules.payment.repository.PaymentRepository;
 import fu.se.badmintonshop.modules.supportticket.dto.*;
+import fu.se.badmintonshop.modules.common.entity.SystemSetting;
+import fu.se.badmintonshop.modules.common.repository.SystemSettingRepository;
 import fu.se.badmintonshop.modules.supportticket.entity.*;
 import fu.se.badmintonshop.modules.supportticket.enums.*;
 import fu.se.badmintonshop.modules.supportticket.repository.*;
 import fu.se.badmintonshop.modules.supportticket.service.SupportTicketService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -50,7 +51,7 @@ public class SupportTicketServiceImpl implements SupportTicketService {
     private final OrderRepository orderRepository;
     private final OrderItemRepository orderItemRepository;
     private final PaymentRepository paymentRepository;
-    private final JdbcTemplate jdbcTemplate;
+    private final SystemSettingRepository systemSettingRepository;
 
     @Override
     @Transactional
@@ -601,17 +602,19 @@ public class SupportTicketServiceImpl implements SupportTicketService {
     @Override
     public BigDecimal getApprovalThreshold() {
         try {
-            ensureSystemSettingsTable();
-            String val = jdbcTemplate.queryForObject(
-                    "SELECT setting_value FROM system_settings WHERE setting_key = 'refund_approval_threshold'",
-                    String.class);
-            if (val != null && !val.isBlank()) {
-                return new BigDecimal(val.trim());
-            }
+            return systemSettingRepository.findById("refund_approval_threshold")
+                    .map(setting -> {
+                        try {
+                            return new BigDecimal(setting.getSettingValue().trim());
+                        } catch (Exception e) {
+                            return DEFAULT_APPROVAL_THRESHOLD;
+                        }
+                    })
+                    .orElse(DEFAULT_APPROVAL_THRESHOLD);
         } catch (Exception e) {
             log.warn("Không thể đọc ngưỡng refund_approval_threshold từ DB, dùng mặc định 3,000,000 VND: {}", e.getMessage());
+            return DEFAULT_APPROVAL_THRESHOLD;
         }
-        return DEFAULT_APPROVAL_THRESHOLD;
     }
 
     @Override
@@ -620,43 +623,16 @@ public class SupportTicketServiceImpl implements SupportTicketService {
         if (newThreshold == null || newThreshold.compareTo(BigDecimal.ZERO) <= 0) {
             throw new IllegalArgumentException("Ngưỡng phê duyệt phải lớn hơn 0 VNĐ.");
         }
-        ensureSystemSettingsTable();
-        int updated = jdbcTemplate.update(
-                "UPDATE system_settings SET setting_value = ?, updated_at = SYSDATETIME(), updated_by = ? WHERE setting_key = 'refund_approval_threshold'",
-                newThreshold.toPlainString(), managerId);
-        if (updated == 0) {
-            jdbcTemplate.update(
-                    "INSERT INTO system_settings (setting_key, setting_value, description, updated_at, updated_by) VALUES ('refund_approval_threshold', ?, N'Ngưỡng hoàn tiền yêu cầu Quản lý phê duyệt (VND)', SYSDATETIME(), ?)",
-                    newThreshold.toPlainString(), managerId);
-        }
+        SystemSetting setting = systemSettingRepository.findById("refund_approval_threshold")
+                .orElseGet(() -> SystemSetting.builder()
+                        .settingKey("refund_approval_threshold")
+                        .description("Ngưỡng hoàn tiền yêu cầu Quản lý phê duyệt (VND)")
+                        .build());
+        setting.setSettingValue(newThreshold.toPlainString());
+        setting.setUpdatedAt(LocalDateTime.now());
+        setting.setUpdatedBy(managerId);
+        systemSettingRepository.save(setting);
         log.info("Manager ID {} đã cập nhật ngưỡng duyệt hoàn tiền thành: {} VND", managerId, newThreshold);
-    }
-
-    private void ensureSystemSettingsTable() {
-        try {
-            jdbcTemplate.execute("IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'system_settings') " +
-                    "BEGIN " +
-                    "CREATE TABLE system_settings (" +
-                    "  setting_key VARCHAR(100) PRIMARY KEY," +
-                    "  setting_value NVARCHAR(500) NOT NULL," +
-                    "  description NVARCHAR(255) NULL," +
-                    "  updated_at DATETIME2(0) NOT NULL DEFAULT SYSDATETIME()," +
-                    "  updated_by BIGINT NULL" +
-                    "); " +
-                    "END; " +
-                    "IF NOT EXISTS (SELECT * FROM system_settings WHERE setting_key = 'refund_approval_threshold') " +
-                    "BEGIN " +
-                    "INSERT INTO system_settings (setting_key, setting_value, description) " +
-                    "VALUES ('refund_approval_threshold', '3000000', N'Ngưỡng hoàn tiền yêu cầu Quản lý phê duyệt (VND)'); " +
-                    "END; " +
-                    "IF NOT EXISTS (SELECT * FROM system_settings WHERE setting_key = 'payment_qr_timeout_minutes') " +
-                    "BEGIN " +
-                    "INSERT INTO system_settings (setting_key, setting_value, description) " +
-                    "VALUES ('payment_qr_timeout_minutes', '15', N'Thời gian hết hạn mã QR thanh toán (phút)'); " +
-                    "END;");
-        } catch (Exception e) {
-            log.warn("Lỗi kiểm tra/tạo bảng system_settings: {}", e.getMessage());
-        }
     }
 }
 

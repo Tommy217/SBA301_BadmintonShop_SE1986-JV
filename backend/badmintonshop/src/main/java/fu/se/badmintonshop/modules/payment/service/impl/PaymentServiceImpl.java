@@ -2,6 +2,9 @@ package fu.se.badmintonshop.modules.payment.service.impl;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import fu.se.badmintonshop.modules.common.entity.SystemSetting;
+import fu.se.badmintonshop.modules.common.repository.SystemSettingRepository;
+import fu.se.badmintonshop.modules.delivery.repository.ShipmentRepository;
 import fu.se.badmintonshop.modules.order.entity.Order;
 import fu.se.badmintonshop.modules.order.repository.OrderRepository;
 import fu.se.badmintonshop.modules.payment.dto.request.CreatePaymentRequest;
@@ -40,6 +43,8 @@ public class PaymentServiceImpl implements PaymentService {
     private final PaymentTransactionRepository paymentTransactionRepository;
     private final OrderRepository orderRepository;
     private final PayOSService payOSService;
+    private final SystemSettingRepository systemSettingRepository;
+    private final ShipmentRepository shipmentRepository;
     private final JdbcTemplate jdbcTemplate;
     @jakarta.persistence.PersistenceContext
     private jakarta.persistence.EntityManager entityManager;
@@ -331,8 +336,8 @@ public class PaymentServiceImpl implements PaymentService {
             throw new IllegalStateException("Đơn đã chuyển sang giao hàng hoặc hoàn tất, không thể tự hủy.");
         if (!"unpaid".equalsIgnoreCase(order.getPaymentStatus()))
             throw new IllegalStateException("Đơn đã thanh toán. Vui lòng dùng chức năng hủy đơn để được xử lý hoàn tiền.");
-        if (jdbcTemplate != null && !Long.valueOf(0).equals(jdbcTemplate.queryForObject(
-                "SELECT COUNT(*) FROM shipments WHERE order_id=? AND status NOT IN ('cancelled','rejected')", Long.class, orderId)))
+        if (shipmentRepository != null && shipmentRepository.existsByOrderIdAndStatusNotIn(
+                orderId, java.util.List.of("cancelled", "rejected")))
             throw new IllegalStateException("Đơn đã có vận đơn còn hiệu lực, không thể tự hủy thanh toán.");
         return order;
     }
@@ -344,21 +349,23 @@ public class PaymentServiceImpl implements PaymentService {
 
     @Override
     public int getPaymentTimeoutMinutes() {
-        if (jdbcTemplate == null) {
+        if (systemSettingRepository == null) {
             return DEFAULT_PAYMENT_TIMEOUT_MINUTES;
         }
         try {
-            ensureSystemSettingsTable();
-            String val = jdbcTemplate.queryForObject(
-                    "SELECT setting_value FROM system_settings WHERE setting_key = 'payment_qr_timeout_minutes'",
-                    String.class);
-            if (val != null && !val.isBlank()) {
-                return Integer.parseInt(val.trim());
-            }
+            return systemSettingRepository.findById("payment_qr_timeout_minutes")
+                    .map(setting -> {
+                        try {
+                            return Integer.parseInt(setting.getSettingValue().trim());
+                        } catch (Exception e) {
+                            return DEFAULT_PAYMENT_TIMEOUT_MINUTES;
+                        }
+                    })
+                    .orElse(DEFAULT_PAYMENT_TIMEOUT_MINUTES);
         } catch (Exception e) {
             log.warn("Không thể đọc payment_qr_timeout_minutes từ DB, dùng mặc định 15 phút: {}", e.getMessage());
+            return DEFAULT_PAYMENT_TIMEOUT_MINUTES;
         }
-        return DEFAULT_PAYMENT_TIMEOUT_MINUTES;
     }
 
     @Override
@@ -367,44 +374,19 @@ public class PaymentServiceImpl implements PaymentService {
         if (minutes <= 0 || minutes > 1440) {
             throw new IllegalArgumentException("Thời gian hết hạn mã QR phải từ 1 đến 1440 phút.");
         }
-        if (jdbcTemplate == null) {
+        if (systemSettingRepository == null) {
             return;
         }
-        ensureSystemSettingsTable();
-        int updated = jdbcTemplate.update(
-                "UPDATE system_settings SET setting_value = ?, updated_at = SYSDATETIME(), updated_by = ? WHERE setting_key = 'payment_qr_timeout_minutes'",
-                String.valueOf(minutes), managerId);
-        if (updated == 0) {
-            jdbcTemplate.update(
-                    "INSERT INTO system_settings (setting_key, setting_value, description, updated_at, updated_by) VALUES ('payment_qr_timeout_minutes', ?, N'Thời gian hết hạn mã QR thanh toán (phút)', SYSDATETIME(), ?)",
-                    String.valueOf(minutes), managerId);
-        }
+        SystemSetting setting = systemSettingRepository.findById("payment_qr_timeout_minutes")
+                .orElseGet(() -> SystemSetting.builder()
+                        .settingKey("payment_qr_timeout_minutes")
+                        .description("Thời gian hết hạn mã VietQR thanh toán đơn hàng (phút)")
+                        .build());
+        setting.setSettingValue(String.valueOf(minutes));
+        setting.setUpdatedAt(LocalDateTime.now());
+        setting.setUpdatedBy(managerId);
+        systemSettingRepository.save(setting);
         log.info("Manager ID {} đã cập nhật thời gian hết hạn mã QR thành: {} phút", managerId, minutes);
-    }
-
-    private void ensureSystemSettingsTable() {
-        if (jdbcTemplate == null) {
-            return;
-        }
-        try {
-            jdbcTemplate.execute("IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'system_settings') " +
-                    "BEGIN " +
-                    "CREATE TABLE system_settings (" +
-                    "  setting_key VARCHAR(100) PRIMARY KEY," +
-                    "  setting_value NVARCHAR(500) NOT NULL," +
-                    "  description NVARCHAR(255) NULL," +
-                    "  updated_at DATETIME2(0) NOT NULL DEFAULT SYSDATETIME()," +
-                    "  updated_by BIGINT NULL" +
-                    "); " +
-                    "END; " +
-                    "IF NOT EXISTS (SELECT 1 FROM system_settings WHERE setting_key = 'payment_qr_timeout_minutes') " +
-                    "BEGIN " +
-                    "INSERT INTO system_settings (setting_key, setting_value, description) " +
-                    "VALUES ('payment_qr_timeout_minutes', '15', N'Thời gian hết hạn mã QR thanh toán (phút)'); " +
-                    "END;");
-        } catch (Exception e) {
-            log.warn("Không thể kiểm tra/tạo bảng system_settings: {}", e.getMessage());
-        }
     }
 
     @Override
