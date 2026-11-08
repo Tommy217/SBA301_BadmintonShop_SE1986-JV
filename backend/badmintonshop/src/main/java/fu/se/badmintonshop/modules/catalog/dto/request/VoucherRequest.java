@@ -23,6 +23,9 @@ public class VoucherRequest {
     @Size(max = 40, message = "Mã voucher tối đa 40 ký tự")
     private String code;
 
+    @Builder.Default
+    private String audience = "public";
+
     @NotBlank(message = "Tên voucher không được để trống")
     @Size(max = 150, message = "Tên voucher tối đa 150 ký tự")
     private String name;

@@ -24,6 +24,10 @@ public class Voucher {
     @Column(name = "code", nullable = false, length = 40)
     private String code;
 
+    @Column(name = "audience", nullable = false, length = 10)
+    @Builder.Default
+    private String audience = "public";
+
     @Nationalized
     @Column(name = "name", nullable = false, length = 150)
     private String name;

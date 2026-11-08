@@ -20,16 +20,22 @@ import java.util.List;
 public class VoucherController {
     private final VoucherService service;
 
+    private boolean management(org.springframework.security.core.Authentication auth) {
+        return auth != null && auth.getAuthorities().stream().anyMatch(a -> java.util.Set.of("ROLE_ADMIN", "ROLE_MANAGER", "ROLE_STAFF").contains(a.getAuthority()));
+    }
+
     // --- Vouchers ---
 
     @GetMapping("")
-    public List<VoucherResponse> listVouchers() {
-        return service.listVouchers();
+    public List<VoucherResponse> listVouchers(org.springframework.security.core.Authentication auth) {
+        return service.listVouchers().stream().filter(v -> management(auth) || "public".equals(v.getAudience())).toList();
     }
 
     @GetMapping("/{id}")
-    public VoucherResponse getVoucher(@PathVariable Integer id) {
-        return service.getVoucher(id);
+    public VoucherResponse getVoucher(@PathVariable Integer id, org.springframework.security.core.Authentication auth) {
+        var voucher = service.getVoucher(id);
+        if (!management(auth) && !"public".equals(voucher.getAudience())) throw new org.springframework.web.server.ResponseStatusException(HttpStatus.NOT_FOUND);
+        return voucher;
     }
 
     @PostMapping("")

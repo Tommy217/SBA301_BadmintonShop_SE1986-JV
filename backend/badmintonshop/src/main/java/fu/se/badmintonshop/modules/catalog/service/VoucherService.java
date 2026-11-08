@@ -59,6 +59,7 @@ public class VoucherService {
 
         Voucher voucher = Voucher.builder()
                 .code(code)
+                .audience(request.getAudience() == null ? "public" : request.getAudience())
                 .name(request.getName().trim())
                 .description(request.getDescription())
                 .discountType(request.getDiscountType())
@@ -101,6 +102,7 @@ public class VoucherService {
         }
 
         voucher.setCode(code);
+        if (request.getAudience() != null) voucher.setAudience(request.getAudience());
         voucher.setName(request.getName().trim());
         voucher.setDescription(request.getDescription());
         voucher.setDiscountType(request.getDiscountType());
@@ -132,6 +134,8 @@ public class VoucherService {
     }
 
     private void validateVoucherFields(VoucherRequest request, Voucher existing) {
+        if (request.getAudience() != null && !Set.of("public", "private").contains(request.getAudience()))
+            throw new CatalogException(400, "Loại voucher không hợp lệ.");
         if (!ALLOWED_DISCOUNT_TYPES.contains(request.getDiscountType())) {
             throw new CatalogException(400, "Giá trị không hợp lệ: discount_type");
         }
@@ -279,6 +283,7 @@ public class VoucherService {
         return VoucherResponse.builder()
                 .id(voucher.getId())
                 .code(voucher.getCode())
+                .audience(voucher.getAudience())
                 .name(voucher.getName())
                 .description(voucher.getDescription())
                 .discountType(voucher.getDiscountType())

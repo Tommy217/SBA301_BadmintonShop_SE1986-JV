@@ -16,6 +16,8 @@ import java.time.LocalDateTime;
 public class VoucherResponse {
     private Integer id;
     private String code;
+
+    private String audience;
     private String name;
     private String description;
     @JsonProperty("discount_type")
