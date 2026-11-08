@@ -1174,30 +1174,70 @@ BEGIN TRY
     IF NOT EXISTS (SELECT 1 FROM dbo.product_images WITH (UPDLOCK, HOLDLOCK) WHERE product_id = (SELECT id FROM dbo.products WHERE slug = N'demo-product-apparel') AND variant_id IS NULL AND url = N'/products/apparel.svg' AND sort_order = 0)
         INSERT INTO dbo.product_images (product_id, variant_id, url, sort_order)
         VALUES ((SELECT id FROM dbo.products WHERE slug = N'demo-product-apparel'), NULL, N'/products/apparel.svg', 0);
+    -- product_images: Tái sử dụng ảnh thực tế (Cloudinary) từ các sản phẩm khác cho các bản [TEST]
     IF NOT EXISTS (SELECT 1 FROM dbo.product_images WITH (UPDLOCK, HOLDLOCK) WHERE product_id = (SELECT id FROM dbo.products WHERE slug = N'test-quan-can-yonex-ac102ex-10k'))
         INSERT INTO dbo.product_images (product_id, variant_id, url, sort_order)
-        VALUES ((SELECT id FROM dbo.products WHERE slug = N'test-quan-can-yonex-ac102ex-10k'), (SELECT id FROM dbo.product_variants WHERE sku = N'TEST-QC-10K'), N'/products/apparel.svg', 0);
+        VALUES ((SELECT id FROM dbo.products WHERE slug = N'test-quan-can-yonex-ac102ex-10k'), (SELECT id FROM dbo.product_variants WHERE sku = N'TEST-QC-10K'), 'https://res.cloudinary.com/kzizr98t/image/upload/f_auto,q_auto/images_9', 0); -- Áo Yonex Crew Neck 10650
+    ELSE
+        UPDATE dbo.product_images
+        SET url = 'https://res.cloudinary.com/kzizr98t/image/upload/f_auto,q_auto/images_9'
+        WHERE product_id = (SELECT id FROM dbo.products WHERE slug = N'test-quan-can-yonex-ac102ex-10k') AND (url LIKE '/products/%' OR url IS NULL OR url = '');
+
     IF NOT EXISTS (SELECT 1 FROM dbo.product_images WITH (UPDLOCK, HOLDLOCK) WHERE product_id = (SELECT id FROM dbo.products WHERE slug = N'test-bang-co-tay-victor-sp128-12k'))
         INSERT INTO dbo.product_images (product_id, variant_id, url, sort_order)
-        VALUES ((SELECT id FROM dbo.products WHERE slug = N'test-bang-co-tay-victor-sp128-12k'), (SELECT id FROM dbo.product_variants WHERE sku = N'TEST-BCT-12K'), N'/products/apparel.svg', 0);
+        VALUES ((SELECT id FROM dbo.products WHERE slug = N'test-bang-co-tay-victor-sp128-12k'), (SELECT id FROM dbo.product_variants WHERE sku = N'TEST-BCT-12K'), 'https://res.cloudinary.com/kzizr98t/image/upload/f_auto,q_auto/images_11', 0); -- Áo Victor T-25000
+    ELSE
+        UPDATE dbo.product_images
+        SET url = 'https://res.cloudinary.com/kzizr98t/image/upload/f_auto,q_auto/images_11'
+        WHERE product_id = (SELECT id FROM dbo.products WHERE slug = N'test-bang-co-tay-victor-sp128-12k') AND (url LIKE '/products/%' OR url IS NULL OR url = '');
+
     IF NOT EXISTS (SELECT 1 FROM dbo.product_images WITH (UPDLOCK, HOLDLOCK) WHERE product_id = (SELECT id FROM dbo.products WHERE slug = N'test-day-cuoc-lining-no1-15k'))
         INSERT INTO dbo.product_images (product_id, variant_id, url, sort_order)
-        VALUES ((SELECT id FROM dbo.products WHERE slug = N'test-day-cuoc-lining-no1-15k'), (SELECT id FROM dbo.product_variants WHERE sku = N'TEST-DC-15K'), N'/products/racket.svg', 0);
+        VALUES ((SELECT id FROM dbo.products WHERE slug = N'test-day-cuoc-lining-no1-15k'), (SELECT id FROM dbo.product_variants WHERE sku = N'TEST-DC-15K'), 'https://res.cloudinary.com/kzizr98t/image/upload/f_auto,q_auto/images_4', 0); -- Vợt Li-Ning Axforce 90 Dragon
+    ELSE
+        UPDATE dbo.product_images
+        SET url = 'https://res.cloudinary.com/kzizr98t/image/upload/f_auto,q_auto/images_4'
+        WHERE product_id = (SELECT id FROM dbo.products WHERE slug = N'test-day-cuoc-lining-no1-15k') AND (url LIKE '/products/%' OR url IS NULL OR url = '');
+
     IF NOT EXISTS (SELECT 1 FROM dbo.product_images WITH (UPDLOCK, HOLDLOCK) WHERE product_id = (SELECT id FROM dbo.products WHERE slug = N'test-tat-the-thao-yonex-pro-20k'))
         INSERT INTO dbo.product_images (product_id, variant_id, url, sort_order)
-        VALUES ((SELECT id FROM dbo.products WHERE slug = N'test-tat-the-thao-yonex-pro-20k'), (SELECT id FROM dbo.product_variants WHERE sku = N'TEST-TAT-20K'), N'/products/apparel.svg', 0);
+        VALUES ((SELECT id FROM dbo.products WHERE slug = N'test-tat-the-thao-yonex-pro-20k'), (SELECT id FROM dbo.product_variants WHERE sku = N'TEST-TAT-20K'), 'https://res.cloudinary.com/kzizr98t/image/upload/f_auto,q_auto/images_10', 0); -- Quần Yonex Shorts 15110
+    ELSE
+        UPDATE dbo.product_images
+        SET url = 'https://res.cloudinary.com/kzizr98t/image/upload/f_auto,q_auto/images_10'
+        WHERE product_id = (SELECT id FROM dbo.products WHERE slug = N'test-tat-the-thao-yonex-pro-20k') AND (url LIKE '/products/%' OR url IS NULL OR url = '');
+
     IF NOT EXISTS (SELECT 1 FROM dbo.product_images WITH (UPDLOCK, HOLDLOCK) WHERE product_id = (SELECT id FROM dbo.products WHERE slug = N'test-moc-khoa-yonex-11k'))
         INSERT INTO dbo.product_images (product_id, variant_id, url, sort_order)
-        VALUES ((SELECT id FROM dbo.products WHERE slug = N'test-moc-khoa-yonex-11k'), (SELECT id FROM dbo.product_variants WHERE sku = N'TEST-MK-11K'), N'/products/apparel.svg', 0);
+        VALUES ((SELECT id FROM dbo.products WHERE slug = N'test-moc-khoa-yonex-11k'), (SELECT id FROM dbo.product_variants WHERE sku = N'TEST-MK-11K'), 'https://res.cloudinary.com/kzizr98t/image/upload/f_auto,q_auto/images_1', 0); -- Vợt Yonex Nanoflare 1000 Z
+    ELSE
+        UPDATE dbo.product_images
+        SET url = 'https://res.cloudinary.com/kzizr98t/image/upload/f_auto,q_auto/images_1'
+        WHERE product_id = (SELECT id FROM dbo.products WHERE slug = N'test-moc-khoa-yonex-11k') AND (url LIKE '/products/%' OR url IS NULL OR url = '');
+
     IF NOT EXISTS (SELECT 1 FROM dbo.product_images WITH (UPDLOCK, HOLDLOCK) WHERE product_id = (SELECT id FROM dbo.products WHERE slug = N'test-bang-dan-dau-vot-victor-14k'))
         INSERT INTO dbo.product_images (product_id, variant_id, url, sort_order)
-        VALUES ((SELECT id FROM dbo.products WHERE slug = N'test-bang-dan-dau-vot-victor-14k'), (SELECT id FROM dbo.product_variants WHERE sku = N'TEST-BDV-14K'), N'/products/racket.svg', 0);
+        VALUES ((SELECT id FROM dbo.products WHERE slug = N'test-bang-dan-dau-vot-victor-14k'), (SELECT id FROM dbo.product_variants WHERE sku = N'TEST-BDV-14K'), 'https://res.cloudinary.com/kzizr98t/image/upload/f_auto,q_auto/images_3', 0); -- Vợt Victor Auraspeed 90K II
+    ELSE
+        UPDATE dbo.product_images
+        SET url = 'https://res.cloudinary.com/kzizr98t/image/upload/f_auto,q_auto/images_3'
+        WHERE product_id = (SELECT id FROM dbo.products WHERE slug = N'test-bang-dan-dau-vot-victor-14k') AND (url LIKE '/products/%' OR url IS NULL OR url = '');
+
     IF NOT EXISTS (SELECT 1 FROM dbo.product_images WITH (UPDLOCK, HOLDLOCK) WHERE product_id = (SELECT id FROM dbo.products WHERE slug = N'test-lot-giay-lining-cushion-16k'))
         INSERT INTO dbo.product_images (product_id, variant_id, url, sort_order)
-        VALUES ((SELECT id FROM dbo.products WHERE slug = N'test-lot-giay-lining-cushion-16k'), (SELECT id FROM dbo.product_variants WHERE sku = N'TEST-LG-16K'), N'/products/shoes.svg', 0);
+        VALUES ((SELECT id FROM dbo.products WHERE slug = N'test-lot-giay-lining-cushion-16k'), (SELECT id FROM dbo.product_variants WHERE sku = N'TEST-LG-16K'), 'https://res.cloudinary.com/kzizr98t/image/upload/f_auto,q_auto/images_8', 0); -- Giày Li-Ning Saga Lite
+    ELSE
+        UPDATE dbo.product_images
+        SET url = 'https://res.cloudinary.com/kzizr98t/image/upload/f_auto,q_auto/images_8'
+        WHERE product_id = (SELECT id FROM dbo.products WHERE slug = N'test-lot-giay-lining-cushion-16k') AND (url LIKE '/products/%' OR url IS NULL OR url = '');
+
     IF NOT EXISTS (SELECT 1 FROM dbo.product_images WITH (UPDLOCK, HOLDLOCK) WHERE product_id = (SELECT id FROM dbo.products WHERE slug = N'test-qua-cau-long-yonex-mavis-18k'))
         INSERT INTO dbo.product_images (product_id, variant_id, url, sort_order)
-        VALUES ((SELECT id FROM dbo.products WHERE slug = N'test-qua-cau-long-yonex-mavis-18k'), (SELECT id FROM dbo.product_variants WHERE sku = N'TEST-CL-18K'), N'/products/apparel.svg', 0);
+        VALUES ((SELECT id FROM dbo.products WHERE slug = N'test-qua-cau-long-yonex-mavis-18k'), (SELECT id FROM dbo.product_variants WHERE sku = N'TEST-CL-18K'), 'https://res.cloudinary.com/kzizr98t/image/upload/f_auto,q_auto/images_14', 0); -- Vợt Yonex Astrox 100 ZZ
+    ELSE
+        UPDATE dbo.product_images
+        SET url = 'https://res.cloudinary.com/kzizr98t/image/upload/f_auto,q_auto/images_14'
+        WHERE product_id = (SELECT id FROM dbo.products WHERE slug = N'test-qua-cau-long-yonex-mavis-18k') AND (url LIKE '/products/%' OR url IS NULL OR url = '');
 
     -- vouchers: 2 rows
     IF NOT EXISTS (SELECT 1 FROM dbo.vouchers WITH (UPDLOCK, HOLDLOCK) WHERE code = N'DEMO10')
@@ -2564,4 +2604,22 @@ GO
 -- Public vouchers remain available to everyone; private vouchers require user_vouchers grants.
 IF COL_LENGTH('dbo.vouchers', 'audience') IS NULL
     ALTER TABLE dbo.vouchers ADD audience VARCHAR(10) NOT NULL CONSTRAINT DF_vouchers_audience DEFAULT 'public' CONSTRAINT CK_vouchers_audience CHECK (audience IN ('public','private'));
+GO
+
+-- Cap nhat lai anh thuc te cho cac san pham [TEST] neu DB da ton tai tu truoc
+UPDATE img
+SET img.url = m.target_url
+FROM dbo.product_images img
+JOIN dbo.products p ON p.id = img.product_id
+JOIN (VALUES
+    (N'test-quan-can-yonex-ac102ex-10k', 'https://res.cloudinary.com/kzizr98t/image/upload/f_auto,q_auto/images_9'),
+    (N'test-bang-co-tay-victor-sp128-12k', 'https://res.cloudinary.com/kzizr98t/image/upload/f_auto,q_auto/images_11'),
+    (N'test-day-cuoc-lining-no1-15k', 'https://res.cloudinary.com/kzizr98t/image/upload/f_auto,q_auto/images_4'),
+    (N'test-tat-the-thao-yonex-pro-20k', 'https://res.cloudinary.com/kzizr98t/image/upload/f_auto,q_auto/images_10'),
+    (N'test-moc-khoa-yonex-11k', 'https://res.cloudinary.com/kzizr98t/image/upload/f_auto,q_auto/images_1'),
+    (N'test-bang-dan-dau-vot-victor-14k', 'https://res.cloudinary.com/kzizr98t/image/upload/f_auto,q_auto/images_3'),
+    (N'test-lot-giay-lining-cushion-16k', 'https://res.cloudinary.com/kzizr98t/image/upload/f_auto,q_auto/images_8'),
+    (N'test-qua-cau-long-yonex-mavis-18k', 'https://res.cloudinary.com/kzizr98t/image/upload/f_auto,q_auto/images_14')
+) m(slug, target_url) ON m.slug = p.slug
+WHERE img.url LIKE '/products/%' OR img.url IS NULL OR img.url = '';
 GO
