@@ -77,6 +77,7 @@ public class SecurityConfig {
                                                 "/api/auth/login",
                                                 "/api/auth/register",
                                                 "/api/auth/logout",
+                                                "/api/auth/refresh",
                                                 "/api/auth/forgot-password",
                                                 "/api/auth/reset-password",
                                                 "/api/payments/payos/webhook",

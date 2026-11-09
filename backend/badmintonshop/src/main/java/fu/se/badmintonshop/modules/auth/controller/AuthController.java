@@ -30,22 +30,25 @@ public class AuthController {
 
     private final AuthService authService;
     private final JwtProperties properties;
+    private final fu.se.badmintonshop.modules.auth.service.RefreshTokenService refreshTokens;
 
     @PostMapping("/login")
     public ResponseEntity<AuthResponse> login(@Valid @RequestBody LoginRequest request) {
         AuthResponse response = authService.login(request);
+        var session = refreshTokens.issue(response);
         ResponseCookie cookie = createAuthCookie(response.getAccessToken(), properties.accessTokenTtlSeconds());
         return ResponseEntity.ok()
-            .header(HttpHeaders.SET_COOKIE, cookie.toString())
+            .header(HttpHeaders.SET_COOKIE, cookie.toString(), createRefreshCookie(session.refreshToken(), session.maxAge()).toString())
             .body(response);
     }
 
     @PostMapping("/register")
     public ResponseEntity<AuthResponse> register(@Valid @RequestBody RegisterRequest request) {
         AuthResponse response = authService.register(request);
+        var session = refreshTokens.issue(response);
         ResponseCookie cookie = createAuthCookie(response.getAccessToken(), properties.accessTokenTtlSeconds());
         return ResponseEntity.status(HttpStatus.CREATED)
-            .header(HttpHeaders.SET_COOKIE, cookie.toString())
+            .header(HttpHeaders.SET_COOKIE, cookie.toString(), createRefreshCookie(session.refreshToken(), session.maxAge()).toString())
             .body(response);
     }
 
@@ -56,11 +59,13 @@ public class AuthController {
     }
 
     @PostMapping("/logout")
-    public ResponseEntity<Void> logout(@RequestHeader(value = "Authorization", required = false) String authHeader) {
+    public ResponseEntity<Void> logout(@RequestHeader(value = "Authorization", required = false) String authHeader,
+        @CookieValue(name = "REFRESH_TOKEN", required = false) String refreshToken) {
+        refreshTokens.revoke(refreshToken);
         authService.logout(authHeader);
         ResponseCookie cleanCookie = createAuthCookie("", 0L);
         return ResponseEntity.ok()
-            .header(HttpHeaders.SET_COOKIE, cleanCookie.toString())
+            .header(HttpHeaders.SET_COOKIE, cleanCookie.toString(), createRefreshCookie("", 0).toString())
             .build();
     }
 
@@ -74,6 +79,21 @@ public class AuthController {
     public ResponseEntity<Map<String, String>> resetPassword(@Valid @RequestBody ResetPasswordRequest request) {
         authService.resetPassword(request);
         return ResponseEntity.ok(Map.of("message", "Đặt lại mật khẩu thành công. Vui lòng đăng nhập với mật khẩu mới."));
+    }
+
+    @PostMapping("/refresh")
+    public ResponseEntity<AuthResponse> refresh(@RequestHeader("X-Refresh-Request") String refreshRequest,
+        @CookieValue(name = "REFRESH_TOKEN", required = false) String token) {
+        var session = refreshTokens.refresh(token);
+        return ResponseEntity.ok().header(HttpHeaders.SET_COOKIE,
+            createAuthCookie(session.response().getAccessToken(), properties.accessTokenTtlSeconds()).toString(),
+            createRefreshCookie(session.refreshToken(), session.maxAge()).toString()).body(session.response());
+    }
+
+    private ResponseCookie createRefreshCookie(String token, long seconds) {
+        return ResponseCookie.from("REFRESH_TOKEN", token).httpOnly(true)
+            .secure(properties.cookieSecure()).sameSite(properties.cookieSameSite())
+            .path("/api/auth").maxAge(Duration.ofSeconds(seconds)).build();
     }
 
     private ResponseCookie createAuthCookie(String token, long maxAgeSeconds) {

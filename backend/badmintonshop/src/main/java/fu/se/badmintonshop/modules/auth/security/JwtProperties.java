@@ -9,7 +9,7 @@ public class JwtProperties {
     @Value("${app.jwt.secret-base64:404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970}")
     private String secretBase64;
 
-    @Value("${app.jwt.access-token-ttl-seconds:1800}")
+    @Value("${app.jwt.access-token-ttl-seconds:900}")
     private long accessTokenTtlSeconds;
 
     @Value("${app.jwt.cookie-name:ACCESS_TOKEN}")

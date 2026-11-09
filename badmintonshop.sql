@@ -56,6 +56,16 @@ CREATE TABLE password_reset_tokens (               -- Forgot Password
   INDEX idx_prt_user (user_id)
 );
 
+CREATE TABLE refresh_tokens (
+  id BIGINT IDENTITY(1,1) PRIMARY KEY,
+  user_id BIGINT NOT NULL,
+  token_hash VARCHAR(64) NOT NULL UNIQUE,
+  expires_at DATETIME2(7) NOT NULL,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  INDEX idx_refresh_tokens_user (user_id),
+  INDEX idx_refresh_tokens_expiry (expires_at)
+);
+
 CREATE TABLE addresses (                            -- Store/update customer profile
   id            BIGINT IDENTITY(1,1) PRIMARY KEY,
   user_id       BIGINT NOT NULL,

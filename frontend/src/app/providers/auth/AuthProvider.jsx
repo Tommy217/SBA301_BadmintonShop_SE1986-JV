@@ -1,5 +1,6 @@
+import { refreshSession } from '@/shared/api/httpClient';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { AUTH_EXPIRED_EVENT, clearSession, getSession, getToken, saveSession } from '@/shared/auth/session';
+import { AUTH_EXPIRED_EVENT, clearSession, getSession, saveSession } from '@/shared/auth/session';
 import { authApi } from '@/modules/auth/api/auth.api';
 import { AuthContext } from './AuthContext';
 import { Alert, Button } from 'react-bootstrap';
@@ -71,6 +72,18 @@ export default function AuthProvider({ children, onSessionExpired }) {
       window.removeEventListener(AUTH_EXPIRED_EVENT, expireSession);
     };
   }, [login, clear, attempt, onSessionExpired]);
+  useEffect(() => {
+    if (!user) return;
+    const timer = window.setInterval(() => {
+      refreshSession().catch(() => {});
+    }, 15 * 60 * 1000);
+    const update = () => setUser(getSession());
+    window.addEventListener('auth-refreshed', update);
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener('auth-refreshed', update);
+    };
+  }, [user]);
   const value = useMemo(() => ({ user, login, logout }), [user, login, logout]);
   return (
     <AuthContext.Provider value={value}>
