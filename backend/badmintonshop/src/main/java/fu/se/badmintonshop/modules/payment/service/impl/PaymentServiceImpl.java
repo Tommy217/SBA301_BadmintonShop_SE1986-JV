@@ -83,13 +83,14 @@ public class PaymentServiceImpl implements PaymentService {
             throw new IllegalArgumentException("Số tiền thanh toán phải lớn hơn 0.");
         }
 
-        // Kiểm tra xem đơn hàng đã có phiên thanh toán pending chưa để tái sử dụng, tránh tạo bản
-        // ghi trùng lặp
+        // Kiểm tra xem đơn hàng đã có phiên thanh toán pending chưa để tái sử dụng, tránh tạo bản ghi trùng lặp
         Optional<Payment> existingPendingOpt =
                 paymentRepository.findFirstByOrderIdAndStatusOrderByCreatedAtDesc(
                         order.getId(), "pending");
         Payment payment;
         boolean hasActiveLink = false;
+
+        // đã có phiên pending 14p -> tái sử dụng qr
         if (existingPendingOpt.isPresent()) {
             payment = existingPendingOpt.get();
             payment.setMethod("qr");
@@ -101,7 +102,7 @@ public class PaymentServiceImpl implements PaymentService {
                     && payment.getCreatedAt().isAfter(LocalDateTime.now().minusMinutes(14))) {
                 hasActiveLink = true;
             }
-        } else {
+        } else { // chưa có -> tạo phiên mới
             payment =
                     Payment.builder()
                             .orderId(order.getId())
@@ -192,6 +193,7 @@ public class PaymentServiceImpl implements PaymentService {
                 .build();
     }
 
+    // xác thực chữ ký + audit log + chuyển trạng thái
     @Override
     @Transactional
     public void handlePayOSWebhook(PayOSWebhookRequest webhookRequest) {

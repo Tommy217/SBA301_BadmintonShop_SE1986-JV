@@ -68,7 +68,7 @@ public class PayOSServiceImpl implements PayOSService {
         }
 
         try {
-            // Chữ ký thanh toán request payOS: amount, cancelUrl, description, orderCode, returnUrl (theo thứ tự a-z)
+            // Chữ ký thanh toán request payOS: amount, cancelUrl, description, orderCode, returnUrl (theo thứ tự a-z) - HMAC
             String signData = String.format(
                     "amount=%d&cancelUrl=%s&description=%s&orderCode=%d&returnUrl=%s",
                     intAmount, canUrl, desc, orderCode, retUrl
