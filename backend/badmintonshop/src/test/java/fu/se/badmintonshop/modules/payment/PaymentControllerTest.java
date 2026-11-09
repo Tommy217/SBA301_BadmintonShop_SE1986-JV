@@ -47,7 +47,7 @@ class PaymentControllerTest {
     private MockMvc mockMvc;
 
     @MockitoBean
-    private fu.se.badmintonshop.modules.payment.controller.PaymentAccess paymentAccess;
+    private fu.se.badmintonshop.modules.payment.service.PaymentAccess paymentAccess;
 
     @MockitoBean
     private PaymentService paymentService;

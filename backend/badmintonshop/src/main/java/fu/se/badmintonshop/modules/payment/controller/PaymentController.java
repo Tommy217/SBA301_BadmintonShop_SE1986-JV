@@ -7,6 +7,7 @@ import fu.se.badmintonshop.modules.payment.dto.request.CreatePaymentRequest;
 import fu.se.badmintonshop.modules.payment.dto.request.PayOSWebhookRequest;
 import fu.se.badmintonshop.modules.payment.dto.response.CreatePaymentResponse;
 import fu.se.badmintonshop.modules.payment.dto.response.PaymentDetailResponse;
+import fu.se.badmintonshop.modules.payment.service.PaymentAccess;
 import fu.se.badmintonshop.modules.payment.service.PaymentService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;

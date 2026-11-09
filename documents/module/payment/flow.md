@@ -64,7 +64,7 @@
    - Quản lý (`MANAGER`, `ADMIN`) có thể tùy chỉnh thời hạn hiệu lực của mã QR từ 1 đến 1440 phút (24 giờ) tại trang **Cài đặt hệ thống (`/management/settings`)**.
    - Scheduler chạy nền mỗi 60 giây, tự động chuyển `payments.status = 'expired'`, hủy đơn `orders.status = 'cancelled'` và hoàn trả số lượng tồn kho sản phẩm.
 4. **Bảo mật & Cô lập dữ liệu (Security & Isolation):**
-   - Khách hàng chỉ được phép tra cứu, xem và thao tác trên phiên thanh toán của chính mình thông qua bộ lọc kiểm tra quyền sở hữu `PaymentAccess.java`.
+   - Khách hàng chỉ được phép tra cứu, xem và thao tác trên phiên thanh toán của chính mình thông qua service kiểm tra quyền sở hữu `PaymentAccess.java` (tầng Service).
 
 ---
 
