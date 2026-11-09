@@ -59,7 +59,7 @@ class AuthServiceTest {
 
         JwtProperties properties = new JwtProperties();
         ReflectionTestUtils.setField(properties, "secretBase64", "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef");
-        ReflectionTestUtils.setField(properties, "accessTokenTtlSeconds", 86400L);
+        ReflectionTestUtils.setField(properties, "accessTokenTtlSeconds", 1800L);
         jwtService = new JwtService(properties);
 
         authService = new AuthServiceImpl(userRepository, roleRepository, passwordEncoder, jwtService, passwordResetTokenRepository, emailService);
@@ -89,6 +89,9 @@ class AuthServiceTest {
 
         assertNotNull(response.getAccessToken());
         assertNotNull(response.getAuthToken());
+        assertEquals(1800L, response.getExpiresIn());
+        var claims = jwtService.extractAllClaims(response.getAccessToken());
+        assertEquals(1800L, (claims.getExpiration().getTime() - claims.getIssuedAt().getTime()) / 1000);
         assertEquals("customer@gmail.com", response.getEmail());
         assertEquals("CUSTOMER", response.getRole());
         verify(userRepository).save(user);

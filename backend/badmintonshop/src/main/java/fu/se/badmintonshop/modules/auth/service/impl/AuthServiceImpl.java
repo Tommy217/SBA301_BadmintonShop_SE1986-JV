@@ -93,7 +93,7 @@ public class AuthServiceImpl implements AuthService {
             .authToken(token)
             .accessToken(token)
             .tokenType("Bearer")
-            .expiresIn(86400L)
+            .expiresIn(jwtService.accessTokenTtlSeconds())
             .user(toUserResponse(user, roleCode))
             .build();
     }
@@ -146,7 +146,7 @@ public class AuthServiceImpl implements AuthService {
             .authToken(token)
             .accessToken(token)
             .tokenType("Bearer")
-            .expiresIn(86400L)
+            .expiresIn(jwtService.accessTokenTtlSeconds())
             .user(toUserResponse(user, roleCode))
             .build();
     }

@@ -21,6 +21,10 @@ public class JwtService {
 
     private final JwtProperties properties;
 
+    public long accessTokenTtlSeconds() {
+        return properties.accessTokenTtlSeconds();
+    }
+
     private SecretKey getSigningKey() {
         return Keys.hmacShaKeyFor(properties.secretBase64().getBytes(StandardCharsets.UTF_8));
     }
