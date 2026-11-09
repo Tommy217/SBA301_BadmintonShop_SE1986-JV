@@ -957,6 +957,16 @@
   overflow: hidden;
   box-shadow: 0 25px 80px #173d5b24;
 }
+.manager-modal .manager-modal-form {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+.manager-modal .manager-modal-form > .modal-body {
+  min-height: 0;
+  overflow-y: auto;
+}
 .manager-modal .modal-header {
   padding: 22px 26px;
   border-color: #e5eef5;

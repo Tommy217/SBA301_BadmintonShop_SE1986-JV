@@ -430,7 +430,7 @@ export default function CatalogSection({
         size="lg"
         centered
       >
-        <Form onSubmit={save}>
+        <Form className="manager-modal-form" onSubmit={save}>
           <Modal.Header closeButton>
             <Modal.Title>
               {draft?.id ? 'Chỉnh sửa' : 'Thêm mới'} · {config.title}
