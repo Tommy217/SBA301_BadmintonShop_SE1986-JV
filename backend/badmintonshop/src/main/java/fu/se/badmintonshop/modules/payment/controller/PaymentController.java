@@ -140,6 +140,7 @@ public class PaymentController {
         );
 
         try {
+            // gọi hàm handle -> xác thực chữ ký số đảm bảo tính toàn vẹn dữ liệu
             paymentService.handlePayOSWebhook(webhookRequest);
             return ResponseEntity.ok(Map.of(
                     "success", true,

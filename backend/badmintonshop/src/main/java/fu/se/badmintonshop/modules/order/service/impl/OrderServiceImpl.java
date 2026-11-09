@@ -536,6 +536,7 @@ public class OrderServiceImpl implements OrderService {
                                         + orderId)
                         .cancelUrl(frontendUrl.replaceAll("/+$", "") + "/payments?order=" + orderId)
                         .build();
+        // gọi sang payment service check phiên đã tồn tại chưa? còn QR cũ không?/Hoặc tạo mới
         var payment = payments.createPayment(request);
         paymentRepository.updateCheckoutUrl(payment.getCheckoutUrl(), payment.getPaymentId());
     }
