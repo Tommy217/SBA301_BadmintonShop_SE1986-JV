@@ -83,6 +83,7 @@ public class OrderFulfillmentService {
                         .setParameter("id", orderId)
                         .getResultList();
         for (var line : lines) {
+            //thangtd: flush check?
             em.flush();
             ProductVariant variant =
                     em.find(

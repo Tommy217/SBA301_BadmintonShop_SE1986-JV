@@ -117,6 +117,8 @@ public class ShipmentService {
 
         // luu DB truoc roi moi goi doi tac: goi loi van giu van don requested de "Gui lai"
         Shipment saved = shipmentRepository.save(shipment);
+
+        //thangtd: call sang he thong doi tac
         submitToCarrier(saved, staffId);
         return ShipmentMapper.toResponse(shipmentRepository.save(saved), true);
     }

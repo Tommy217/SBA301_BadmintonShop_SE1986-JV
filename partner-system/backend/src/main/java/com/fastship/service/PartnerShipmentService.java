@@ -109,6 +109,7 @@ public class PartnerShipmentService {
         PartnerShipment s = get(id);
         requireTransition(s, ShipmentStatus.PENDING_PICKUP);
         LocalDateTime now = LocalDateTime.now();
+        //thangtd : gen new tracking code (random and check duplicate)
         String code = newTrackingCode();
         int days = req != null && req.estimatedDays() != null ? req.estimatedDays() : FeeCalculator.estimatedDays(s.getServiceType());
         s.setTrackingCode(code);
