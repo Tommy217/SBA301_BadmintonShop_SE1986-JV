@@ -7,6 +7,7 @@ import fu.se.badmintonshop.modules.auth.security.JwtAuthenticationFilter;
 import fu.se.badmintonshop.modules.auth.security.JwtProperties;
 import fu.se.badmintonshop.modules.auth.security.JwtService;
 import fu.se.badmintonshop.modules.auth.service.AuthService;
+import fu.se.badmintonshop.modules.auth.service.RefreshTokenService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
@@ -28,6 +29,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class AuthSecurityTest {
     @Autowired MockMvc mvc;
     @MockitoBean AuthService auth;
+    @MockitoBean RefreshTokenService refreshTokens;
     @MockitoBean UserDetailsService userDetailsService;
     @Autowired JwtService jwtService;
 

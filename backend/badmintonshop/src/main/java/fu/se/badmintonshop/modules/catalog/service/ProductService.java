@@ -11,6 +11,7 @@ import fu.se.badmintonshop.modules.order.repository.OrderItemRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -117,7 +118,8 @@ public class ProductService {
 
     @Transactional(readOnly = true)
     public List<ProductResponse> listProducts() {
-        return productRepository.findAll().stream().map(this::toProductResponse).toList();
+        return productRepository.findAll(Sort.by(Sort.Direction.ASC, "id"))
+                .stream().map(this::toProductResponse).toList();
     }
 
     @Transactional(readOnly = true)

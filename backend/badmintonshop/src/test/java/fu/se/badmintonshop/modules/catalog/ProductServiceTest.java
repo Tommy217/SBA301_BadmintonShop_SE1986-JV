@@ -11,6 +11,7 @@ import fu.se.badmintonshop.modules.inventory.repository.InventoryMovementReposit
 import fu.se.badmintonshop.modules.order.repository.OrderItemRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.data.domain.Sort;
 
 import java.math.BigDecimal;
 import java.util.Optional;
@@ -64,7 +65,7 @@ class ProductServiceTest {
                 .url("https://example.com/second.jpg").sortOrder(2).build());
         product.getImages().add(ProductImage.builder().id(1L).product(product)
                 .url("https://example.com/first.jpg").sortOrder(0).build());
-        when(productRepository.findAll()).thenReturn(java.util.List.of(product));
+        when(productRepository.findAll(Sort.by(Sort.Direction.ASC, "id"))).thenReturn(java.util.List.of(product));
         ProductResponse response = service.listProducts().getFirst();
         assertEquals("Database product", response.getName());
         assertEquals(2, response.getImages().size());
