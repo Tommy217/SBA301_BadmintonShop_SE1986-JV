@@ -6,7 +6,7 @@ import org.springframework.stereotype.Component;
 @Component
 public class JwtProperties {
 
-    @Value("${app.jwt.secret-base64:404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970}")
+    @Value("${app.jwt.secret-base64}")
     private String secretBase64;
 
     @Value("${app.jwt.access-token-ttl-seconds:900}")
